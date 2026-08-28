@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "selectedChannelId": "c-scene-lantern-room",
+  "participants": [
+    { "id": "p-player", "heroNameZh": "岚", "realNameZh": "岚", "aliases": [], "role": "player", "status": "active" },
+    { "id": "p-hezhou", "heroNameZh": "鹤舟", "realNameZh": "鹤舟", "aliases": [], "role": "npc", "status": "active" },
+    { "id": "p-narrator", "realNameZh": "旁白", "aliases": [], "role": "narrator", "status": "active" },
+    { "id": "p-system", "realNameZh": "系统", "aliases": [], "role": "system", "status": "active" }
+  ],
+  "channels": [
+    { "id": "c-direct-hezhou", "kind": "direct", "title": "鹤舟", "participantIds": ["p-player", "p-hezhou"], "category": "personal", "pinned": true, "muted": false, "archived": false },
+    { "id": "c-group-lighthouse", "kind": "group", "title": "雾海灯塔站", "participantIds": ["p-player", "p-hezhou", "p-system"], "category": "work", "pinned": true, "muted": false, "archived": false },
+    { "id": "c-scene-lantern-room", "kind": "scene", "title": "现场｜灯室", "participantIds": ["p-player", "p-hezhou", "p-narrator"], "category": "story", "pinned": false, "muted": false, "archived": false },
+    { "id": "c-work-dispatch", "kind": "work", "title": "工作简报", "participantIds": ["p-player", "p-hezhou", "p-system"], "category": "work", "pinned": false, "muted": false, "archived": false },
+    { "id": "c-system", "kind": "system", "title": "系统通知", "participantIds": ["p-player", "p-system"], "category": "system", "pinned": false, "muted": false, "archived": false }
+  ],
+  "messages": [],
+  "drafts": {},
+  "readCursors": {},
+  "frame": { "seasonLabel": "第 1 季", "episodeLabel": "第 1 集", "sceneLabel": "灯室里的裂纹" }
+}

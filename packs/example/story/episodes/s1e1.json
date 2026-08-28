@@ -1,0 +1,105 @@
+{
+  "$schema": "https://example.invalid/dsh-story-engine/episode-script-v1.schema.json",
+  "schemaVersion": 1,
+  "episodeId": "s1e1-fog-arrives",
+  "season": 1,
+  "episode": 1,
+  "title": "雾潮提前抵达",
+  "status": "validated",
+  "continuity": {
+    "startsAfter": "",
+    "fixedFacts": ["岚是新任守灯人", "鹤舟负责灯塔维修", "雾潮比预报提前三小时"],
+    "openThreads": ["昨夜最后进入灯室的人是谁", "主透镜的裂纹是否人为造成"],
+    "seasonDecision": { "mode": "start_new_season", "reason": "原创故事的首集，建立灯塔危机与两人的合作关系" }
+  },
+  "scenes": [
+    {
+      "id": "s1e1-lantern-room",
+      "mode": "off_work",
+      "title": "灯室里的裂纹",
+      "entryConditions": ["雾潮警报响起", "岚进入灯室"],
+      "cast": ["岚", "鹤舟"],
+      "fixedFacts": ["主透镜存在新裂纹", "备用灯尚未完成负载测试"],
+      "characterGoals": { "岚": "在雾潮覆盖航道前恢复可靠照明", "鹤舟": "确认事故原因并避免岚冒险操作" },
+      "secrets": ["裂纹边缘残留不属于维护工具的金属粉末"],
+      "beats": ["警报打断交谈", "鹤舟发现裂纹", "两人对处理顺序产生分歧", "岚作出第一项决定"],
+      "choices": [
+        {
+          "id": "s1e1-first-priority",
+          "prompt": "岚先处理什么？",
+          "allowFreeInput": true,
+          "options": [
+            { "id": "inspect-lens", "label": "检查主透镜裂纹", "consequenceTags": ["evidence", "delay"], "nextScene": "s1e1-dispatch" },
+            { "id": "start-backup", "label": "立即启动备用灯", "consequenceTags": ["safety", "equipment-risk"], "nextScene": "s1e1-dispatch" },
+            { "id": "trace-visitor", "label": "追查昨夜访客", "consequenceTags": ["mystery", "time-pressure"], "nextScene": "s1e1-dispatch" }
+          ]
+        }
+      ],
+      "dialogueAnchors": ["鹤舟：先听完风险，再决定。", "岚的最终决定必须由玩家输入。"],
+      "improvisationEnvelope": ["围绕灯塔维修的日常争执", "不改变裂纹来源的闲聊", "符合人物性格的调侃"],
+      "exitConditions": ["岚明确第一处理顺序"],
+      "transitions": [{ "condition": "玩家完成第一项决定", "nextScene": "s1e1-dispatch" }],
+      "stateEffects": ["记录第一处理顺序"]
+    },
+    {
+      "id": "s1e1-dispatch",
+      "mode": "work",
+      "title": "雾潮中的值守简报",
+      "entryConditions": ["第一处理顺序已确定"],
+      "cast": ["岚", "鹤舟"],
+      "fixedFacts": ["雾潮正在覆盖近岸航道"],
+      "characterGoals": { "岚": "协调有限人手", "鹤舟": "保持供电系统稳定" },
+      "secrets": [],
+      "beats": ["自动结算两项普通值守事件", "把新增线索带回灯室"],
+      "choices": [],
+      "dialogueAnchors": [],
+      "improvisationEnvelope": ["普通派遣结果的简短说明"],
+      "exitConditions": ["值守简报完成"],
+      "transitions": [{ "condition": "简报完成", "nextScene": "s1e1-dawn" }],
+      "stateEffects": ["记录疲劳与灯塔声誉"],
+      "workSummary": {
+        "autoResolveMinorEvents": true,
+        "events": [
+          { "name": "校准东侧雾笛", "assignedActors": ["鹤舟"], "result": "success", "stateEffects": ["鹤舟轻度疲劳"] },
+          { "name": "引导迟归渔船", "assignedActors": ["岚"], "result": "perfect", "stateEffects": ["灯塔声誉提升"] }
+        ]
+      }
+    },
+    {
+      "id": "s1e1-dawn",
+      "mode": "off_work",
+      "title": "黎明前的金属粉末",
+      "entryConditions": ["值守简报完成", "航道暂时安全"],
+      "cast": ["岚", "鹤舟"],
+      "fixedFacts": ["本夜无人死亡", "灯塔维持了基础照明"],
+      "characterGoals": { "岚": "理解裂纹背后的异常", "鹤舟": "判断是否把发现上报" },
+      "secrets": ["金属粉末来自已经停产的旧式潮汐测量器"],
+      "beats": ["两人复查裂纹", "发现异常金属粉末", "决定是否共同保守线索", "以新的调查目标结束本集"],
+      "choices": [
+        {
+          "id": "s1e1-report-evidence",
+          "prompt": "如何处理新证据？",
+          "allowFreeInput": true,
+          "options": [
+            { "id": "report-now", "label": "立即上报港务局", "consequenceTags": ["official-route", "exposure"] },
+            { "id": "investigate-together", "label": "先与鹤舟秘密调查", "consequenceTags": ["trust", "private-route"] }
+          ]
+        }
+      ],
+      "dialogueAnchors": ["鹤舟：这不是灯塔里该有的东西。", "是否信任鹤舟由玩家决定。"],
+      "improvisationEnvelope": ["黎明时的疲惫闲聊", "围绕是否上报的争论"],
+      "exitConditions": ["玩家决定证据处理方式"],
+      "transitions": [],
+      "stateEffects": ["开启旧式潮汐测量器线索", "记录岚与鹤舟的信任变化"]
+    }
+  ],
+  "ending": {
+    "completionConditions": ["s1e1-dawn 场景完成", "证据处理选择已经记录"],
+    "recap": { "includeChosen": true, "includeDeclined": true, "includeConsequences": true, "showNetworkPercentages": false, "revealHiddenBranches": false }
+  },
+  "revision": {
+    "version": 1,
+    "outOfScriptPolicy": "immediate_pause_revise_validate_resume",
+    "history": [{ "version": 1, "reason": "原创可玩闭环初稿", "changedAt": "2026-08-28T09:00:00.000Z" }]
+  }
+}

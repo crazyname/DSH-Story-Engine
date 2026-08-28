@@ -1,0 +1,39 @@
+{
+  "name": "dsh-story-client",
+  "version": "0.8.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "DSH Story Engine 独立文字游戏客户端与持久化桥接",
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/client.js.map"
+  ],
+  "scripts": {
+    "build": "cd . && D:/DeepSeek-Harness/node_modules/.bin/tsdown",
+    "typecheck": "D:/DeepSeek-Harness/node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "test": "D:/DeepSeek-Harness/node_modules/.bin/vitest run test"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=0.1.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.0",
+    "react": "^18.3.0"
+  }
+}

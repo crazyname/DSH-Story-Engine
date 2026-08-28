@@ -1,0 +1,427 @@
+/* Full-frame game shell. The DSH overlay layer is click-through; this root
+   re-enables pointer events implicitly (.overlayLayer > * rule) and paints an
+   opaque surface so ordinary chat is hidden but never unmounted.
+   Colors go through the shared --dsw-alias-* tokens (ui-theme). */
+.shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.topbarTitle {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.channelTitle {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.frameLabel {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.topbarToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.iconButton:focus-visible,
+.backButton:focus-visible,
+.channelItem:focus-visible,
+.sendButton:focus-visible,
+.input:focus-visible {
+  outline: 2px solid var(--dsw-alias-label-primary);
+  outline-offset: 1px;
+}
+
+.flipIcon {
+  transform: scaleX(-1);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.backButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.channelPane {
+  flex: none;
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+  overflow-y: auto;
+}
+
+.paneHeader {
+  flex: none;
+  padding: 12px 12px 8px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channelList {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.channelItem,
+.channelItemActive {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.channelItem:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.channelItemActive {
+  background: var(--dsw-alias-interactive-bg-active);
+  font-weight: 600;
+}
+
+.channelKind {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.channelName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channelLast {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.messagePane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.messageList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubbleRowMine,
+.bubbleRowOther {
+  display: flex;
+  flex-direction: column;
+  max-width: 68%;
+}
+
+.bubbleRowMine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.bubbleRowOther {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.senderName {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  margin-bottom: 2px;
+}
+
+.bubbleMine,
+.bubbleOther {
+  padding: 8px 12px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubbleMine {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.bubbleOther {
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.narration {
+  align-self: stretch;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  font-style: italic;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+}
+
+.systemNote {
+  align-self: center;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.choiceCard {
+  align-self: stretch;
+  padding: 10px 14px;
+  border: 1px dashed var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.actionMine,
+.actionOther {
+  align-self: stretch;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+  padding: 2px 8px;
+}
+
+.actionMine {
+  text-align: right;
+}
+
+.composer {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.input {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  resize: none;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-base);
+  color: inherit;
+  font: inherit;
+}
+
+.sendButton {
+  flex: none;
+  align-self: flex-end;
+  height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.detailPane {
+  flex: none;
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--dsw-alias-border-l1);
+  background: var(--dsw-alias-bg-layer-1);
+  overflow-y: auto;
+}
+
+.detailBody {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detailSection {
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.detailText {
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.memberList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memberItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.memberAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--dsw-alias-interactive-bg-active);
+  font-size: 12px;
+}
+
+.demoNote {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Narrow fallback: side panes become overlays so the message column stays
+   usable and escapable; both remain closable from the topbar buttons. */
+.shell[data-narrow='true'] .channelPane,
+.shell[data-narrow='true'] .detailPane {
+  position: absolute;
+  top: 52px;
+  bottom: 0;
+  z-index: 2;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.18);
+}
+
+.shell[data-narrow='true'] .channelPane {
+  left: 0;
+}
+
+.shell[data-narrow='true'] .detailPane {
+  right: 0;
+}
+
+.shell[data-narrow='true'] .frameLabel {
+  display: none;
+}
+
+.choiceError {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  z-index: 30;
+  max-width: 80%;
+}
+
+.libraryButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.libraryButton:hover {
+  border-color: var(--dsw-alias-border-l2);
+}

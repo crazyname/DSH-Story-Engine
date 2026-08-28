@@ -1,0 +1,170 @@
+.library {
+  position: absolute;
+  inset: 0;
+  background: #f6f7f9;
+  color: #1b2430;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e4e7ec;
+}
+.headerTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1b2430;
+}
+.tagline {
+  font-size: 13px;
+  color: #667085;
+}
+.exit {
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  color: #344054;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.exit:hover { border-color: #98a2b3; }
+.body {
+  padding: 24px;
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+}
+.error {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.packList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pack {
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.packHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.packMeta { display: flex; flex-direction: column; gap: 4px; }
+.packTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #1b2430;
+}
+.packInfo {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: #667085;
+}
+.badge {
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.newGame {
+  border: none;
+  background: #2f6fed;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.newGame:hover { background: #2459c8; }
+.packDesc {
+  font-size: 13px;
+  color: #475467;
+  line-height: 1.6;
+  margin: 10px 0 12px;
+}
+.saveList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.saveRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.saveRow:hover { border-color: #2f6fed; box-shadow: 0 0 0 1px #2f6fed inset; }
+.saveName { font-size: 13px; font-weight: 500; color: #1b2430; flex: 1; }
+.saveMeta { font-size: 12px; color: #667085; }
+.saveAction {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f6fed;
+}
+.empty { font-size: 13px; color: #98a2b3; margin: 8px 0 0; }
+
+.saveItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.saveRowWrap {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.saveRow {
+  flex: 1;
+}
+.saveOps {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.opButton, .opDanger {
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #344054;
+}
+.opButton:hover { border-color: #2f6fed; color: #2f6fed; }
+.opDanger { color: #b42318; }
+.opDanger:hover { border-color: #b42318; background: #fef3f2; }

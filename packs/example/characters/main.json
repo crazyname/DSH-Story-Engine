@@ -1,0 +1,4 @@
+[
+  { "id": "lan", "name": "岚", "role": "新任守灯人", "controlledBy": "player" },
+  { "id": "he-zhou", "name": "鹤舟", "role": "维修师", "controlledBy": "ai", "traits": ["谨慎", "嘴硬心软"] }
+]

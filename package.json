@@ -1,0 +1,31 @@
+{
+  "name": "dsh-story-engine",
+  "version": "0.8.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "D:/DeepSeek-Harness/node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "test": "D:/DeepSeek-Harness/node_modules/.bin/vitest run src",
+    "build": "D:/DeepSeek-Harness/node_modules/.bin/tsc -p tsconfig.json",
+    "pack": "node dist/cli.js",
+    "pack:list": "node dist/cli.js list",
+    "presets:sync": "node dist/cli.js sync-presets",
+    "import:dispatch": "node scripts/import-dispatch-private.mjs",
+    "manager": "node dist/manager-server.js",
+    "typecheck:client": "npm --prefix client/story-ui run typecheck",
+    "test:client": "npm --prefix client/story-ui run test",
+    "build:client": "npm --prefix client/story-ui run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "file:../DeepSeek-Harness/vendor/cordis",
+    "@deepseek-ai/dsh-system-prompt": "file:../DeepSeek-Harness/packages/core/system-prompt",
+    "@deepseek-ai/dsh-tools": "file:../DeepSeek-Harness/packages/core/tools",
+    "@deepseek-ai/dsh-user-questions": "file:../DeepSeek-Harness/packages/interaction/user-questions"
+  }
+}

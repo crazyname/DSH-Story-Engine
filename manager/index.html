@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文字游戏内容包</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">DSH STORY ENGINE</p>
+        <h1>文字游戏内容包</h1>
+        <p class="lead">导入你的世界观、人物与剧情资料，然后在 DeepSeek Harness 中开始游戏。</p>
+      </div>
+      <button id="refresh" class="ghost">刷新列表</button>
+    </header>
+
+    <section class="panel creator-panel">
+      <div>
+        <span class="step">从零创建</span>
+        <h2>新建自己的文字游戏</h2>
+        <p>填写最基本的设定，引擎会生成私有内容包和游戏入口。之后仍可继续编辑生成的资料文件。</p>
+      </div>
+      <div class="form-grid">
+        <label>游戏名称<input id="create-name" placeholder="例如：星港余烬"></label>
+        <label>内容包 ID<input id="create-id" placeholder="例如：starport-embers"></label>
+        <label>玩家角色<input id="create-player" placeholder="例如：林舟"></label>
+        <label>其他人物<textarea id="create-characters" rows="3" placeholder="每行一人：名字 | 身份&#10;岑夏 | 星港维修师"></textarea></label>
+        <label class="wide">世界背景<textarea id="create-world" rows="5" placeholder="描述时代、地点、势力、冲突和重要规则"></textarea></label>
+        <label class="wide">开场<textarea id="create-opening" rows="4" placeholder="玩家第一次进入游戏时发生了什么？"></textarea></label>
+      </div>
+      <div class="creator-actions"><span>默认作为私人用途内容包保存，不会自动发布。</span><button id="create" class="primary">创建游戏</button></div>
+    </section>
+
+    <section class="panel import-panel">
+      <div>
+        <span class="step">导入新内容包</span>
+        <h2>填写内容包文件夹</h2>
+        <p>该文件夹中需要有 <code>pack.json</code>。校验不会修改原文件。</p>
+      </div>
+      <div class="path-row">
+        <input id="pack-path" aria-label="内容包文件夹" placeholder="例如 D:\MyStoryPack">
+        <button id="validate" class="secondary">先校验</button>
+        <button id="install" class="primary">校验并安装</button>
+      </div>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="section-head">
+      <div><span class="step">已可使用</span><h2>内容包</h2></div>
+      <button id="sync" class="secondary">重新生成游戏入口</button>
+    </section>
+    <section id="packs" class="pack-grid" aria-live="polite"></section>
+    <section id="diagnostics" class="diagnostics" hidden></section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

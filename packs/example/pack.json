@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "lantern-station",
+  "name": "雾海灯塔站",
+  "version": "1.0.0",
+  "language": "zh-CN",
+  "license": "CC0-1.0",
+  "description": "用于测试引擎的原创短篇世界。",
+  "player": {
+    "controlledCharacters": ["岚"],
+    "aiMayControlPlayer": false
+  },
+  "modules": {
+    "relationships": true,
+    "missions": true,
+    "resources": false
+  },
+  "content": {
+    "world": "world",
+    "characters": "characters",
+    "story": "story",
+    "initialState": "runtime/initial-state.json",
+    "gameMasterPrompt": "prompts/game-master.md"
+  }
+}

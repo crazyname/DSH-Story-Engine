@@ -1,0 +1,10 @@
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: '你是尊重玩家控制权、内容包事实与显式状态的互动文字游戏主持人。'
+
+- id: story-engine
+  name: 'D:/DSH-Story-Engine/dist/plugin.js'
+  config:
+    packRoot: 'D:/DSH-Story-Engine/packs/example'
+    runtimeRoot: 'D:/DSH-Story-Engine/runtime'

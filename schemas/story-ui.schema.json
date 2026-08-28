@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-story-engine.local/schemas/story-ui.schema.json",
+  "title": "DSH Story Engine UI Descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "selectedChannelId", "participants", "channels", "messages", "drafts", "readCursors", "frame"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "selectedChannelId": { "$ref": "#/$defs/id" },
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/participant" }
+    },
+    "channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/channel" }
+    },
+    "messages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/message" }
+    },
+    "drafts": { "type": "object", "additionalProperties": { "type": "string" } },
+    "readCursors": { "type": "object", "additionalProperties": { "type": "string" } },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seasonLabel", "episodeLabel", "sceneLabel"],
+      "properties": {
+        "seasonLabel": { "type": "string", "minLength": 1 },
+        "episodeLabel": { "type": "string", "minLength": 1 },
+        "sceneLabel": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$" },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "realNameZh", "aliases", "role", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "heroNameZh": { "type": "string", "minLength": 1 },
+        "realNameZh": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "role": { "enum": ["player", "npc", "narrator", "system"] },
+        "status": { "enum": ["active", "missing", "injured", "dead", "retired"] }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "participantIds", "category", "pinned", "muted", "archived"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["direct", "group", "scene", "work", "system"] },
+        "title": { "type": "string", "minLength": 1 },
+        "participantIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+        "category": { "enum": ["personal", "work", "story", "system"] },
+        "pinned": { "type": "boolean" },
+        "muted": { "type": "boolean" },
+        "archived": { "type": "boolean" },
+        "lastMessageId": { "$ref": "#/$defs/id" },
+        "lastActivityAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "channelId", "senderId", "kind", "content", "createdAt", "seasonId", "episodeId", "turnId", "canonStatus"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "channelId": { "$ref": "#/$defs/id" },
+        "senderId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["dialogue", "narration", "action", "system", "choice", "work-dispatch", "relationship", "episode-summary"] },
+        "content": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "seasonId": { "type": "string", "minLength": 1 },
+        "episodeId": { "type": "string", "minLength": 1 },
+        "sceneId": { "type": "string", "minLength": 1 },
+        "turnId": { "$ref": "#/$defs/id" },
+        "choiceId": { "$ref": "#/$defs/id" },
+        "canonStatus": { "enum": ["proposed", "committed", "retracted"] }
+      }
+    }
+  }
+}

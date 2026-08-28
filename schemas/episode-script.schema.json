@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/dsh-story-engine/episode-script-v1.schema.json",
+  "title": "DSH Story Engine Episode Script V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "episodeId", "season", "episode", "title", "status", "continuity", "scenes", "ending", "revision"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "episodeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$" },
+    "season": { "type": "integer", "minimum": 1 },
+    "episode": { "type": "integer", "minimum": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "validated", "playing", "completed", "superseded"] },
+    "continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startsAfter", "fixedFacts", "openThreads", "seasonDecision"],
+      "properties": {
+        "startsAfter": { "type": "string" },
+        "fixedFacts": { "type": "array", "items": { "type": "string" } },
+        "openThreads": { "type": "array", "items": { "type": "string" } },
+        "seasonDecision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "reason"],
+          "properties": {
+            "mode": { "enum": ["continue_current_season", "start_new_season"] },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/scene" }
+    },
+    "ending": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completionConditions", "recap"],
+      "properties": {
+        "completionConditions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "recap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["includeChosen", "includeDeclined", "includeConsequences", "showNetworkPercentages", "revealHiddenBranches"],
+          "properties": {
+            "includeChosen": { "const": true },
+            "includeDeclined": { "const": true },
+            "includeConsequences": { "type": "boolean" },
+            "showNetworkPercentages": { "const": false },
+            "revealHiddenBranches": { "const": false }
+          }
+        }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "outOfScriptPolicy", "history"],
+      "properties": {
+        "version": { "type": "integer", "minimum": 1 },
+        "outOfScriptPolicy": { "const": "immediate_pause_revise_validate_resume" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["version", "reason", "changedAt"],
+            "properties": {
+              "version": { "type": "integer", "minimum": 1 },
+              "reason": { "type": "string" },
+              "changedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode", "title", "entryConditions", "cast", "fixedFacts", "characterGoals", "secrets", "beats", "choices", "dialogueAnchors", "improvisationEnvelope", "exitConditions", "transitions", "stateEffects"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["work", "off_work"] },
+        "title": { "type": "string", "minLength": 1 },
+        "entryConditions": { "type": "array", "items": { "type": "string" } },
+        "cast": { "type": "array", "items": { "type": "string" } },
+        "fixedFacts": { "type": "array", "items": { "type": "string" } },
+        "characterGoals": { "type": "object", "additionalProperties": { "type": "string" } },
+        "secrets": { "type": "array", "items": { "type": "string" } },
+        "beats": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "choices": { "type": "array", "items": { "$ref": "#/$defs/choice" } },
+        "dialogueAnchors": { "type": "array", "items": { "type": "string" } },
+        "improvisationEnvelope": { "type": "array", "items": { "type": "string" } },
+        "exitConditions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["condition", "nextScene"],
+            "properties": {
+              "condition": { "type": "string", "minLength": 1 },
+              "nextScene": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "stateEffects": { "type": "array", "items": { "type": "string" } },
+        "workSummary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "autoResolveMinorEvents": { "type": "boolean" },
+            "events": { "type": "array", "items": { "$ref": "#/$defs/workEvent" } }
+          }
+        }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "prompt", "allowFreeInput", "options"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "prompt": { "type": "string", "minLength": 1 },
+        "allowFreeInput": { "const": true },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "consequenceTags"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "label": { "type": "string", "minLength": 1 },
+              "consequenceTags": { "type": "array", "items": { "type": "string" } },
+              "nextScene": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "workEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "assignedActors", "result", "stateEffects"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "assignedActors": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "result": { "enum": ["perfect", "success", "partial", "failure", "disaster"] },
+        "stateEffects": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+- id: agent-presets
+  config:
+    default: standard
+    roots:
+      - path: 'D:/DeepSeek-Harness/apps/cli/config/agent-presets'
+        trust: system
+      - path: 'D:/DSH-Story-Engine/presets'
+        trust: user
+    includeUserRoot: true
+- insert:
+    - id: story-ui
+      name: dsh-story-client
+      config:
+        runtimeRoot: 'D:/DSH-Story-Engine/runtime-ui'
+        storyRuntimeRoot: 'D:/DSH-Story-Engine/runtime'
+        packsRoot: 'D:/DSH-Story-Engine/packs'

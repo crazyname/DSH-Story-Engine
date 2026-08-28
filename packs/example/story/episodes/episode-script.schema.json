@@ -1,0 +1,153 @@
+{
+  "$schema": "https://example.invalid/dsh-story-engine/episode-script-v1.schema.json",
+  "episodeId": "lantern-ep1",
+  "season": 1,
+  "episode": 1,
+  "title": "初访与威胁",
+  "status": "validated",
+  "continuity": {
+    "startsAfter": "",
+    "fixedFacts": [],
+    "openThreads": ["旧仓库重启", "岚加入团队"],
+    "seasonDecision": {
+      "mode": "start_new_season",
+      "reason": "第一个剧本作为第 1 季第 1 集起点。"
+    }
+  },
+  "scenes": [
+    {
+      "id": "lantern-scene-1",
+      "mode": "off_work",
+      "title": "旧仓库初访",
+      "entryConditions": ["岚加入团队"],
+      "cast": ["岚", "林晚晴"],
+      "fixedFacts": [],
+      "characterGoals": {
+        "岚": "评估团队成员",
+        "林晚晴": "检查仓库库存"
+      },
+      "secrets": [],
+      "beats": [
+        "仓库铁门虚掩着，风吹时发出有节奏的响声。",
+        "岚感到有人站在阴影里注视。"
+      ],
+      "choices": [],
+      "dialogueAnchors": [],
+      "improvisationEnvelope": [
+        "玩家可以与 NPC 自由对话（无标识文本）。",
+        "玩家可以用 `(行动)` 描述动作。",
+        "`(系统)` 指令主持人进行设置（阶段 A 暂不可用）。"
+      ],
+      "exitConditions": ["所有文档都检查完成"],
+      "transitions": [
+        {
+          "condition": "场景完成",
+          "nextScene": "lantern-scene-2"
+        }
+      ],
+      "stateEffects": [],
+      "workSummary": {
+        "autoResolveMinorEvents": true,
+        "events": [
+          {
+            "name": "仓库环境扫描",
+            "assignedActors": ["岚"],
+            "result": "success",
+            "stateEffects": ["仓库结构正常"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "lantern-scene-2",
+      "mode": "off_work",
+      "title": "对峙与发现",
+      "entryConditions": ["场景完成"],
+      "cast": ["岚", "林晚晴"],
+      "fixedFacts": [],
+      "characterGoals": {
+        "岚": "与岚对峙",
+        "林晚晴": "收集情报"
+      },
+      "secrets": ["旧仓库可能藏有非法设备"],
+      "beats": [
+        "岗亭后传来沉重的呼吸声。",
+        "阴影里的人影慢慢走出来。"
+      ],
+      "choices": [
+        {
+          "id": "lantern-choice-1",
+          "prompt": "面对对峙，你的反应是？",
+          "allowFreeInput": true,
+          "options": [
+            {
+              "id": "lantern-option-1a",
+              "label": "尝试对话",
+              "sequenceTags": ["待对话"],
+              "nextScene": "lantern-scene-3"
+            },
+            {
+              "id": "lantern-option-1b",
+              "label": "保持警惕，伺机而动",
+              "sequenceTags": ["准备动用"],
+              "nextScene": "lantern-scene-3"
+            }
+          ]
+        }
+      ],
+      "dialogueAnchors": [],
+      "improvisationEnvelope": [],
+      "exitConditions": ["做出选择"],
+      "transitions": [
+        {
+          "condition": "lantern-choice-1a",
+          "nextScene": "lantern-scene-3"
+        },
+        {
+          "condition": "lantern-choice-1b",
+          "nextScene": "lantern-scene-3"
+        }
+      ],
+      "stateEffects": []
+    },
+    {
+      "id": "lantern-scene-3",
+      "mode": "off_work",
+      "title": "情报收集",
+      "entryConditions": ["对峙完成"],
+      "cast": ["岚", "林晚晴"],
+      "fixedFacts": ["发现一批非法设备"],
+      "secrets": [],
+      "beats": [
+        "设备上带有可疑的天线。',
+        "系统记录显示一周前有未知数据传输。"
+      ],
+      "choices": [],
+      "dialogueAnchors": [],
+      "improvisationEnvelope": [],
+      "exitConditions": ["设备调查完毕"],
+      "transitions": [
+        {
+          "condition": "设备调查完毕",
+          "nextScene": ""
+        }
+      ],
+      "stateEffects": []
+    }
+  ],
+  "ending": {
+    "completionConditions": ["场景数量耗尽"],
+    "recap": {
+      "includeChosen": true,
+      "includeDeclined": true,
+      "includeConsequences": true,
+      "showNetworkPercentages": false,
+      "revealHiddenBranches": false
+    }
+  },
+  "revision": {
+    "version": 1,
+    "outOfScriptPolicy": "immediate_pause_revise_validate_resume",
+    "history": []
+  }
+}
