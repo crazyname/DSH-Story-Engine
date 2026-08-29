@@ -4,8 +4,9 @@
  * reducer stays unit-testable without React; the shell component owns the
  * state and keeps it local (component-private, per the slot discipline).
  *
- * Nothing here persists: drafts survive only while the page lives, and a
- * refresh returns DSH to ordinary chat with the game state discarded.
+ * This module performs no persistence itself. The shell may project selected
+ * values such as drafts into the save projection while transient UI state
+ * remains local to the browser component.
  */
 import type { StoryChannel } from './mock-data.ts'
 
@@ -15,6 +16,9 @@ export interface GameViewState {
   readonly leftOpen: boolean
   readonly rightOpen: boolean
 }
+
+/** Ephemeral shell errors keyed by save so late async failures cannot leak across saves. */
+export type SaveErrorState = Readonly<Record<string, string>>
 
 export type PanelSide = 'left' | 'right'
 
@@ -41,6 +45,24 @@ export function setDraft(state: GameViewState, channelId: string, text: string):
   const previous = state.drafts[channelId] ?? ''
   if (previous === text) return state
   return { ...state, drafts: { ...state.drafts, [channelId]: text } }
+}
+
+/** Read only the error belonging to the selected save. */
+export function saveErrorFor(state: SaveErrorState, saveId: string): string | undefined {
+  return state[saveId]
+}
+
+/** Set or clear one save's error without disturbing errors belonging to other saves. */
+export function updateSaveError(state: SaveErrorState, saveId: string, error: string | undefined): SaveErrorState {
+  const previous = state[saveId]
+  if (previous === error) return state
+  if (error === undefined) {
+    if (previous === undefined) return state
+    const next = { ...state }
+    delete next[saveId]
+    return next
+  }
+  return { ...state, [saveId]: error }
 }
 
 export function togglePanel(state: GameViewState, side: PanelSide): GameViewState {

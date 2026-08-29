@@ -57,8 +57,8 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameAction_module_css_default = {
-			"label": "s-a98a_label",
 			"action": "s-a98a_action",
+			"label": "s-a98a_label",
 			"railAction": "s-a98a_railAction"
 		};
 		//#endregion
@@ -126,6 +126,25 @@ window.__ModuleLoader__.load({
 					...state.drafts,
 					[channelId]: text
 				}
+			};
+		}
+		/** Read only the error belonging to the selected save. */
+		function saveErrorFor(state, saveId) {
+			return state[saveId];
+		}
+		/** Set or clear one save's error without disturbing errors belonging to other saves. */
+		function updateSaveError(state, saveId, error) {
+			const previous = state[saveId];
+			if (previous === error) return state;
+			if (error === void 0) {
+				if (previous === void 0) return state;
+				const next = { ...state };
+				delete next[saveId];
+				return next;
+			}
+			return {
+				...state,
+				[saveId]: error
 			};
 		}
 		function togglePanel(state, side) {
@@ -606,21 +625,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"dismiss": "gbf0-a_dismiss",
 			"card": "gbf0-a_card",
-			"detail": "gbf0-a_detail",
 			"composer": "gbf0-a_composer",
-			"overlay": "gbf0-a_overlay",
-			"send": "gbf0-a_send",
-			"question": "gbf0-a_question",
-			"optionDesc": "gbf0-a_optionDesc",
-			"optionActive": "gbf0-a_optionActive",
-			"headerRow": "gbf0-a_headerRow",
-			"options": "gbf0-a_options",
+			"detail": "gbf0-a_detail",
+			"dismiss": "gbf0-a_dismiss",
 			"eyebrow": "gbf0-a_eyebrow",
+			"headerRow": "gbf0-a_headerRow",
 			"input": "gbf0-a_input",
+			"option": "gbf0-a_option",
+			"optionActive": "gbf0-a_optionActive",
+			"optionDesc": "gbf0-a_optionDesc",
 			"optionLabel": "gbf0-a_optionLabel",
-			"option": "gbf0-a_option"
+			"options": "gbf0-a_options",
+			"overlay": "gbf0-a_overlay",
+			"question": "gbf0-a_question",
+			"send": "gbf0-a_send"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -762,34 +781,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
+			"badge": "Gwgdiq_badge",
 			"body": "Gwgdiq_body",
-			"packTitle": "Gwgdiq_packTitle",
-			"saveAction": "Gwgdiq_saveAction",
-			"header": "Gwgdiq_header",
+			"empty": "Gwgdiq_empty",
 			"error": "Gwgdiq_error",
-			"packInfo": "Gwgdiq_packInfo",
-			"newGame": "Gwgdiq_newGame",
+			"exit": "Gwgdiq_exit",
+			"header": "Gwgdiq_header",
+			"headerTitle": "Gwgdiq_headerTitle",
 			"library": "Gwgdiq_library",
 			"logo": "Gwgdiq_logo",
-			"tagline": "Gwgdiq_tagline",
-			"exit": "Gwgdiq_exit",
-			"pack": "Gwgdiq_pack",
-			"badge": "Gwgdiq_badge",
-			"saveMeta": "Gwgdiq_saveMeta",
-			"empty": "Gwgdiq_empty",
-			"packMeta": "Gwgdiq_packMeta",
-			"saveName": "Gwgdiq_saveName",
-			"saveItem": "Gwgdiq_saveItem",
-			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"newGame": "Gwgdiq_newGame",
 			"opButton": "Gwgdiq_opButton",
 			"opDanger": "Gwgdiq_opDanger",
-			"packList": "Gwgdiq_packList",
-			"saveRow": "Gwgdiq_saveRow",
-			"saveOps": "Gwgdiq_saveOps",
+			"pack": "Gwgdiq_pack",
 			"packDesc": "Gwgdiq_packDesc",
-			"headerTitle": "Gwgdiq_headerTitle",
+			"packHead": "Gwgdiq_packHead",
+			"packInfo": "Gwgdiq_packInfo",
+			"packList": "Gwgdiq_packList",
+			"packMeta": "Gwgdiq_packMeta",
+			"packTitle": "Gwgdiq_packTitle",
+			"saveAction": "Gwgdiq_saveAction",
+			"saveItem": "Gwgdiq_saveItem",
 			"saveList": "Gwgdiq_saveList",
-			"packHead": "Gwgdiq_packHead"
+			"saveMeta": "Gwgdiq_saveMeta",
+			"saveName": "Gwgdiq_saveName",
+			"saveOps": "Gwgdiq_saveOps",
+			"saveRow": "Gwgdiq_saveRow",
+			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"tagline": "Gwgdiq_tagline"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -979,54 +998,54 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"channelTitle": "p8FQLq_channelTitle",
-			"frameLabel": "p8FQLq_frameLabel",
-			"systemNote": "p8FQLq_systemNote",
-			"actionOther": "p8FQLq_actionOther",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"topbar": "p8FQLq_topbar",
-			"messagePane": "p8FQLq_messagePane",
-			"retryButton": "p8FQLq_retryButton",
-			"paneHeader": "p8FQLq_paneHeader",
-			"channelList": "p8FQLq_channelList",
-			"messageList": "p8FQLq_messageList",
-			"shell": "p8FQLq_shell",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"senderName": "p8FQLq_senderName",
-			"channelKind": "p8FQLq_channelKind",
-			"input": "p8FQLq_input",
-			"choiceCard": "p8FQLq_choiceCard",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"iconButton": "p8FQLq_iconButton",
-			"detailText": "p8FQLq_detailText",
-			"sendButton": "p8FQLq_sendButton",
-			"demoNote": "p8FQLq_demoNote",
-			"narration": "p8FQLq_narration",
-			"topbarTitle": "p8FQLq_topbarTitle",
-			"memberAvatar": "p8FQLq_memberAvatar",
-			"channelName": "p8FQLq_channelName",
-			"preview": "p8FQLq_preview",
-			"backButton": "p8FQLq_backButton",
-			"channelPane": "p8FQLq_channelPane",
-			"turnError": "p8FQLq_turnError",
-			"memberItem": "p8FQLq_memberItem",
-			"body": "p8FQLq_body",
-			"channelLast": "p8FQLq_channelLast",
-			"libraryButton": "p8FQLq_libraryButton",
 			"actionMine": "p8FQLq_actionMine",
-			"detailPane": "p8FQLq_detailPane",
-			"previewLabel": "p8FQLq_previewLabel",
+			"actionOther": "p8FQLq_actionOther",
+			"backButton": "p8FQLq_backButton",
+			"body": "p8FQLq_body",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"bubbleOther": "p8FQLq_bubbleOther",
 			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
 			"cancelButton": "p8FQLq_cancelButton",
-			"detailBody": "p8FQLq_detailBody",
-			"memberList": "p8FQLq_memberList",
 			"channelItem": "p8FQLq_channelItem",
-			"detailSection": "p8FQLq_detailSection",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"channelKind": "p8FQLq_channelKind",
+			"channelLast": "p8FQLq_channelLast",
+			"channelList": "p8FQLq_channelList",
+			"channelName": "p8FQLq_channelName",
+			"channelPane": "p8FQLq_channelPane",
+			"channelTitle": "p8FQLq_channelTitle",
+			"choiceCard": "p8FQLq_choiceCard",
 			"choiceError": "p8FQLq_choiceError",
+			"composer": "p8FQLq_composer",
+			"demoNote": "p8FQLq_demoNote",
+			"detailBody": "p8FQLq_detailBody",
+			"detailPane": "p8FQLq_detailPane",
+			"detailSection": "p8FQLq_detailSection",
+			"detailText": "p8FQLq_detailText",
 			"flipIcon": "p8FQLq_flipIcon",
-			"composer": "p8FQLq_composer"
+			"frameLabel": "p8FQLq_frameLabel",
+			"iconButton": "p8FQLq_iconButton",
+			"input": "p8FQLq_input",
+			"libraryButton": "p8FQLq_libraryButton",
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"memberItem": "p8FQLq_memberItem",
+			"memberList": "p8FQLq_memberList",
+			"messageList": "p8FQLq_messageList",
+			"messagePane": "p8FQLq_messagePane",
+			"narration": "p8FQLq_narration",
+			"paneHeader": "p8FQLq_paneHeader",
+			"preview": "p8FQLq_preview",
+			"previewLabel": "p8FQLq_previewLabel",
+			"retryButton": "p8FQLq_retryButton",
+			"sendButton": "p8FQLq_sendButton",
+			"senderName": "p8FQLq_senderName",
+			"shell": "p8FQLq_shell",
+			"systemNote": "p8FQLq_systemNote",
+			"topbar": "p8FQLq_topbar",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"turnError": "p8FQLq_turnError"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1063,11 +1082,14 @@ window.__ModuleLoader__.load({
 			}));
 			const [narrow, setNarrow] = (0, react.useState)(false);
 			const [hostReady, setHostReady] = (0, react.useState)(false);
-			const [syncError, setSyncError] = (0, react.useState)();
+			const [syncErrors, setSyncErrors] = (0, react.useState)({});
 			const [generatingSaves, setGeneratingSaves] = (0, react.useState)(() => /* @__PURE__ */ new Set());
 			const [choiceCard, setChoiceCard] = (0, react.useState)();
 			const [choiceError, setChoiceError] = (0, react.useState)();
 			const [, setTurnRefresh] = (0, react.useState)(0);
+			const setSaveSyncError = (saveId, error) => {
+				setSyncErrors((current) => updateSaveError(current, saveId, error));
+			};
 			(0, react.useEffect)(() => {
 				if (!active) return;
 				return choices.subscribe((card) => {
@@ -1106,13 +1128,14 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				if (!active || screen !== "game" || hostReady) return;
 				let cancelled = false;
+				const saveId = projection.saveId;
 				(async () => {
 					try {
-						const remote = await hostStorage.load(projection.saveId);
+						const remote = await hostStorage.load(saveId);
 						if (cancelled) return;
 						if (remote !== void 0) {
 							storage.save(remote);
-							setProjection(remote);
+							setProjection((current) => current.saveId === saveId ? remote : current);
 							setView((state) => ({
 								...state,
 								selectedChannelId: remote.selectedChannelId,
@@ -1122,7 +1145,7 @@ window.__ModuleLoader__.load({
 						setHostReady(true);
 					} catch (error) {
 						if (!cancelled) {
-							setSyncError(error instanceof Error ? error.message : String(error));
+							setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 							setHostReady(true);
 						}
 					}
@@ -1139,11 +1162,12 @@ window.__ModuleLoader__.load({
 				storage
 			]);
 			const persist = (next) => {
+				const saveId = next.saveId;
 				storage.save(next);
 				hostStorage.save(next).then(() => {
-					setSyncError(void 0);
+					setSaveSyncError(saveId, void 0);
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				});
 			};
 			const commitAiResult = (saveId, channelId, result, turnId, fallback) => {
@@ -1151,9 +1175,9 @@ window.__ModuleLoader__.load({
 				storage.save(next);
 				hostStorage.save(next).then(() => {
 					if (turnId !== void 0) acknowledgeAiTurn(saveId, turnId);
-					setSyncError(void 0);
+					setSaveSyncError(saveId, void 0);
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				});
 				setProjection((current) => current.saveId === saveId ? next : current);
 			};
@@ -1163,7 +1187,7 @@ window.__ModuleLoader__.load({
 				recoverAiTurn(save).then((recovered) => {
 					if (recovered !== null) commitAiResult(save.saveId, recovered.channelId, recovered.result, recovered.turnId, save);
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(save.saveId, error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
 						const next = new Set(current);
@@ -1205,6 +1229,7 @@ window.__ModuleLoader__.load({
 			const playerId = projection.participants.find((participant) => participant.role === "player")?.id;
 			const channelMessages = (0, react.useMemo)(() => projection.messages.filter((message) => message.channelId === selected.id), [selected.id, projection.messages]);
 			const draft = projection.drafts[selected.id] ?? "";
+			const syncError = saveErrorFor(syncErrors, projection.saveId);
 			const turn = aiTurn(projection.saveId);
 			const generating = generatingSaves.has(projection.saveId) || turn?.state === "queued" || turn?.state === "running" || turn?.state === "waiting-choice";
 			(0, react.useEffect)(() => {
@@ -1227,7 +1252,7 @@ window.__ModuleLoader__.load({
 				sendToAI(submitted, selected.id, text).then((result) => {
 					commitAiResult(saveId, selected.id, result, result.turnId, submitted);
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
 						const next = new Set(current);
@@ -1237,29 +1262,31 @@ window.__ModuleLoader__.load({
 				});
 			};
 			const cancelTurn = () => {
-				cancelAiTurn(projection.saveId).then(() => {
-					setSyncError(void 0);
+				const saveId = projection.saveId;
+				cancelAiTurn(saveId).then(() => {
+					setSaveSyncError(saveId, void 0);
 					setGeneratingSaves((current) => {
 						const next = new Set(current);
-						next.delete(projection.saveId);
+						next.delete(saveId);
 						return next;
 					});
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				});
 			};
 			const retryTurn = () => {
 				if (generating) return;
-				setGeneratingSaves((current) => new Set(current).add(projection.saveId));
-				retryAiTurn(projection).then((result) => {
-					const pending = aiTurn(projection.saveId);
-					commitAiResult(projection.saveId, pending?.channelId ?? selected.id, result, result.turnId, projection);
+				const retryProjection = projection;
+				const saveId = retryProjection.saveId;
+				setGeneratingSaves((current) => new Set(current).add(saveId));
+				retryAiTurn(retryProjection).then((result) => {
+					commitAiResult(saveId, aiTurn(saveId)?.channelId ?? selected.id, result, result.turnId, retryProjection);
 				}, (error) => {
-					setSyncError(error instanceof Error ? error.message : String(error));
+					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
 						const next = new Set(current);
-						next.delete(projection.saveId);
+						next.delete(saveId);
 						return next;
 					});
 				});
@@ -1875,6 +1902,15 @@ window.__ModuleLoader__.load({
 				this.writeTurn(saveId, next);
 				return next;
 			}
+			refresh(saveId, turn) {
+				const stored = this.readTurn(saveId);
+				return stored?.id === turn.id ? stored : turn;
+			}
+			ensureNotCancelled(saveId, turn) {
+				const latest = this.refresh(saveId, turn);
+				if (latest.state === "cancelled") throw new Error("AI 回合已取消");
+				return latest;
+			}
 			turn(saveId) {
 				const turn = this.readTurn(saveId);
 				if (turn === null) return null;
@@ -1983,21 +2019,15 @@ window.__ModuleLoader__.load({
 			async wait(projection, initial) {
 				let turn = initial;
 				for (let attempt = 0; attempt < 3600; attempt += 1) {
-					const stored = this.readTurn(projection.saveId);
-					if (stored?.id === turn.id) turn = stored;
-					if (turn.state === "cancelled") throw new Error("AI 回合已取消");
+					turn = this.ensureNotCancelled(projection.saveId, turn);
 					await this.delay(500);
-					const afterDelay = this.readTurn(projection.saveId);
-					if (afterDelay?.id === turn.id) turn = afterDelay;
-					if (turn.state === "cancelled") throw new Error("AI 回合已取消");
+					turn = this.ensureNotCancelled(projection.saveId, turn);
 					try {
 						const history = unwrap(await this.api.sessions.history({
 							sessionId: turn.sessionId,
 							maxMessages: 20
 						}), "读取回复");
-						const afterHistory = this.readTurn(projection.saveId);
-						if (afterHistory?.id === turn.id) turn = afterHistory;
-						if (turn.state === "cancelled") throw new Error("AI 回合已取消");
+						turn = this.ensureNotCancelled(projection.saveId, turn);
 						const raw = assistantText(history.events, turn.baseline);
 						if (raw !== void 0 && turnEnded(history.events, turn.baseline)) {
 							let result;
@@ -2041,6 +2071,8 @@ window.__ModuleLoader__.load({
 						}
 						if (turn.state === "queued") turn = this.change(projection.saveId, turn, { state: "running" });
 					} catch (error) {
+						turn = this.refresh(projection.saveId, turn);
+						if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 						if (error instanceof Error && (error.message === "AI 回合已结束，但没有产生结构化消息" || error.message === "AI 回合已结束，但没有产生结构化回复" || error.message.includes("无法解析的结构化消息"))) throw error;
 						this.change(projection.saveId, turn, {
 							state: "failed",

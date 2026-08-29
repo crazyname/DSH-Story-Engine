@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StoryChannel } from '../src/client/mock-data.ts'
-import { initialViewState, narrowFallback, selectChannel, setDraft, togglePanel } from '../src/client/view-state.ts'
+import { initialViewState, narrowFallback, saveErrorFor, selectChannel, setDraft, togglePanel, updateSaveError } from '../src/client/view-state.ts'
 
 const channels: readonly StoryChannel[] = [
   { id: 'a', kind: 'group', title: '群', participantIds: [], category: 'personal', pinned: false },
@@ -59,5 +59,19 @@ describe('game view state', () => {
     expect(state.leftOpen).toBe(false)
     expect(state.rightOpen).toBe(false)
     expect(narrowFallback(state)).toBe(state)
+  })
+
+  it('keeps async shell errors isolated by save', () => {
+    let errors = updateSaveError({}, 'save-a', 'AI 回合已取消')
+    expect(saveErrorFor(errors, 'save-a')).toBe('AI 回合已取消')
+    expect(saveErrorFor(errors, 'save-b')).toBeUndefined()
+
+    errors = updateSaveError(errors, 'save-b', '网络连接失败')
+    expect(saveErrorFor(errors, 'save-a')).toBe('AI 回合已取消')
+    expect(saveErrorFor(errors, 'save-b')).toBe('网络连接失败')
+
+    errors = updateSaveError(errors, 'save-a', undefined)
+    expect(saveErrorFor(errors, 'save-a')).toBeUndefined()
+    expect(saveErrorFor(errors, 'save-b')).toBe('网络连接失败')
   })
 })

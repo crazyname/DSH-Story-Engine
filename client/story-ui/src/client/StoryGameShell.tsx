@@ -12,8 +12,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { HostObservable, InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronLeftOutline14, IconPanelLeftOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
-  initialViewState, narrowFallback, selectChannel, setDraft, togglePanel,
-  type GameViewState, type PanelSide,
+  initialViewState, narrowFallback, saveErrorFor, selectChannel, setDraft, togglePanel, updateSaveError,
+  type GameViewState, type PanelSide, type SaveErrorState,
 } from './view-state.ts'
 import { appendAiMessages, appendChoiceRecord, appendPlayerMessage, updateDraft, type StoryMessage, type StorySaveProjection, type AiMessageInput } from './story-domain.ts'
 import { createInitialProjection } from './initial-projection.ts'
@@ -68,11 +68,15 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const [view, setView] = useState<GameViewState>(() => ({...initialViewState(projection.channels),selectedChannelId:projection.selectedChannelId,drafts:projection.drafts}))
   const [narrow, setNarrow] = useState(false)
   const [hostReady,setHostReady]=useState(false)
-  const [syncError,setSyncError]=useState<string|undefined>()
+  const [syncErrors,setSyncErrors]=useState<SaveErrorState>({})
   const [generatingSaves,setGeneratingSaves]=useState<Set<string>>(()=>new Set())
   const [choiceCard,setChoiceCard]=useState<StoryChoiceCard|undefined>()
   const [choiceError,setChoiceError]=useState<string|undefined>()
   const [,setTurnRefresh]=useState(0)
+
+  const setSaveSyncError=(saveId:string,error:string|undefined):void=>{
+    setSyncErrors(current=>updateSaveError(current,saveId,error))
+  }
 
   // Subscribe to story_present_choice cards while the shell is active.
   useEffect(() => {
@@ -108,27 +112,28 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   useEffect(()=>{
     if(!active||screen!=='game'||hostReady)return
     let cancelled=false
+    const saveId=projection.saveId
     void (async()=>{
       try{
-        const remote=await hostStorage.load(projection.saveId)
+        const remote=await hostStorage.load(saveId)
         if(cancelled)return
-        if(remote!==undefined){storage.save(remote);setProjection(remote);setView(state=>({...state,selectedChannelId:remote.selectedChannelId,drafts:remote.drafts}))}
+        if(remote!==undefined){storage.save(remote);setProjection(current=>current.saveId===saveId?remote:current);setView(state=>({...state,selectedChannelId:remote.selectedChannelId,drafts:remote.drafts}))}
         else{await hostStorage.save(projection,true)}
         setHostReady(true)
-      }catch(error){if(!cancelled){setSyncError(error instanceof Error?error.message:String(error));setHostReady(true)}}
+      }catch(error){if(!cancelled){setSaveSyncError(saveId,error instanceof Error?error.message:String(error));setHostReady(true)}}
     })()
     return()=>{cancelled=true}
   },[active,screen,hostReady,hostStorage,projection,storage])
 
-  const persist=(next:typeof projection):void=>{storage.save(next);void hostStorage.save(next).then(()=>{setSyncError(undefined)},error=>{setSyncError(error instanceof Error?error.message:String(error))})}
+  const persist=(next:typeof projection):void=>{const saveId=next.saveId;storage.save(next);void hostStorage.save(next).then(()=>{setSaveSyncError(saveId,undefined)},error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})}
   const commitAiResult=(saveId:string,channelId:string,result:{messages:AiMessageInput[]},turnId:string|undefined,fallback:StorySaveProjection):void=>{
     const latest=storage.load(saveId)??fallback
     const next=appendAiMessages(latest,channelId,result.messages)
     storage.save(next)
     void hostStorage.save(next).then(()=>{
       if(turnId!==undefined)acknowledgeAiTurn(saveId,turnId)
-      setSyncError(undefined)
-    },error=>{setSyncError(error instanceof Error?error.message:String(error))})
+      setSaveSyncError(saveId,undefined)
+    },error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})
     setProjection(current=>current.saveId===saveId?next:current)
   }
   const recoverPending=(save:StorySaveProjection):void=>{
@@ -136,7 +141,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     setGeneratingSaves(current=>new Set(current).add(save.saveId))
     void recoverAiTurn(save).then(recovered=>{
       if(recovered!==null)commitAiResult(save.saveId,recovered.channelId,recovered.result,recovered.turnId,save)
-    },error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{
+    },error=>{setSaveSyncError(save.saveId,error instanceof Error?error.message:String(error))}).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(save.saveId);return next})
     })
   }
@@ -183,6 +188,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const playerId=projection.participants.find(participant=>participant.role==='player')?.id
   const channelMessages = useMemo(() => projection.messages.filter(message => message.channelId === selected.id), [selected.id,projection.messages])
   const draft = projection.drafts[selected.id] ?? ''
+  const syncError=saveErrorFor(syncErrors,projection.saveId)
   const turn=aiTurn(projection.saveId)
   const generating=generatingSaves.has(projection.saveId)||turn?.state==='queued'||turn?.state==='running'||turn?.state==='waiting-choice'
 
@@ -204,13 +210,13 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     setGeneratingSaves(current=>new Set(current).add(saveId))
     void sendToAI(submitted,selected.id,text).then(result=>{
       commitAiResult(saveId,selected.id,result,result.turnId,submitted)
-    },error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{
+    },error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))}).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})
     })
   }
 
-  const cancelTurn=():void=>{void cancelAiTurn(projection.saveId).then(()=>{setSyncError(undefined);setGeneratingSaves(current=>{const next=new Set(current);next.delete(projection.saveId);return next})},error=>{setSyncError(error instanceof Error?error.message:String(error))})}
-  const retryTurn=():void=>{if(generating)return;setGeneratingSaves(current=>new Set(current).add(projection.saveId));void retryAiTurn(projection).then(result=>{const pending=aiTurn(projection.saveId);commitAiResult(projection.saveId,pending?.channelId??selected.id,result,result.turnId,projection)},error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{setGeneratingSaves(current=>{const next=new Set(current);next.delete(projection.saveId);return next})})}
+  const cancelTurn=():void=>{const saveId=projection.saveId;void cancelAiTurn(saveId).then(()=>{setSaveSyncError(saveId,undefined);setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})},error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})}
+  const retryTurn=():void=>{if(generating)return;const retryProjection=projection;const saveId=retryProjection.saveId;setGeneratingSaves(current=>new Set(current).add(saveId));void retryAiTurn(retryProjection).then(result=>{const pending=aiTurn(saveId);commitAiResult(saveId,pending?.channelId??selected.id,result,result.turnId,retryProjection)},error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))}).finally(()=>{setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})})}
 
   const answerChoice = async (selectedLabels: string[], custom?: string): Promise<void> => {
     if (choiceCard === undefined) return
