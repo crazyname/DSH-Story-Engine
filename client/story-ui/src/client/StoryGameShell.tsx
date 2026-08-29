@@ -23,16 +23,22 @@ import { ChoiceCard } from './ChoiceCard.tsx'
 import { StoryGameLibrary } from './StoryGameLibrary.tsx'
 import { INSTALLED_PACKS, cloneSave, createNewGame, newSaveId } from './game-library.ts'
 import type { StoryChoiceBridge, StoryChoiceCard } from './choice-bridge.ts'
-import type { RecoveredAiBridgeResult } from './ai-bridge.ts'
+import type { AiBridgeResult, AiTurn, OrphanedSessionDiagnostic, RecoveredAiBridgeResult } from './ai-bridge.ts'
 import css from './StoryGameShell.module.css'
 
 /** Injected face of the overlay entry (hooks compartment bound to `useGameMode`). */
 export interface StoryGameShellInjected {
   /** Return to ordinary chat. */
   exitGame: () => void
-  sendToAI:(projection:StorySaveProjection,channelId:string,input:string)=>Promise<{messages:AiMessageInput[];raw:string}>
+  sendToAI:(projection:StorySaveProjection,channelId:string,input:string)=>Promise<AiBridgeResult>
   recoverAiTurn:(projection:StorySaveProjection)=>Promise<RecoveredAiBridgeResult|null>
+  cancelAiTurn:(saveId:string)=>Promise<void>
+  retryAiTurn:(projection:StorySaveProjection)=>Promise<AiBridgeResult>
+  acknowledgeAiTurn:(saveId:string,turnId:string)=>void
+  aiTurn:(saveId:string)=>AiTurn|null
+  markWaitingChoice:(saveId:string,sessionId:string)=>void
   forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>Promise<string|null>
+  releaseAiSave:(saveId:string)=>Promise<OrphanedSessionDiagnostic|undefined>
   /** Choice-card bridge answering story_present_choice inside the shell. */
   choices: StoryChoiceBridge
   /** Bare observable riding the reserved hooks compartment. */
@@ -50,7 +56,7 @@ const NARROW_BREAKPOINT = 900
  * @param props - injected exit callback plus the bound `useGameMode` hook.
  * @returns the full-frame game shell, or null while game mode is inactive.
  */
-export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSession, choices, useGameMode }: StoryGameShellProps) {
+export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }: StoryGameShellProps) {
   const active = useGameMode(mode => mode)
   const storage = useMemo(() => createLocalProjectionStorage(window.localStorage), [])
   const hostStorage = useMemo(() => new HostProjectionStorage(), [])
@@ -72,9 +78,10 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
     if (!active) return
     return choices.subscribe((card) => {
       setChoiceCard(card)
+      if (card !== undefined) markWaitingChoice(projection.saveId, card.sessionId)
       if (card === undefined) setChoiceError(undefined)
     })
-  }, [active, choices])
+  }, [active, choices, markWaitingChoice, projection.saveId])
 
   // On entry: refresh the authoritative save list from the host and open the
   // library (a save is only auto-selected on explicit continue).
@@ -113,17 +120,21 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
   },[active,screen,hostReady,hostStorage,projection,storage])
 
   const persist=(next:typeof projection):void=>{storage.save(next);void hostStorage.save(next).then(()=>{setSyncError(undefined)},error=>{setSyncError(error instanceof Error?error.message:String(error))})}
-  const commitAiResult=(saveId:string,channelId:string,result:{messages:AiMessageInput[]},fallback:StorySaveProjection):void=>{
+  const commitAiResult=(saveId:string,channelId:string,result:{messages:AiMessageInput[]},turnId:string|undefined,fallback:StorySaveProjection):void=>{
     const latest=storage.load(saveId)??fallback
     const next=appendAiMessages(latest,channelId,result.messages)
-    persist(next)
+    storage.save(next)
+    void hostStorage.save(next).then(()=>{
+      if(turnId!==undefined)acknowledgeAiTurn(saveId,turnId)
+      setSyncError(undefined)
+    },error=>{setSyncError(error instanceof Error?error.message:String(error))})
     setProjection(current=>current.saveId===saveId?next:current)
   }
   const recoverPending=(save:StorySaveProjection):void=>{
     if(generatingSaves.has(save.saveId))return
     setGeneratingSaves(current=>new Set(current).add(save.saveId))
     void recoverAiTurn(save).then(recovered=>{
-      if(recovered!==null)commitAiResult(save.saveId,recovered.channelId,recovered.result,save)
+      if(recovered!==null)commitAiResult(save.saveId,recovered.channelId,recovered.result,recovered.turnId,save)
     },error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(save.saveId);return next})
     })
@@ -170,7 +181,8 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
   const selected = projection.channels.find(channel => channel.id === view.selectedChannelId) ?? projection.channels[0]!
   const channelMessages = useMemo(() => projection.messages.filter(message => message.channelId === selected.id), [selected.id,projection.messages])
   const draft = projection.drafts[selected.id] ?? ''
-  const generating=generatingSaves.has(projection.saveId)
+  const turn=aiTurn(projection.saveId)
+  const generating=generatingSaves.has(projection.saveId)||turn?.state==='queued'||turn?.state==='running'||turn?.state==='waiting-choice'
 
   const submit = (): void => {
     const text = draft.trim()
@@ -181,11 +193,14 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
     setProjection(submitted)
     setGeneratingSaves(current=>new Set(current).add(saveId))
     void sendToAI(submitted,selected.id,text).then(result=>{
-      commitAiResult(saveId,selected.id,result,submitted)
+      commitAiResult(saveId,selected.id,result,result.turnId,submitted)
     },error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})
     })
   }
+
+  const cancelTurn=():void=>{void cancelAiTurn(projection.saveId).then(()=>{setSyncError(undefined);setGeneratingSaves(current=>{const next=new Set(current);next.delete(projection.saveId);return next})},error=>{setSyncError(error instanceof Error?error.message:String(error))})}
+  const retryTurn=():void=>{if(generating)return;setGeneratingSaves(current=>new Set(current).add(projection.saveId));void retryAiTurn(projection).then(result=>{const pending=aiTurn(projection.saveId);commitAiResult(projection.saveId,pending?.channelId??selected.id,result,result.turnId,projection)},error=>{setSyncError(error instanceof Error?error.message:String(error))}).finally(()=>{setGeneratingSaves(current=>{const next=new Set(current);next.delete(projection.saveId);return next})})}
 
   const answerChoice = async (selectedLabels: string[], custom?: string): Promise<void> => {
     if (choiceCard === undefined) return
@@ -279,7 +294,9 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
     if (!window.confirm(`确定删除存档「${saveId}」吗？此操作不可撤销。`)) return
     void (async () => {
       try {
+        await cancelAiTurn(saveId)
         await hostStorage.remove(saveId)
+        await releaseAiSave(saveId)
         // Clear the local cache copy if present.
         try { window.localStorage.removeItem(`dsh-story-save:${saveId}`) } catch { /* ignore */ }
         const list = await hostStorage.list()
@@ -395,7 +412,10 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSessio
               }}
             />
             <button type="button" className={css.sendButton} onClick={submit} disabled={generating}>{generating?'生成中…':'发送'}</button>
+            {generating ? <button type="button" className={css.cancelButton} onClick={cancelTurn}>取消</button> : null}
+            {turn!==null&&(turn.state==='failed'||turn.state==='cancelled') ? <button type="button" className={css.retryButton} onClick={retryTurn}>重试</button> : null}
           </div>
+          {turn?.error !== undefined ? <div className={css.turnError} role="alert">AI 回合失败：{turn.error}</div> : null}
         </main>
         {view.rightOpen ? (
           <aside className={css.detailPane} aria-label="频道详情">

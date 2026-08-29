@@ -73,6 +73,7 @@ type AnswerReceipt = { accepted: true } | { accepted: false; reason: string }
 export function createStoryChoiceBridge(
   api: StoryClientApi,
   sessionFor: (saveId: string) => string | null,
+  onRequested?: (sessionId: string) => void,
 ): StoryChoiceBridge {
   const listeners = new Set<(card: StoryChoiceCard | undefined) => void>()
   const pendingBySession = new Map<string, StoryChoiceCard>()
@@ -109,6 +110,7 @@ export function createStoryChoiceBridge(
         ...(first.multiSelect === true ? { multiSelect: true } : {}),
       }
       pendingBySession.set(frame.sessionId,next)
+      onRequested?.(frame.sessionId)
       if(activeSaveId!==null&&sessionFor(activeSaveId)===frame.sessionId)notify()
     } else if (frame.type === 'question/resolved') {
       const pending=pendingBySession.get(frame.sessionId)

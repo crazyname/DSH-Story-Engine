@@ -57,9 +57,9 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameAction_module_css_default = {
-			"label": "s-a98a_label",
 			"action": "s-a98a_action",
-			"railAction": "s-a98a_railAction"
+			"railAction": "s-a98a_railAction",
+			"label": "s-a98a_label"
 		};
 		//#endregion
 		//#region src/client/StoryGameAction.tsx
@@ -577,6 +577,7 @@ window.__ModuleLoader__.load({
 							projection: value
 						})
 					});
+					if (response.status === 409) throw new Error("宿主存档发生版本冲突：此存档已在另一窗口更新，请重新打开后再继续");
 					if (!response.ok) {
 						const detail = await response.json().catch(() => ({}));
 						throw new Error(detail.error ?? `保存失败：${response.status}`);
@@ -605,21 +606,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"question": "gbf0-a_question",
-			"optionActive": "gbf0-a_optionActive",
-			"option": "gbf0-a_option",
-			"composer": "gbf0-a_composer",
-			"overlay": "gbf0-a_overlay",
-			"send": "gbf0-a_send",
 			"headerRow": "gbf0-a_headerRow",
-			"detail": "gbf0-a_detail",
 			"card": "gbf0-a_card",
-			"options": "gbf0-a_options",
 			"input": "gbf0-a_input",
-			"dismiss": "gbf0-a_dismiss",
+			"eyebrow": "gbf0-a_eyebrow",
+			"question": "gbf0-a_question",
+			"composer": "gbf0-a_composer",
+			"option": "gbf0-a_option",
+			"detail": "gbf0-a_detail",
 			"optionDesc": "gbf0-a_optionDesc",
+			"optionActive": "gbf0-a_optionActive",
 			"optionLabel": "gbf0-a_optionLabel",
-			"eyebrow": "gbf0-a_eyebrow"
+			"overlay": "gbf0-a_overlay",
+			"dismiss": "gbf0-a_dismiss",
+			"options": "gbf0-a_options",
+			"send": "gbf0-a_send"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -761,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
-			"pack": "Gwgdiq_pack",
-			"badge": "Gwgdiq_badge",
-			"saveAction": "Gwgdiq_saveAction",
-			"empty": "Gwgdiq_empty",
-			"packTitle": "Gwgdiq_packTitle",
-			"packDesc": "Gwgdiq_packDesc",
-			"packMeta": "Gwgdiq_packMeta",
-			"saveRowWrap": "Gwgdiq_saveRowWrap",
-			"opButton": "Gwgdiq_opButton",
-			"body": "Gwgdiq_body",
-			"newGame": "Gwgdiq_newGame",
-			"saveMeta": "Gwgdiq_saveMeta",
-			"error": "Gwgdiq_error",
-			"exit": "Gwgdiq_exit",
-			"packHead": "Gwgdiq_packHead",
-			"saveName": "Gwgdiq_saveName",
-			"tagline": "Gwgdiq_tagline",
-			"library": "Gwgdiq_library",
-			"saveList": "Gwgdiq_saveList",
 			"header": "Gwgdiq_header",
-			"saveOps": "Gwgdiq_saveOps",
-			"packList": "Gwgdiq_packList",
+			"saveItem": "Gwgdiq_saveItem",
+			"packDesc": "Gwgdiq_packDesc",
+			"saveList": "Gwgdiq_saveList",
+			"exit": "Gwgdiq_exit",
+			"saveName": "Gwgdiq_saveName",
+			"saveMeta": "Gwgdiq_saveMeta",
+			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"library": "Gwgdiq_library",
+			"packHead": "Gwgdiq_packHead",
 			"opDanger": "Gwgdiq_opDanger",
+			"badge": "Gwgdiq_badge",
+			"packTitle": "Gwgdiq_packTitle",
 			"saveRow": "Gwgdiq_saveRow",
+			"pack": "Gwgdiq_pack",
 			"packInfo": "Gwgdiq_packInfo",
-			"headerTitle": "Gwgdiq_headerTitle",
+			"body": "Gwgdiq_body",
+			"saveAction": "Gwgdiq_saveAction",
+			"error": "Gwgdiq_error",
+			"empty": "Gwgdiq_empty",
+			"opButton": "Gwgdiq_opButton",
+			"tagline": "Gwgdiq_tagline",
+			"packMeta": "Gwgdiq_packMeta",
 			"logo": "Gwgdiq_logo",
-			"saveItem": "Gwgdiq_saveItem"
+			"saveOps": "Gwgdiq_saveOps",
+			"headerTitle": "Gwgdiq_headerTitle",
+			"packList": "Gwgdiq_packList",
+			"newGame": "Gwgdiq_newGame"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -968,7 +969,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:D:\DSH-Story-Engine\client\story-ui\src\client\StoryGameShell.module.css.mjs
-		const css = ".p8FQLq_shell{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);flex-direction:column;font-size:14px;display:flex;position:absolute;inset:0;overflow:hidden}.p8FQLq_topbar{border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;justify-content:space-between;align-items:center;gap:12px;height:52px;padding:0 12px;display:flex}.p8FQLq_topbarTitle{flex-direction:column;align-items:center;gap:2px;min-width:0;display:flex}.p8FQLq_channelTitle{white-space:nowrap;text-overflow:ellipsis;font-weight:600;overflow:hidden}.p8FQLq_frameLabel{color:var(--dsw-alias-label-tertiary);font-size:12px}.p8FQLq_topbarToggle{align-items:center;gap:8px;display:flex}.p8FQLq_iconButton{width:32px;height:32px;color:inherit;cursor:pointer;background:0 0;border:none;border-radius:8px;justify-content:center;align-items:center;display:flex}.p8FQLq_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_iconButton:focus-visible,.p8FQLq_backButton:focus-visible,.p8FQLq_channelItem:focus-visible,.p8FQLq_sendButton:focus-visible,.p8FQLq_input:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:1px}.p8FQLq_flipIcon{transform:scaleX(-1)}.p8FQLq_backButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_backButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_body{flex:1;min-height:0;display:flex}.p8FQLq_channelPane{border-right:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:264px;display:flex;overflow-y:auto}.p8FQLq_paneHeader{color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;padding:12px 12px 8px;font-size:12px;overflow:hidden}.p8FQLq_channelList{flex-direction:column;gap:2px;margin:0;padding:0 8px 12px;list-style:none;display:flex}.p8FQLq_channelItem,.p8FQLq_channelItemActive{width:100%;color:inherit;text-align:left;cursor:pointer;background:0 0;border:none;border-radius:8px;grid-template-columns:36px 1fr auto;align-items:center;gap:6px;padding:8px;font-size:13px;display:grid}.p8FQLq_channelItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_channelItemActive{background:var(--dsw-alias-interactive-bg-active);font-weight:600}.p8FQLq_channelKind{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_channelName{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.p8FQLq_channelLast{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_messagePane{flex-direction:column;flex:1;min-width:0;display:flex}.p8FQLq_messageList{flex-direction:column;flex:1;gap:8px;min-height:0;padding:16px;display:flex;overflow-y:auto}.p8FQLq_bubbleRowMine,.p8FQLq_bubbleRowOther{flex-direction:column;max-width:68%;display:flex}.p8FQLq_bubbleRowMine{align-self:flex-end;align-items:flex-end}.p8FQLq_bubbleRowOther{align-self:flex-start;align-items:flex-start}.p8FQLq_senderName{color:var(--dsw-alias-label-tertiary);margin-bottom:2px;font-size:12px}.p8FQLq_bubbleMine,.p8FQLq_bubbleOther{white-space:pre-wrap;word-break:break-word;border-radius:12px;padding:8px 12px}.p8FQLq_bubbleMine{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_bubbleOther{background:var(--dsw-alias-bg-layer-2)}.p8FQLq_narration{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px;font-style:italic}.p8FQLq_systemNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);text-align:center;border-radius:8px;align-self:center;padding:4px 12px;font-size:12px}.p8FQLq_choiceCard{border:1px dashed var(--dsw-alias-border-l2);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px}.p8FQLq_actionMine,.p8FQLq_actionOther{color:var(--dsw-alias-label-secondary);align-self:stretch;padding:2px 8px;font-size:13px}.p8FQLq_actionMine{text-align:right}.p8FQLq_composer{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;gap:8px;padding:12px;display:flex}.p8FQLq_input{resize:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-height:44px;max-height:120px;color:inherit;font:inherit;border-radius:10px;flex:1;padding:10px 12px}.p8FQLq_sendButton{background:var(--dsw-alias-interactive-bg-active);height:40px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;flex:none;align-self:flex-end;padding:0 18px;font-size:13px}.p8FQLq_detailPane{border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:232px;display:flex;overflow-y:auto}.p8FQLq_detailBody{flex-direction:column;gap:8px;padding:0 12px 12px;display:flex}.p8FQLq_detailSection{margin-top:8px;font-size:12px;font-weight:600}.p8FQLq_detailText{color:var(--dsw-alias-label-secondary);font-size:13px}.p8FQLq_memberList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.p8FQLq_memberItem{align-items:center;gap:8px;font-size:13px;display:flex}.p8FQLq_memberAvatar{background:var(--dsw-alias-interactive-bg-active);border-radius:50%;justify-content:center;align-items:center;width:26px;height:26px;font-size:12px;display:flex}.p8FQLq_demoNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border-radius:8px;margin-top:12px;padding:8px 10px;font-size:12px}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane,.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{z-index:2;position:absolute;top:52px;bottom:0;box-shadow:0 0 24px #0000002e}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane{left:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{right:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_frameLabel{display:none}.p8FQLq_choiceError{color:#92400e;z-index:30;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;max-width:80%;padding:8px 14px;font-size:13px;position:absolute;bottom:84px;left:50%;transform:translate(-50%)}.p8FQLq_libraryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_libraryButton:hover{border-color:var(--dsw-alias-border-l2)}";
+		const css = ".p8FQLq_shell{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);flex-direction:column;font-size:14px;display:flex;position:absolute;inset:0;overflow:hidden}.p8FQLq_topbar{border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;justify-content:space-between;align-items:center;gap:12px;height:52px;padding:0 12px;display:flex}.p8FQLq_topbarTitle{flex-direction:column;align-items:center;gap:2px;min-width:0;display:flex}.p8FQLq_channelTitle{white-space:nowrap;text-overflow:ellipsis;font-weight:600;overflow:hidden}.p8FQLq_frameLabel{color:var(--dsw-alias-label-tertiary);font-size:12px}.p8FQLq_topbarToggle{align-items:center;gap:8px;display:flex}.p8FQLq_iconButton{width:32px;height:32px;color:inherit;cursor:pointer;background:0 0;border:none;border-radius:8px;justify-content:center;align-items:center;display:flex}.p8FQLq_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_iconButton:focus-visible,.p8FQLq_backButton:focus-visible,.p8FQLq_channelItem:focus-visible,.p8FQLq_sendButton:focus-visible,.p8FQLq_input:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:1px}.p8FQLq_flipIcon{transform:scaleX(-1)}.p8FQLq_backButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_backButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_body{flex:1;min-height:0;display:flex}.p8FQLq_channelPane{border-right:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:264px;display:flex;overflow-y:auto}.p8FQLq_paneHeader{color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;padding:12px 12px 8px;font-size:12px;overflow:hidden}.p8FQLq_channelList{flex-direction:column;gap:2px;margin:0;padding:0 8px 12px;list-style:none;display:flex}.p8FQLq_channelItem,.p8FQLq_channelItemActive{width:100%;color:inherit;text-align:left;cursor:pointer;background:0 0;border:none;border-radius:8px;grid-template-columns:36px 1fr auto;align-items:center;gap:6px;padding:8px;font-size:13px;display:grid}.p8FQLq_channelItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_channelItemActive{background:var(--dsw-alias-interactive-bg-active);font-weight:600}.p8FQLq_channelKind{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_channelName{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.p8FQLq_channelLast{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_messagePane{flex-direction:column;flex:1;min-width:0;display:flex}.p8FQLq_messageList{flex-direction:column;flex:1;gap:8px;min-height:0;padding:16px;display:flex;overflow-y:auto}.p8FQLq_bubbleRowMine,.p8FQLq_bubbleRowOther{flex-direction:column;max-width:68%;display:flex}.p8FQLq_bubbleRowMine{align-self:flex-end;align-items:flex-end}.p8FQLq_bubbleRowOther{align-self:flex-start;align-items:flex-start}.p8FQLq_senderName{color:var(--dsw-alias-label-tertiary);margin-bottom:2px;font-size:12px}.p8FQLq_bubbleMine,.p8FQLq_bubbleOther{white-space:pre-wrap;word-break:break-word;border-radius:12px;padding:8px 12px}.p8FQLq_bubbleMine{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_bubbleOther{background:var(--dsw-alias-bg-layer-2)}.p8FQLq_narration{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px;font-style:italic}.p8FQLq_systemNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);text-align:center;border-radius:8px;align-self:center;padding:4px 12px;font-size:12px}.p8FQLq_choiceCard{border:1px dashed var(--dsw-alias-border-l2);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px}.p8FQLq_actionMine,.p8FQLq_actionOther{color:var(--dsw-alias-label-secondary);align-self:stretch;padding:2px 8px;font-size:13px}.p8FQLq_actionMine{text-align:right}.p8FQLq_composer{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;gap:8px;padding:12px;display:flex}.p8FQLq_input{resize:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-height:44px;max-height:120px;color:inherit;font:inherit;border-radius:10px;flex:1;padding:10px 12px}.p8FQLq_sendButton{background:var(--dsw-alias-interactive-bg-active);height:40px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;flex:none;align-self:flex-end;padding:0 18px;font-size:13px}.p8FQLq_cancelButton,.p8FQLq_retryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:40px;color:inherit;cursor:pointer;border-radius:10px;flex:none;align-self:flex-end;padding:0 12px;font-size:13px}.p8FQLq_retryButton{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_turnError{border-top:1px solid var(--dsw-alias-border-l1);color:#92400e;background:#fef3c7;flex:none;padding:8px 12px;font-size:12px}.p8FQLq_detailPane{border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:232px;display:flex;overflow-y:auto}.p8FQLq_detailBody{flex-direction:column;gap:8px;padding:0 12px 12px;display:flex}.p8FQLq_detailSection{margin-top:8px;font-size:12px;font-weight:600}.p8FQLq_detailText{color:var(--dsw-alias-label-secondary);font-size:13px}.p8FQLq_memberList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.p8FQLq_memberItem{align-items:center;gap:8px;font-size:13px;display:flex}.p8FQLq_memberAvatar{background:var(--dsw-alias-interactive-bg-active);border-radius:50%;justify-content:center;align-items:center;width:26px;height:26px;font-size:12px;display:flex}.p8FQLq_demoNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border-radius:8px;margin-top:12px;padding:8px 10px;font-size:12px}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane,.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{z-index:2;position:absolute;top:52px;bottom:0;box-shadow:0 0 24px #0000002e}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane{left:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{right:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_frameLabel{display:none}.p8FQLq_choiceError{color:#92400e;z-index:30;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;max-width:80%;padding:8px 14px;font-size:13px;position:absolute;bottom:84px;left:50%;transform:translate(-50%)}.p8FQLq_libraryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_libraryButton:hover{border-color:var(--dsw-alias-border-l2)}";
 		const tagId = "dsh-story-client/0dc4df35d127.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -978,49 +979,52 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"channelLast": "p8FQLq_channelLast",
-			"narration": "p8FQLq_narration",
-			"detailBody": "p8FQLq_detailBody",
-			"channelPane": "p8FQLq_channelPane",
-			"input": "p8FQLq_input",
-			"actionMine": "p8FQLq_actionMine",
-			"choiceError": "p8FQLq_choiceError",
-			"shell": "p8FQLq_shell",
-			"demoNote": "p8FQLq_demoNote",
-			"channelKind": "p8FQLq_channelKind",
-			"messagePane": "p8FQLq_messagePane",
-			"bubbleRowMine": "p8FQLq_bubbleRowMine",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"detailText": "p8FQLq_detailText",
-			"messageList": "p8FQLq_messageList",
-			"systemNote": "p8FQLq_systemNote",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"composer": "p8FQLq_composer",
-			"libraryButton": "p8FQLq_libraryButton",
-			"topbar": "p8FQLq_topbar",
-			"memberList": "p8FQLq_memberList",
-			"channelName": "p8FQLq_channelName",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"detailSection": "p8FQLq_detailSection",
-			"paneHeader": "p8FQLq_paneHeader",
 			"frameLabel": "p8FQLq_frameLabel",
-			"memberItem": "p8FQLq_memberItem",
-			"actionOther": "p8FQLq_actionOther",
+			"actionMine": "p8FQLq_actionMine",
 			"backButton": "p8FQLq_backButton",
-			"topbarTitle": "p8FQLq_topbarTitle",
-			"sendButton": "p8FQLq_sendButton",
-			"channelList": "p8FQLq_channelList",
-			"flipIcon": "p8FQLq_flipIcon",
-			"body": "p8FQLq_body",
-			"senderName": "p8FQLq_senderName",
-			"choiceCard": "p8FQLq_choiceCard",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"iconButton": "p8FQLq_iconButton",
-			"channelTitle": "p8FQLq_channelTitle",
-			"detailPane": "p8FQLq_detailPane",
+			"bubbleOther": "p8FQLq_bubbleOther",
+			"cancelButton": "p8FQLq_cancelButton",
 			"channelItem": "p8FQLq_channelItem",
-			"memberAvatar": "p8FQLq_memberAvatar"
+			"detailPane": "p8FQLq_detailPane",
+			"composer": "p8FQLq_composer",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"shell": "p8FQLq_shell",
+			"narration": "p8FQLq_narration",
+			"choiceCard": "p8FQLq_choiceCard",
+			"turnError": "p8FQLq_turnError",
+			"detailText": "p8FQLq_detailText",
+			"demoNote": "p8FQLq_demoNote",
+			"choiceError": "p8FQLq_choiceError",
+			"sendButton": "p8FQLq_sendButton",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
+			"channelKind": "p8FQLq_channelKind",
+			"senderName": "p8FQLq_senderName",
+			"channelPane": "p8FQLq_channelPane",
+			"systemNote": "p8FQLq_systemNote",
+			"retryButton": "p8FQLq_retryButton",
+			"messageList": "p8FQLq_messageList",
+			"iconButton": "p8FQLq_iconButton",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"channelList": "p8FQLq_channelList",
+			"memberItem": "p8FQLq_memberItem",
+			"paneHeader": "p8FQLq_paneHeader",
+			"flipIcon": "p8FQLq_flipIcon",
+			"messagePane": "p8FQLq_messagePane",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"detailSection": "p8FQLq_detailSection",
+			"topbar": "p8FQLq_topbar",
+			"body": "p8FQLq_body",
+			"channelLast": "p8FQLq_channelLast",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"detailBody": "p8FQLq_detailBody",
+			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"channelName": "p8FQLq_channelName",
+			"channelTitle": "p8FQLq_channelTitle",
+			"input": "p8FQLq_input",
+			"actionOther": "p8FQLq_actionOther",
+			"memberList": "p8FQLq_memberList",
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"libraryButton": "p8FQLq_libraryButton"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1041,7 +1045,7 @@ window.__ModuleLoader__.load({
 		* @param props - injected exit callback plus the bound `useGameMode` hook.
 		* @returns the full-frame game shell, or null while game mode is inactive.
 		*/
-		function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, forkAiSession, choices, useGameMode }) {
+		function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }) {
 			const active = useGameMode((mode) => mode);
 			const storage = (0, react.useMemo)(() => createLocalProjectionStorage(window.localStorage), []);
 			const hostStorage = (0, react.useMemo)(() => new HostProjectionStorage(), []);
@@ -1065,9 +1069,15 @@ window.__ModuleLoader__.load({
 				if (!active) return;
 				return choices.subscribe((card) => {
 					setChoiceCard(card);
+					if (card !== void 0) markWaitingChoice(projection.saveId, card.sessionId);
 					if (card === void 0) setChoiceError(void 0);
 				});
-			}, [active, choices]);
+			}, [
+				active,
+				choices,
+				markWaitingChoice,
+				projection.saveId
+			]);
 			(0, react.useEffect)(() => {
 				if (!active || screen !== "library") return;
 				let cancelled = false;
@@ -1133,16 +1143,22 @@ window.__ModuleLoader__.load({
 					setSyncError(error instanceof Error ? error.message : String(error));
 				});
 			};
-			const commitAiResult = (saveId, channelId, result, fallback) => {
+			const commitAiResult = (saveId, channelId, result, turnId, fallback) => {
 				const next = appendAiMessages(storage.load(saveId) ?? fallback, channelId, result.messages);
-				persist(next);
+				storage.save(next);
+				hostStorage.save(next).then(() => {
+					if (turnId !== void 0) acknowledgeAiTurn(saveId, turnId);
+					setSyncError(void 0);
+				}, (error) => {
+					setSyncError(error instanceof Error ? error.message : String(error));
+				});
 				setProjection((current) => current.saveId === saveId ? next : current);
 			};
 			const recoverPending = (save) => {
 				if (generatingSaves.has(save.saveId)) return;
 				setGeneratingSaves((current) => new Set(current).add(save.saveId));
 				recoverAiTurn(save).then((recovered) => {
-					if (recovered !== null) commitAiResult(save.saveId, recovered.channelId, recovered.result, save);
+					if (recovered !== null) commitAiResult(save.saveId, recovered.channelId, recovered.result, recovered.turnId, save);
 				}, (error) => {
 					setSyncError(error instanceof Error ? error.message : String(error));
 				}).finally(() => {
@@ -1185,7 +1201,8 @@ window.__ModuleLoader__.load({
 			const selected = projection.channels.find((channel) => channel.id === view.selectedChannelId) ?? projection.channels[0];
 			const channelMessages = (0, react.useMemo)(() => projection.messages.filter((message) => message.channelId === selected.id), [selected.id, projection.messages]);
 			const draft = projection.drafts[selected.id] ?? "";
-			const generating = generatingSaves.has(projection.saveId);
+			const turn = aiTurn(projection.saveId);
+			const generating = generatingSaves.has(projection.saveId) || turn?.state === "queued" || turn?.state === "running" || turn?.state === "waiting-choice";
 			const submit = () => {
 				const text = draft.trim();
 				if (text === "" || generating) return;
@@ -1195,13 +1212,41 @@ window.__ModuleLoader__.load({
 				setProjection(submitted);
 				setGeneratingSaves((current) => new Set(current).add(saveId));
 				sendToAI(submitted, selected.id, text).then((result) => {
-					commitAiResult(saveId, selected.id, result, submitted);
+					commitAiResult(saveId, selected.id, result, result.turnId, submitted);
 				}, (error) => {
 					setSyncError(error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
 						const next = new Set(current);
 						next.delete(saveId);
+						return next;
+					});
+				});
+			};
+			const cancelTurn = () => {
+				cancelAiTurn(projection.saveId).then(() => {
+					setSyncError(void 0);
+					setGeneratingSaves((current) => {
+						const next = new Set(current);
+						next.delete(projection.saveId);
+						return next;
+					});
+				}, (error) => {
+					setSyncError(error instanceof Error ? error.message : String(error));
+				});
+			};
+			const retryTurn = () => {
+				if (generating) return;
+				setGeneratingSaves((current) => new Set(current).add(projection.saveId));
+				retryAiTurn(projection).then((result) => {
+					const pending = aiTurn(projection.saveId);
+					commitAiResult(projection.saveId, pending?.channelId ?? selected.id, result, result.turnId, projection);
+				}, (error) => {
+					setSyncError(error instanceof Error ? error.message : String(error));
+				}).finally(() => {
+					setGeneratingSaves((current) => {
+						const next = new Set(current);
+						next.delete(projection.saveId);
 						return next;
 					});
 				});
@@ -1304,7 +1349,9 @@ window.__ModuleLoader__.load({
 				if (!window.confirm(`确定删除存档「${saveId}」吗？此操作不可撤销。`)) return;
 				(async () => {
 					try {
+						await cancelAiTurn(saveId);
 						await hostStorage.remove(saveId);
+						await releaseAiSave(saveId);
 						try {
 							window.localStorage.removeItem(`dsh-story-save:${saveId}`);
 						} catch {}
@@ -1468,43 +1515,66 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("main", {
 								className: StoryGameShell_module_css_default.messagePane,
 								"aria-label": "频道消息",
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-									className: StoryGameShell_module_css_default.messageList,
-									children: channelMessages.map((message) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
-										message,
-										scene: selected.kind === "scene",
-										participants: projection.participants
-									}, message.id))
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-									className: StoryGameShell_module_css_default.composer,
-									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
-										className: StoryGameShell_module_css_default.input,
-										value: draft,
-										placeholder: "输入对白；可使用 (行动) 或 (系统)",
-										"aria-label": `在 ${selected.title} 中输入`,
-										onChange: (event) => {
-											const text = event.target.value;
-											setView((state) => setDraft(state, selected.id, text));
-											setProjection((previous) => {
-												const next = updateDraft(previous, selected.id, text);
-												persist(next);
-												return next;
-											});
-										},
-										onKeyDown: (event) => {
-											if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-												event.preventDefault();
-												submit();
-											}
-										}
-									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: StoryGameShell_module_css_default.sendButton,
-										onClick: submit,
-										disabled: generating,
-										children: generating ? "生成中…" : "发送"
-									})]
-								})]
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+										className: StoryGameShell_module_css_default.messageList,
+										children: channelMessages.map((message) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
+											message,
+											scene: selected.kind === "scene",
+											participants: projection.participants
+										}, message.id))
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: StoryGameShell_module_css_default.composer,
+										children: [
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+												className: StoryGameShell_module_css_default.input,
+												value: draft,
+												placeholder: "输入对白；可使用 (行动) 或 (系统)",
+												"aria-label": `在 ${selected.title} 中输入`,
+												onChange: (event) => {
+													const text = event.target.value;
+													setView((state) => setDraft(state, selected.id, text));
+													setProjection((previous) => {
+														const next = updateDraft(previous, selected.id, text);
+														persist(next);
+														return next;
+													});
+												},
+												onKeyDown: (event) => {
+													if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+														event.preventDefault();
+														submit();
+													}
+												}
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: StoryGameShell_module_css_default.sendButton,
+												onClick: submit,
+												disabled: generating,
+												children: generating ? "生成中…" : "发送"
+											}),
+											generating ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: StoryGameShell_module_css_default.cancelButton,
+												onClick: cancelTurn,
+												children: "取消"
+											}) : null,
+											turn !== null && (turn.state === "failed" || turn.state === "cancelled") ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: StoryGameShell_module_css_default.retryButton,
+												onClick: retryTurn,
+												children: "重试"
+											}) : null
+										]
+									}),
+									turn?.error !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+										className: StoryGameShell_module_css_default.turnError,
+										role: "alert",
+										children: ["AI 回合失败：", turn.error]
+									}) : null
+								]
 							}),
 							view.rightOpen ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("aside", {
 								className: StoryGameShell_module_css_default.detailPane,
@@ -1640,36 +1710,23 @@ window.__ModuleLoader__.load({
 		}
 		function parseMessages(raw, projection, channelId) {
 			const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/u)?.[1] ?? raw;
-			const narrate = () => {
-				const narrator = projection.participants.find((p) => p.role === "narrator")?.id ?? projection.channels.find((c) => c.id === channelId)?.participantIds.find((id) => projection.participants.find((p) => p.id === id)?.role === "npc");
-				if (!narrator) throw new Error("没有可用的旁白或 NPC");
-				return [{
-					senderId: narrator,
-					kind: "narration",
-					content: raw
-				}];
-			};
 			const parse = (text) => {
 				const value = JSON.parse(text);
-				if (!Array.isArray(value.messages)) throw new Error();
-				const roleToId = (role) => {
-					if (role === "narration" || role === "narrator") return projection.participants.find((p) => p.role === "narrator")?.id ?? role;
-					if (role === "system") return projection.participants.find((p) => p.role === "system")?.id ?? role;
-					return role;
-				};
+				if (!Array.isArray(value.messages)) throw new Error("AI 输出缺少 messages 数组");
+				const id = (role) => role === "narration" || role === "narrator" ? projection.participants.find((p) => p.role === "narrator")?.id ?? role : role === "system" ? projection.participants.find((p) => p.role === "system")?.id ?? role : role;
 				return value.messages.map((item) => ({
-					senderId: roleToId(String(item.senderId)),
+					senderId: id(String(item.senderId)),
 					kind: String(item.kind),
 					content: String(item.content)
 				}));
 			};
-			const repairQuotes = (text) => {
+			const repair = (text) => {
 				let out = "";
-				let inString = false;
-				const isCJK = (c) => c !== void 0 && /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(c);
+				let open = false;
+				const cjk = (c) => c !== void 0 && /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(c);
 				for (let i = 0; i < text.length; i++) {
 					const ch = text[i];
-					if (ch === "\\" && inString) {
+					if (ch === "\\" && open) {
 						out += ch + (text[i + 1] ?? "");
 						i++;
 						continue;
@@ -1678,18 +1735,15 @@ window.__ModuleLoader__.load({
 						out += ch;
 						continue;
 					}
-					if (!inString) {
-						inString = true;
+					if (!open) {
+						open = true;
 						out += ch;
 						continue;
 					}
-					const prev = text[i - 1];
-					const next = text[i + 1];
-					const prevCJK = isCJK(prev);
-					const nextCJK = isCJK(next);
-					if (prevCJK && (nextCJK || next === "\"") || prevCJK && next === void 0) out += "\\\"";
+					const prev = text[i - 1], next = text[i + 1];
+					if (cjk(prev) && (cjk(next) || next === "\"") || cjk(prev) && next === void 0) out += "\\\"";
 					else {
-						inString = false;
+						open = false;
 						out += ch;
 					}
 				}
@@ -1698,13 +1752,11 @@ window.__ModuleLoader__.load({
 			try {
 				return parse(fenced);
 			} catch {
-				const repaired = repairQuotes(fenced);
-				if (repaired !== fenced) try {
-					return parse(repaired);
-				} catch {
-					return narrate();
-				}
-				return narrate();
+				const fixed = repair(fenced);
+				if (fixed !== fenced) try {
+					return parse(fixed);
+				} catch {}
+				throw new Error("AI 返回了无法解析的结构化消息；未写入剧情，请重试");
 			}
 		}
 		var StoryAiBridge = class {
@@ -1729,33 +1781,67 @@ window.__ModuleLoader__.load({
 				this.cloneRuntime = cloneRuntime;
 			}
 			cached = /* @__PURE__ */ new Map();
-			/** The hidden session id for one save; each save gets its own session so a
-			*  new game never inherits another save's story state or pending questions. */
 			key(saveId) {
 				return `dsh-story-ai-session:${saveId}`;
 			}
 			pendingKey(saveId) {
 				return `dsh-story-ai-pending:${saveId}`;
 			}
+			orphanKey(saveId) {
+				return `dsh-story-ai-orphan:${saveId}`;
+			}
 			remember(saveId, sessionId) {
 				this.storage.setItem(this.key(saveId), sessionId);
 				this.cached.set(saveId, sessionId);
 			}
-			pending(saveId) {
+			readTurn(saveId) {
 				const raw = this.storage.getItem(this.pendingKey(saveId));
-				if (raw === null || raw === "") return null;
+				if (!raw) return null;
 				try {
 					const value = JSON.parse(raw);
-					return typeof value.sessionId === "string" && Number.isFinite(value.baseline) && typeof value.channelId === "string" ? value : null;
+					if (value.version === void 0 && typeof value.sessionId === "string" && typeof value.baseline === "number" && Number.isFinite(value.baseline) && typeof value.channelId === "string") {
+						const migrated = {
+							version: 1,
+							id: `legacy-${value.sessionId}-${value.baseline}`,
+							sessionId: value.sessionId,
+							baseline: value.baseline,
+							channelId: value.channelId,
+							prompt: "",
+							state: "running"
+						};
+						this.writeTurn(saveId, migrated);
+						return migrated;
+					}
+					if (value.version !== 1 || typeof value.id !== "string" || typeof value.sessionId !== "string" || !Number.isFinite(value.baseline) || typeof value.channelId !== "string" || typeof value.prompt !== "string" || typeof value.state !== "string" || ![
+						"queued",
+						"running",
+						"waiting-choice",
+						"completed",
+						"failed",
+						"cancelled"
+					].includes(value.state)) return null;
+					return value;
 				} catch {
 					return null;
 				}
 			}
-			rememberPending(saveId, value) {
-				this.storage.setItem(this.pendingKey(saveId), JSON.stringify(value));
+			writeTurn(saveId, turn) {
+				this.storage.setItem(this.pendingKey(saveId), JSON.stringify(turn));
 			}
-			clearPending(saveId) {
-				this.storage.setItem(this.pendingKey(saveId), "");
+			change(saveId, turn, change) {
+				const next = {
+					...turn,
+					...change
+				};
+				this.writeTurn(saveId, next);
+				return next;
+			}
+			turn(saveId) {
+				return this.readTurn(saveId);
+			}
+			acknowledge(saveId, turnId) {
+				const turn = this.readTurn(saveId);
+				if (turn?.id === turnId && turn.state === "completed") this.storage.setItem(this.pendingKey(saveId), "");
 			}
 			async session(saveId, agentPreset) {
 				let id = this.currentSessionId(saveId);
@@ -1771,7 +1857,6 @@ window.__ModuleLoader__.load({
 				await this.api.workspace.archiveSession({ sessionId: created.sessionId });
 				return created.sessionId;
 			}
-			/** The session id bound to a save, or null before the first send for it. */
 			currentSessionId(saveId) {
 				const cached = this.cached.get(saveId);
 				if (cached !== void 0) return cached;
@@ -1780,7 +1865,6 @@ window.__ModuleLoader__.load({
 				this.cached.set(saveId, persisted);
 				return persisted;
 			}
-			/** Fork both DSH conversation history and Story Engine runtime state. */
 			async forkSave(sourceSaveId, targetSaveId, packId) {
 				const sourceSessionId = this.currentSessionId(sourceSaveId);
 				if (sourceSessionId === null) return null;
@@ -1797,67 +1881,208 @@ window.__ModuleLoader__.load({
 				this.remember(targetSaveId, forked.sessionId);
 				return forked.sessionId;
 			}
-			async wait(projection, pending) {
+			/** DSH exposes archive/cancel but no safe session-delete RPC; retain a local diagnostic rather than guessing. */
+			async releaseSave(saveId) {
+				const sessionId = this.currentSessionId(saveId);
+				const turn = this.readTurn(saveId);
+				if (turn !== null && [
+					"queued",
+					"running",
+					"waiting-choice"
+				].includes(turn.state)) throw new Error("删除前必须先取消仍在运行的 AI 回合");
+				if (sessionId === null) return void 0;
+				const diagnostic = {
+					saveId,
+					sessionId,
+					removedAt: (/* @__PURE__ */ new Date()).toISOString(),
+					reason: "save-deleted",
+					...turn === null ? {} : { lastTurnState: turn.state }
+				};
+				this.storage.setItem(this.orphanKey(saveId), JSON.stringify(diagnostic));
+				this.storage.setItem(this.key(saveId), "");
+				this.storage.setItem(this.pendingKey(saveId), "");
+				this.cached.delete(saveId);
+				return diagnostic;
+			}
+			async cancel(saveId) {
+				const turn = this.readTurn(saveId);
+				if (turn === null || ![
+					"queued",
+					"running",
+					"waiting-choice"
+				].includes(turn.state)) return;
+				try {
+					unwrap(await this.api.sessions.cancel({ sessionId: turn.sessionId }), "取消 AI 回合");
+					this.change(saveId, turn, {
+						state: "cancelled",
+						error: void 0
+					});
+				} catch (error) {
+					this.change(saveId, turn, {
+						state: "failed",
+						error: `取消失败：${error instanceof Error ? error.message : String(error)}`
+					});
+					throw error;
+				}
+			}
+			markWaitingChoice(saveId, sessionId) {
+				const turn = this.readTurn(saveId);
+				if (turn !== null && turn.sessionId === sessionId && ["queued", "running"].includes(turn.state)) this.change(saveId, turn, { state: "waiting-choice" });
+			}
+			async wait(projection, initial) {
+				let turn = initial;
 				for (let attempt = 0; attempt < 3600; attempt += 1) {
+					const stored = this.readTurn(projection.saveId);
+					if (stored?.id === turn.id) turn = stored;
+					if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 					await this.delay(500);
-					const history = unwrap(await this.api.sessions.history({
-						sessionId: pending.sessionId,
-						maxMessages: 20
-					}), "读取回复");
-					const raw = assistantText(history.events, pending.baseline);
-					if (raw !== void 0 && turnEnded(history.events, pending.baseline)) {
-						this.clearPending(projection.saveId);
-						return {
-							raw,
-							messages: parseMessages(raw, projection, pending.channelId)
-						};
-					}
-					if (raw === void 0 && turnEnded(history.events, pending.baseline)) {
-						this.clearPending(projection.saveId);
-						throw new Error("AI 回合已经结束，但没有生成可显示的回复");
+					try {
+						const history = unwrap(await this.api.sessions.history({
+							sessionId: turn.sessionId,
+							maxMessages: 20
+						}), "读取回复");
+						const raw = assistantText(history.events, turn.baseline);
+						if (raw !== void 0 && turnEnded(history.events, turn.baseline)) {
+							let result;
+							try {
+								result = {
+									raw,
+									messages: parseMessages(raw, projection, turn.channelId)
+								};
+							} catch (error) {
+								this.change(projection.saveId, turn, {
+									state: "failed",
+									error: error instanceof Error ? error.message : String(error)
+								});
+								throw error;
+							}
+							turn = this.change(projection.saveId, turn, {
+								state: "completed",
+								result,
+								error: void 0
+							});
+							return {
+								channelId: turn.channelId,
+								result,
+								turnId: turn.id
+							};
+						}
+						if (raw === void 0 && turnEnded(history.events, turn.baseline)) {
+							const error = "AI 回合已结束，但没有产生结构化回复";
+							this.change(projection.saveId, turn, {
+								state: "failed",
+								error
+							});
+							throw new Error(error);
+						}
+						if (turn.state === "queued") turn = this.change(projection.saveId, turn, { state: "running" });
+					} catch (error) {
+						if (error instanceof Error && (error.message === "AI 回合已结束，但没有产生结构化消息" || error.message === "AI 回合已结束，但没有产生结构化回复" || error.message.includes("无法解析的结构化消息"))) throw error;
+						this.change(projection.saveId, turn, {
+							state: "failed",
+							error: `读取 AI 回合失败：${error instanceof Error ? error.message : String(error)}`
+						});
+						throw error;
 					}
 				}
-				throw new Error("AI 回合仍在运行；下次打开存档会自动继续等待");
+				const error = "AI 回合仍在运行；下次打开存档会自动继续等待";
+				this.change(projection.saveId, turn, {
+					state: "failed",
+					error
+				});
+				throw new Error(error);
 			}
 			async recover(projection) {
-				const pending = this.pending(projection.saveId);
-				if (pending === null) return null;
+				const turn = this.readTurn(projection.saveId);
+				if (turn === null) return null;
 				const sessionId = this.currentSessionId(projection.saveId);
-				if (sessionId === null || sessionId !== pending.sessionId || !projection.channels.some((channel) => channel.id === pending.channelId)) {
-					this.clearPending(projection.saveId);
+				if (sessionId === null || sessionId !== turn.sessionId || !projection.channels.some((channel) => channel.id === turn.channelId)) {
+					this.change(projection.saveId, turn, {
+						state: "failed",
+						error: "待恢复的 AI 回合与当前存档不匹配"
+					});
 					throw new Error("待恢复的 AI 回合与当前存档不匹配");
 				}
-				return {
-					channelId: pending.channelId,
-					result: await this.wait(projection, pending)
-				};
+				if (turn.state === "completed") {
+					if (turn.result === void 0) throw new Error("已完成回合缺少可验证结果");
+					return {
+						channelId: turn.channelId,
+						result: turn.result,
+						turnId: turn.id
+					};
+				}
+				if (turn.state === "cancelled" || turn.state === "failed") return null;
+				return this.wait(projection, turn);
 			}
-			async send(projection, channelId, playerInput) {
-				const agentPreset = projection.agentPreset ?? `story-${projection.packId}`;
-				const sessionId = await this.session(projection.saveId, agentPreset);
+			promptFor(projection, channelId, playerInput) {
+				const channel = projection.channels.find((c) => c.id === channelId);
+				if (channel === void 0) throw new Error("频道不存在");
+				return `当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(", ")}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;
+			}
+			async start(projection, channelId, prompt) {
+				const sessionId = await this.session(projection.saveId, projection.agentPreset ?? `story-${projection.packId}`);
 				const before = unwrap(await this.api.sessions.history({
 					sessionId,
-					maxMessages: 2
+					maxMessages: 20
 				}), "读取会话");
 				const baseline = Math.max(-1, ...before.events.map((x) => Number(x.event?.seq ?? -1)));
-				const channel = projection.channels.find((c) => c.id === channelId);
-				const prompt = `当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(", ")}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;
-				unwrap(await this.api.sessions.prompt({
-					sessionId,
-					mode: "queue",
-					content: [{
-						type: "text",
-						text: prompt
-					}],
-					clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-				}), "发送");
-				const pending = {
+				let turn = {
+					version: 1,
+					id: crypto.randomUUID(),
 					sessionId,
 					baseline,
-					channelId
+					channelId,
+					prompt,
+					state: "queued"
 				};
-				this.rememberPending(projection.saveId, pending);
-				return this.wait(projection, pending);
+				this.writeTurn(projection.saveId, turn);
+				try {
+					unwrap(await this.api.sessions.prompt({
+						sessionId,
+						mode: "queue",
+						content: [{
+							type: "text",
+							text: prompt
+						}],
+						clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+					}), "发送");
+					turn = this.change(projection.saveId, turn, { state: "running" });
+					return await this.wait(projection, turn);
+				} catch (error) {
+					const latest = this.readTurn(projection.saveId);
+					if (latest?.id === turn.id && ![
+						"completed",
+						"cancelled",
+						"failed"
+					].includes(latest.state)) this.change(projection.saveId, latest, {
+						state: "failed",
+						error: `发送 AI 回合失败：${error instanceof Error ? error.message : String(error)}`
+					});
+					throw error;
+				}
+			}
+			async send(projection, channelId, playerInput) {
+				const prior = this.readTurn(projection.saveId);
+				if (prior !== null && [
+					"queued",
+					"running",
+					"waiting-choice",
+					"completed"
+				].includes(prior.state)) throw new Error("当前存档已有待处理 AI 回合；请等待、恢复或取消后再发送");
+				const completed = await this.start(projection, channelId, this.promptFor(projection, channelId, playerInput));
+				return {
+					...completed.result,
+					turnId: completed.turnId
+				};
+			}
+			async retry(projection) {
+				const prior = this.readTurn(projection.saveId);
+				if (prior === null || !["failed", "cancelled"].includes(prior.state) || prior.prompt === "") throw new Error("当前 AI 回合不可安全重试");
+				const completed = await this.start(projection, prior.channelId, prior.prompt);
+				return {
+					...completed.result,
+					turnId: completed.turnId
+				};
 			}
 		};
 		//#endregion
@@ -1869,7 +2094,7 @@ window.__ModuleLoader__.load({
 		*   questions addressed to that session are surfaced, so a replayed card from
 		*   a different save (or a stale session) never pollutes the current game.
 		*/
-		function createStoryChoiceBridge(api, sessionFor) {
+		function createStoryChoiceBridge(api, sessionFor, onRequested) {
 			const listeners = /* @__PURE__ */ new Set();
 			const pendingBySession = /* @__PURE__ */ new Map();
 			let disposed = false;
@@ -1903,6 +2128,7 @@ window.__ModuleLoader__.load({
 						...first.multiSelect === true ? { multiSelect: true } : {}
 					};
 					pendingBySession.set(frame.sessionId, next);
+					onRequested?.(frame.sessionId);
 					if (activeSaveId !== null && sessionFor(activeSaveId) === frame.sessionId) notify();
 				} else if (frame.type === "question/resolved") {
 					const pending = pendingBySession.get(frame.sessionId);
@@ -1996,7 +2222,13 @@ window.__ModuleLoader__.load({
 					exitGame: controller.exit,
 					sendToAI: (projection, channelId, input) => ai.send(projection, channelId, input),
 					recoverAiTurn: (projection) => ai.recover(projection),
+					cancelAiTurn: (saveId) => ai.cancel(saveId),
+					retryAiTurn: (projection) => ai.retry(projection),
+					acknowledgeAiTurn: (saveId, turnId) => ai.acknowledge(saveId, turnId),
+					aiTurn: (saveId) => ai.turn(saveId),
+					markWaitingChoice: (saveId, sessionId) => ai.markWaitingChoice(saveId, sessionId),
 					forkAiSession: (sourceSaveId, targetSaveId, packId) => ai.forkSave(sourceSaveId, targetSaveId, packId),
+					releaseAiSave: (saveId) => ai.releaseSave(saveId),
 					choices,
 					hooks: { gameMode: controller.source }
 				})

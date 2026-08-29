@@ -32,7 +32,49 @@ describe('per-save session persistence',()=>{
     const bridge=new StoryAiBridge(api as never,storage,async()=>{})
     const recovered=await bridge.recover(save)
     expect(recovered).toMatchObject({channelId:save.selectedChannelId,result:{messages:[{senderId:'p-hezhou',content:'我还在。'}]}})
+    expect(values.get('dsh-story-ai-pending:save-reload')).toContain('"state":"completed"')
+    bridge.acknowledge(save.saveId,recovered!.turnId)
     expect(values.get('dsh-story-ai-pending:save-reload')).toBe('')
+  })
+})
+
+describe('durable AI turn state machine',()=>{
+  it('cancels a running turn and leaves the save interactive',async()=>{
+    const values=new Map<string,string>([['dsh-story-ai-session:save-cancel','session-cancel']])
+    let release=()=>{}
+    const delayed=new Promise<void>(resolve=>{release=resolve})
+    const cancel=vi.fn(async()=>ok({accepted:true}))
+    const api={sessions:{create:vi.fn(async()=>ok({sessionId:'session-cancel'})),history:vi.fn(async()=>ok({events:[]})),prompt:vi.fn(async()=>ok({accepted:true})),cancel},workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+    const bridge=new StoryAiBridge(api as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>delayed)
+    const save={...createInitialProjection(),saveId:'save-cancel'}
+    const sending=bridge.send(save,save.selectedChannelId,'继续')
+    await vi.waitFor(()=>expect(bridge.turn(save.saveId)?.state).toBe('running'))
+    await bridge.cancel(save.saveId)
+    expect(cancel).toHaveBeenCalledWith({sessionId:'session-cancel'})
+    expect(bridge.turn(save.saveId)?.state).toBe('cancelled')
+    release()
+    await expect(sending).rejects.toThrow('已取消')
+  })
+  it('retries without duplicating the player input and records a new completed turn',async()=>{
+    const values=new Map<string,string>([['dsh-story-ai-session:save-retry','session-retry']])
+    let history=0
+    const prompt=vi.fn(async(_payload:any)=>ok({accepted:true}))
+    const api={sessions:{create:vi.fn(async()=>ok({sessionId:'session-retry'})),history:vi.fn(async()=>{history+=1;if(history===1)return ok({events:[]});if(history===2)return ok({events:[{event:{type:'turn/end',seq:2,data:{}}}]});if(history===3)return ok({events:[{event:{type:'turn/end',seq:2,data:{}}}]});return ok({events:[{event:{type:'turn/end',seq:2,data:{}}},{event:{type:'assistant/message',seq:4,data:{message:{content:[{type:'text',text:'{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"收到。"}]}' }]}}}},{event:{type:'turn/end',seq:5,data:{}}}]})}),prompt,cancel:vi.fn(async()=>ok({accepted:true}))},workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+    const bridge=new StoryAiBridge(api as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>{})
+    const save={...createInitialProjection(),saveId:'save-retry'}
+    await expect(bridge.send(save,save.selectedChannelId,'只发送一次的玩家输入')).rejects.toThrow('没有产生结构化回复')
+    const result=await bridge.retry(save)
+    expect(result.messages).toEqual([{senderId:'p-hezhou',kind:'dialogue',content:'收到。'}])
+    expect(prompt).toHaveBeenCalledTimes(2)
+    expect(prompt.mock.calls[0]![0].content[0].text).toContain('只发送一次的玩家输入')
+    expect(prompt.mock.calls[1]![0].content[0].text).toContain('只发送一次的玩家输入')
+  })
+  it('records a local orphan diagnostic instead of pretending to delete a DSH session',async()=>{
+    const values=new Map<string,string>([['dsh-story-ai-session:save-removed','session-removed']])
+    const bridge=new StoryAiBridge({sessions:{cancel:vi.fn(async()=>ok({accepted:true}))}} as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>{})
+    await expect(bridge.releaseSave('save-removed')).resolves.toMatchObject({saveId:'save-removed',sessionId:'session-removed',reason:'save-deleted'})
+    expect(values.get('dsh-story-ai-session:save-removed')).toBe('')
+    expect(values.get('dsh-story-ai-orphan:save-removed')).toContain('session-removed')
   })
 })
 
@@ -68,14 +110,11 @@ describe('parseMessages quote tolerance',()=>{
     expect(result.messages[1]).toMatchObject({senderId:'p-hezhou',kind:'dialogue'})
     expect(result.messages[2]).toMatchObject({senderId:'p-system',kind:'work-dispatch'})
   })
-  it('falls back to narration when JSON cannot be repaired',async()=>{
+  it('keeps malformed structured output out of canon',async()=>{
     const raw='{"messages":["broken'
     let histories=0
     const api={sessions:{async create(){return ok({sessionId:'hidden'})},async history(){histories+=1;if(histories===1)return ok({events:[]});return ok({events:[{event:{type:'assistant/message',seq:2,data:{message:{content:[{type:'text',text:raw}]}}}},{event:{type:'turn/end',seq:3,data:{}}}]})},async prompt(){return ok({accepted:true})}},workspace:{async archiveSession(){return ok({})}}}
     const bridge=new StoryAiBridge(api as never,{getItem:()=> 'hidden',setItem:vi.fn()},async()=>{})
-    const result=await bridge.send(createInitialProjection(),'c-direct-hezhou','问问他')
-    expect(result.messages).toHaveLength(1)
-    expect(result.messages[0].kind).toBe('narration')
-    expect(result.messages[0].senderId).toBe('p-narrator')
+    await expect(bridge.send(createInitialProjection(),'c-direct-hezhou','问问他')).rejects.toThrow('无法解析的结构化消息')
   })
 })

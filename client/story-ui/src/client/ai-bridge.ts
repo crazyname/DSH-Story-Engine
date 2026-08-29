@@ -1,110 +1,42 @@
 import type{AiMessageInput,StorySaveProjection}from'./story-domain.ts'
 import type{Rpc}from'./rpc-shape.ts'
 import{unwrap}from'./rpc-shape.ts'
-export interface StoryApi{sessions:{create(payload:Record<string,unknown>):Promise<Rpc<{sessionId:string}>>;fork(payload:Record<string,unknown>):Promise<Rpc<{sessionId:string}>>;history(payload:Record<string,unknown>):Promise<Rpc<{events:Array<{event:any}>}>>;prompt(payload:Record<string,unknown>):Promise<Rpc<{accepted:true}>>};workspace:{archiveSession(payload:Record<string,unknown>):Promise<Rpc<unknown>>}}
-export interface AiBridgeResult{messages:AiMessageInput[];raw:string}
-export interface RecoveredAiBridgeResult{channelId:string;result:AiBridgeResult}
-interface PendingTurn{sessionId:string;baseline:number;channelId:string}
-function assistantText(events:Array<{event:any}>,afterSeq:number):string|undefined{const messages=events.map(x=>x.event).filter(e=>e?.type==='assistant/message'&&Number(e.seq)>afterSeq);const last=messages.at(-1);const blocks=last?.data?.message?.content;if(!Array.isArray(blocks))return undefined;return blocks.filter((b:any)=>b?.type==='text'&&typeof b.text==='string').map((b:any)=>b.text).join('\n').trim()||undefined}
+
+export interface StoryApi{sessions:{create(payload:Record<string,unknown>):Promise<Rpc<{sessionId:string}>>;fork(payload:Record<string,unknown>):Promise<Rpc<{sessionId:string}>>;history(payload:Record<string,unknown>):Promise<Rpc<{events:Array<{event:any}>}>>;prompt(payload:Record<string,unknown>):Promise<Rpc<{accepted:true}>>;cancel(payload:Record<string,unknown>):Promise<Rpc<{accepted:true}>>};workspace:{archiveSession(payload:Record<string,unknown>):Promise<Rpc<unknown>>}}
+export interface AiBridgeResult{messages:AiMessageInput[];raw:string;turnId?:string}
+export interface RecoveredAiBridgeResult{channelId:string;result:AiBridgeResult;turnId:string}
+export type AiTurnState='queued'|'running'|'waiting-choice'|'completed'|'failed'|'cancelled'
+export interface AiTurn{version:1;id:string;sessionId:string;baseline:number;channelId:string;prompt:string;state:AiTurnState;result?:AiBridgeResult;error?:string}
+export interface OrphanedSessionDiagnostic{saveId:string;sessionId:string;removedAt:string;reason:'save-deleted';lastTurnState?:AiTurnState}
+type StoredTurn=AiTurn
+
+function assistantText(events:Array<{event:any}>,afterSeq:number):string|undefined{const messages=events.map(x=>x.event).filter(e=>e?.type==='assistant/message'&&Number(e.seq)>afterSeq);const blocks=messages.at(-1)?.data?.message?.content;if(!Array.isArray(blocks))return undefined;return blocks.filter((b:any)=>b?.type==='text'&&typeof b.text==='string').map((b:any)=>b.text).join('\n').trim()||undefined}
 function turnEnded(events:Array<{event:any}>,afterSeq:number):boolean{return events.some(x=>x.event?.type==='turn/end'&&Number(x.event.seq)>afterSeq)}
-function parseMessages(raw:string,projection:StorySaveProjection,channelId:string):AiMessageInput[]{
-  const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/u)?.[1]??raw
-  const narrate=():AiMessageInput[]=>{
-    const narrator=projection.participants.find(p=>p.role==='narrator')?.id??projection.channels.find(c=>c.id===channelId)?.participantIds.find(id=>projection.participants.find(p=>p.id===id)?.role==='npc')
-    if(!narrator)throw new Error('没有可用的旁白或 NPC')
-    return[{senderId:narrator,kind:'narration',content:raw}]
-  }
-  const parse=(text:string):AiMessageInput[]=>{
-    const value=JSON.parse(text)as{messages?:unknown}
-    if(!Array.isArray(value.messages))throw new Error()
-    const roleToId=(role:string):string=>{
-      if(role==='narration'||role==='narrator')return projection.participants.find(p=>p.role==='narrator')?.id??role
-      if(role==='system')return projection.participants.find(p=>p.role==='system')?.id??role
-      return role
-    }
-    return value.messages.map((item:any)=>({senderId:roleToId(String(item.senderId)),kind:String(item.kind)as AiMessageInput['kind'],content:String(item.content)}))
-  }
-  const repairQuotes=(text:string):string=>{
-    let out='';let inString=false
-    const isCJK=(c:string|undefined)=>c!==undefined&&/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(c)
-    for(let i=0;i<text.length;i++){const ch=text[i]
-      if(ch==='\\'&&inString){out+=ch+(text[i+1]??'');i++;continue}
-      if(ch!=='"'){out+=ch;continue}
-      if(!inString){inString=true;out+=ch;continue}
-      const prev=text[i-1];const next=text[i+1]
-      const prevCJK=isCJK(prev);const nextCJK=isCJK(next)
-      if((prevCJK&&(nextCJK||next==='"'))||(prevCJK&&next===undefined)){out+='\\"'}
-      else{inString=false;out+=ch}
-    }
-    return out
-  }
-  try{return parse(fenced)}catch{
-    const repaired=repairQuotes(fenced)
-    if(repaired!==fenced){try{return parse(repaired)}catch{return narrate()}}
-    return narrate()
-  }
-}
+function parseMessages(raw:string,projection:StorySaveProjection,channelId:string):AiMessageInput[]{const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/u)?.[1]??raw;const parse=(text:string):AiMessageInput[]=>{const value=JSON.parse(text)as{messages?:unknown};if(!Array.isArray(value.messages))throw new Error('AI 输出缺少 messages 数组');const id=(role:string):string=>role==='narration'||role==='narrator'?projection.participants.find(p=>p.role==='narrator')?.id??role:role==='system'?projection.participants.find(p=>p.role==='system')?.id??role:role;return value.messages.map((item:any)=>({senderId:id(String(item.senderId)),kind:String(item.kind)as AiMessageInput['kind'],content:String(item.content)}))};const repair=(text:string):string=>{let out='';let open=false;const cjk=(c:string|undefined)=>c!==undefined&&/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(c);for(let i=0;i<text.length;i++){const ch=text[i];if(ch==='\\'&&open){out+=ch+(text[i+1]??'');i++;continue}if(ch!=='"'){out+=ch;continue}if(!open){open=true;out+=ch;continue}const prev=text[i-1],next=text[i+1];if((cjk(prev)&&(cjk(next)||next==='"'))||(cjk(prev)&&next===undefined))out+='\\"';else{open=false;out+=ch}}return out};try{return parse(fenced)}catch{const fixed=repair(fenced);if(fixed!==fenced){try{return parse(fixed)}catch{/* remain structured error */}}throw new Error('AI 返回了无法解析的结构化消息；未写入剧情，请重试')}}
+
 export class StoryAiBridge{
- constructor(
-  private readonly api:StoryApi,
-  private readonly storage:Pick<Storage,'getItem'|'setItem'>,
-  private readonly delay:(ms:number)=>Promise<void>=(ms)=>new Promise(resolve=>setTimeout(resolve,ms)),
-  private readonly cloneRuntime:(payload:{packId:string;sourceSessionId:string;targetSessionId:string})=>Promise<void>=async(payload)=>{
-   const response=await fetch('/story-engine/api/runtime/clone',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)})
-   if(!response.ok){const detail=await response.json().catch(()=>({}))as{error?:string};throw new Error(detail.error??`复制剧情状态失败：${response.status}`)}
-  },
- ){}
- private cached:Map<string,string>=new Map()
- /** The hidden session id for one save; each save gets its own session so a
-  *  new game never inherits another save's story state or pending questions. */
+ constructor(private readonly api:StoryApi,private readonly storage:Pick<Storage,'getItem'|'setItem'>,private readonly delay:(ms:number)=>Promise<void>=(ms)=>new Promise(resolve=>setTimeout(resolve,ms)),private readonly cloneRuntime:(payload:{packId:string;sourceSessionId:string;targetSessionId:string})=>Promise<void>=async(payload)=>{const response=await fetch('/story-engine/api/runtime/clone',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});if(!response.ok){const detail=await response.json().catch(()=>({}))as{error?:string};throw new Error(detail.error??`复制剧情状态失败：${response.status}`)}}){}
+ private cached=new Map<string,string>()
  private key(saveId:string):string{return`dsh-story-ai-session:${saveId}`}
  private pendingKey(saveId:string):string{return`dsh-story-ai-pending:${saveId}`}
+ private orphanKey(saveId:string):string{return`dsh-story-ai-orphan:${saveId}`}
  private remember(saveId:string,sessionId:string):void{this.storage.setItem(this.key(saveId),sessionId);this.cached.set(saveId,sessionId)}
- private pending(saveId:string):PendingTurn|null{const raw=this.storage.getItem(this.pendingKey(saveId));if(raw===null||raw==='')return null;try{const value=JSON.parse(raw)as PendingTurn;return typeof value.sessionId==='string'&&Number.isFinite(value.baseline)&&typeof value.channelId==='string'?value:null}catch{return null}}
- private rememberPending(saveId:string,value:PendingTurn):void{this.storage.setItem(this.pendingKey(saveId),JSON.stringify(value))}
- private clearPending(saveId:string):void{this.storage.setItem(this.pendingKey(saveId),'')}
- private async session(saveId:string,agentPreset:string):Promise<string>{
-  let id=this.currentSessionId(saveId)
-  if(id===null){id=crypto.randomUUID();this.remember(saveId,id)}
-  const created=unwrap(await this.api.sessions.create({sessionId:id,cwd:'D:/DSH-Story-Engine',agentPreset}),'创建文字游戏会话')
-  await this.api.workspace.archiveSession({sessionId:created.sessionId})
-  return created.sessionId
- }
- /** The session id bound to a save, or null before the first send for it. */
- currentSessionId(saveId:string):string|null{
-  const cached=this.cached.get(saveId)
-  if(cached!==undefined)return cached
-  const persisted=this.storage.getItem(this.key(saveId))
-  if(persisted===null||persisted.trim()==='')return null
-  this.cached.set(saveId,persisted)
-  return persisted
- }
- /** Fork both DSH conversation history and Story Engine runtime state. */
- async forkSave(sourceSaveId:string,targetSaveId:string,packId:string):Promise<string|null>{
-  const sourceSessionId=this.currentSessionId(sourceSaveId)
-  if(sourceSessionId===null)return null
-  const forked=unwrap(await this.api.sessions.fork({sessionId:sourceSessionId,increaseTitle:false}),'复制文字游戏会话')
-  await this.api.workspace.archiveSession({sessionId:forked.sessionId})
-  await this.cloneRuntime({packId,sourceSessionId,targetSessionId:forked.sessionId})
-  this.remember(targetSaveId,forked.sessionId)
-  return forked.sessionId
- }
- private async wait(projection:StorySaveProjection,pending:PendingTurn):Promise<AiBridgeResult>{
-  for(let attempt=0;attempt<3600;attempt+=1){
-   await this.delay(500)
-   const history=unwrap(await this.api.sessions.history({sessionId:pending.sessionId,maxMessages:20}),'读取回复')
-   const raw=assistantText(history.events,pending.baseline)
-   if(raw!==undefined&&turnEnded(history.events,pending.baseline)){this.clearPending(projection.saveId);return{raw,messages:parseMessages(raw,projection,pending.channelId)}}
-   if(raw===undefined&&turnEnded(history.events,pending.baseline)){this.clearPending(projection.saveId);throw new Error('AI 回合已经结束，但没有生成可显示的回复')}
-  }
-  throw new Error('AI 回合仍在运行；下次打开存档会自动继续等待')
- }
- async recover(projection:StorySaveProjection):Promise<RecoveredAiBridgeResult|null>{
-  const pending=this.pending(projection.saveId)
-  if(pending===null)return null
-  const sessionId=this.currentSessionId(projection.saveId)
-  if(sessionId===null||sessionId!==pending.sessionId||!projection.channels.some(channel=>channel.id===pending.channelId)){this.clearPending(projection.saveId);throw new Error('待恢复的 AI 回合与当前存档不匹配')}
-  return{channelId:pending.channelId,result:await this.wait(projection,pending)}
- }
- async send(projection:StorySaveProjection,channelId:string,playerInput:string):Promise<AiBridgeResult>{const agentPreset=projection.agentPreset??`story-${projection.packId}`;const sessionId=await this.session(projection.saveId,agentPreset);const before=unwrap(await this.api.sessions.history({sessionId,maxMessages:2}),'读取会话');const baseline=Math.max(-1,...before.events.map(x=>Number(x.event?.seq??-1)));const channel=projection.channels.find(c=>c.id===channelId)!;const prompt=`当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(', ')}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;unwrap(await this.api.sessions.prompt({sessionId,mode:'queue',content:[{type:'text',text:prompt}],clientTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}),'发送');const pending={sessionId,baseline,channelId};this.rememberPending(projection.saveId,pending);return this.wait(projection,pending) }
+ private readTurn(saveId:string):StoredTurn|null{const raw=this.storage.getItem(this.pendingKey(saveId));if(!raw)return null;try{const value=JSON.parse(raw)as Partial<StoredTurn>;if(value.version===undefined&&typeof value.sessionId==='string'&&typeof value.baseline==='number'&&Number.isFinite(value.baseline)&&typeof value.channelId==='string'){const migrated:StoredTurn={version:1,id:`legacy-${value.sessionId}-${value.baseline}`,sessionId:value.sessionId,baseline:value.baseline,channelId:value.channelId,prompt:'',state:'running'};this.writeTurn(saveId,migrated);return migrated}if(value.version!==1||typeof value.id!=='string'||typeof value.sessionId!=='string'||!Number.isFinite(value.baseline)||typeof value.channelId!=='string'||typeof value.prompt!=='string'||typeof value.state!=='string'||!['queued','running','waiting-choice','completed','failed','cancelled'].includes(value.state))return null;return value as StoredTurn}catch{return null}}
+ private writeTurn(saveId:string,turn:StoredTurn):void{this.storage.setItem(this.pendingKey(saveId),JSON.stringify(turn))}
+ private change(saveId:string,turn:StoredTurn,change:Partial<StoredTurn>):StoredTurn{const next={...turn,...change};this.writeTurn(saveId,next);return next}
+ turn(saveId:string):AiTurn|null{return this.readTurn(saveId)}
+ acknowledge(saveId:string,turnId:string):void{const turn=this.readTurn(saveId);if(turn?.id===turnId&&turn.state==='completed')this.storage.setItem(this.pendingKey(saveId),'')}
+ private async session(saveId:string,agentPreset:string):Promise<string>{let id=this.currentSessionId(saveId);if(id===null){id=crypto.randomUUID();this.remember(saveId,id)}const created=unwrap(await this.api.sessions.create({sessionId:id,cwd:'D:/DSH-Story-Engine',agentPreset}),'创建文字游戏会话');await this.api.workspace.archiveSession({sessionId:created.sessionId});return created.sessionId}
+ currentSessionId(saveId:string):string|null{const cached=this.cached.get(saveId);if(cached!==undefined)return cached;const persisted=this.storage.getItem(this.key(saveId));if(persisted===null||persisted.trim()==='')return null;this.cached.set(saveId,persisted);return persisted}
+ async forkSave(sourceSaveId:string,targetSaveId:string,packId:string):Promise<string|null>{const sourceSessionId=this.currentSessionId(sourceSaveId);if(sourceSessionId===null)return null;const forked=unwrap(await this.api.sessions.fork({sessionId:sourceSessionId,increaseTitle:false}),'复制文字游戏会话');await this.api.workspace.archiveSession({sessionId:forked.sessionId});await this.cloneRuntime({packId,sourceSessionId,targetSessionId:forked.sessionId});this.remember(targetSaveId,forked.sessionId);return forked.sessionId}
+ /** DSH exposes archive/cancel but no safe session-delete RPC; retain a local diagnostic rather than guessing. */
+ async releaseSave(saveId:string):Promise<OrphanedSessionDiagnostic|undefined>{const sessionId=this.currentSessionId(saveId);const turn=this.readTurn(saveId);if(turn!==null&&['queued','running','waiting-choice'].includes(turn.state))throw new Error('删除前必须先取消仍在运行的 AI 回合');if(sessionId===null)return undefined;const diagnostic:OrphanedSessionDiagnostic={saveId,sessionId,removedAt:new Date().toISOString(),reason:'save-deleted',...(turn===null?{}:{lastTurnState:turn.state})};this.storage.setItem(this.orphanKey(saveId),JSON.stringify(diagnostic));this.storage.setItem(this.key(saveId),'');this.storage.setItem(this.pendingKey(saveId),'');this.cached.delete(saveId);return diagnostic}
+ async cancel(saveId:string):Promise<void>{const turn=this.readTurn(saveId);if(turn===null||!['queued','running','waiting-choice'].includes(turn.state))return;try{unwrap(await this.api.sessions.cancel({sessionId:turn.sessionId}),'取消 AI 回合');this.change(saveId,turn,{state:'cancelled',error:undefined})}catch(error){this.change(saveId,turn,{state:'failed',error:`取消失败：${error instanceof Error?error.message:String(error)}`});throw error}}
+ markWaitingChoice(saveId:string,sessionId:string):void{const turn=this.readTurn(saveId);if(turn!==null&&turn.sessionId===sessionId&&['queued','running'].includes(turn.state))this.change(saveId,turn,{state:'waiting-choice'})}
+ private async wait(projection:StorySaveProjection,initial:StoredTurn):Promise<RecoveredAiBridgeResult>{let turn=initial;for(let attempt=0;attempt<3600;attempt+=1){const stored=this.readTurn(projection.saveId);if(stored?.id===turn.id)turn=stored;if(turn.state==='cancelled')throw new Error('AI 回合已取消');await this.delay(500);try{const history=unwrap(await this.api.sessions.history({sessionId:turn.sessionId,maxMessages:20}),'读取回复');const raw=assistantText(history.events,turn.baseline);if(raw!==undefined&&turnEnded(history.events,turn.baseline)){let result:AiBridgeResult;try{result={raw,messages:parseMessages(raw,projection,turn.channelId)}}catch(error){this.change(projection.saveId,turn,{state:'failed',error:error instanceof Error?error.message:String(error)});throw error}turn=this.change(projection.saveId,turn,{state:'completed',result,error:undefined});return{channelId:turn.channelId,result,turnId:turn.id}}if(raw===undefined&&turnEnded(history.events,turn.baseline)){const error='AI 回合已结束，但没有产生结构化回复';this.change(projection.saveId,turn,{state:'failed',error});throw new Error(error)}if(turn.state==='queued')turn=this.change(projection.saveId,turn,{state:'running'})}catch(error){if(error instanceof Error&&(error.message==='AI 回合已结束，但没有产生结构化消息'||error.message==='AI 回合已结束，但没有产生结构化回复'||error.message.includes('无法解析的结构化消息')))throw error;this.change(projection.saveId,turn,{state:'failed',error:`读取 AI 回合失败：${error instanceof Error?error.message:String(error)}`});throw error}}const error='AI 回合仍在运行；下次打开存档会自动继续等待';this.change(projection.saveId,turn,{state:'failed',error});throw new Error(error)}
+ async recover(projection:StorySaveProjection):Promise<RecoveredAiBridgeResult|null>{const turn=this.readTurn(projection.saveId);if(turn===null)return null;const sessionId=this.currentSessionId(projection.saveId);if(sessionId===null||sessionId!==turn.sessionId||!projection.channels.some(channel=>channel.id===turn.channelId)){this.change(projection.saveId,turn,{state:'failed',error:'待恢复的 AI 回合与当前存档不匹配'});throw new Error('待恢复的 AI 回合与当前存档不匹配')}if(turn.state==='completed'){if(turn.result===undefined)throw new Error('已完成回合缺少可验证结果');return{channelId:turn.channelId,result:turn.result,turnId:turn.id}}if(turn.state==='cancelled'||turn.state==='failed')return null;return this.wait(projection,turn)}
+ private promptFor(projection:StorySaveProjection,channelId:string,playerInput:string):string{const channel=projection.channels.find(c=>c.id===channelId);if(channel===undefined)throw new Error('频道不存在');return`当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(', ')}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`}
+ private async start(projection:StorySaveProjection,channelId:string,prompt:string):Promise<RecoveredAiBridgeResult>{const sessionId=await this.session(projection.saveId,projection.agentPreset??`story-${projection.packId}`);const before=unwrap(await this.api.sessions.history({sessionId,maxMessages:20}),'读取会话');const baseline=Math.max(-1,...before.events.map(x=>Number(x.event?.seq??-1)));let turn:StoredTurn={version:1,id:crypto.randomUUID(),sessionId,baseline,channelId,prompt,state:'queued'};this.writeTurn(projection.saveId,turn);try{unwrap(await this.api.sessions.prompt({sessionId,mode:'queue',content:[{type:'text',text:prompt}],clientTimeZone:Intl.DateTimeFormat().resolvedOptions().timeZone}),'发送');turn=this.change(projection.saveId,turn,{state:'running'});return await this.wait(projection,turn)}catch(error){const latest=this.readTurn(projection.saveId);if(latest?.id===turn.id&&!['completed','cancelled','failed'].includes(latest.state))this.change(projection.saveId,latest,{state:'failed',error:`发送 AI 回合失败：${error instanceof Error?error.message:String(error)}`});throw error}}
+ async send(projection:StorySaveProjection,channelId:string,playerInput:string):Promise<AiBridgeResult>{const prior=this.readTurn(projection.saveId);if(prior!==null&&['queued','running','waiting-choice','completed'].includes(prior.state))throw new Error('当前存档已有待处理 AI 回合；请等待、恢复或取消后再发送');const completed=await this.start(projection,channelId,this.promptFor(projection,channelId,playerInput));return{...completed.result,turnId:completed.turnId}}
+ async retry(projection:StorySaveProjection):Promise<AiBridgeResult>{const prior=this.readTurn(projection.saveId);if(prior===null||!['failed','cancelled'].includes(prior.state)||prior.prompt==='')throw new Error('当前 AI 回合不可安全重试');const completed=await this.start(projection,prior.channelId,prior.prompt);return{...completed.result,turnId:completed.turnId}}
 }

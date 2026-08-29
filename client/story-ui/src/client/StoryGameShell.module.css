@@ -307,6 +307,31 @@
   cursor: pointer;
 }
 
+.cancelButton,
+.retryButton {
+  flex: none;
+  align-self: flex-end;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.retryButton { background: var(--dsw-alias-interactive-bg-active); }
+
+.turnError {
+  flex: none;
+  padding: 8px 12px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+}
+
 .detailPane {
   flex: none;
   width: 232px;
