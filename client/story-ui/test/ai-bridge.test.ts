@@ -76,6 +76,24 @@ describe('durable AI turn state machine',()=>{
     expect(values.get('dsh-story-ai-session:save-removed')).toBe('')
     expect(values.get('dsh-story-ai-orphan:save-removed')).toContain('session-removed')
   })
+  it('marks a choice wait only on the matching save and never cancels another save',async()=>{
+    const values=new Map<string,string>([
+      ['dsh-story-ai-session:save-a','session-a'],
+      ['dsh-story-ai-session:save-b','session-b'],
+      ['dsh-story-ai-pending:save-a',JSON.stringify({version:1,id:'turn-a',sessionId:'session-a',baseline:1,channelId:'c',prompt:'a',state:'running'})],
+      ['dsh-story-ai-pending:save-b',JSON.stringify({version:1,id:'turn-b',sessionId:'session-b',baseline:1,channelId:'c',prompt:'b',state:'running'})],
+    ])
+    const cancel=vi.fn(async()=>ok({accepted:true}))
+    const bridge=new StoryAiBridge({sessions:{cancel}} as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>{})
+    bridge.markWaitingChoice('save-a','session-b')
+    expect(bridge.turn('save-a')?.state).toBe('running')
+    bridge.markWaitingChoice('save-a','session-a')
+    expect(bridge.turn('save-a')?.state).toBe('waiting-choice')
+    expect(bridge.turn('save-b')?.state).toBe('running')
+    await bridge.cancel('save-a')
+    expect(cancel).toHaveBeenCalledWith({sessionId:'session-a'})
+    expect(bridge.turn('save-b')?.state).toBe('running')
+  })
 })
 
 describe('parseMessages quote tolerance',()=>{
