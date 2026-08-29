@@ -75,6 +75,6 @@
 3. `SERIAL_GAMEPLAY_SPEC.md`、`TEXT_GAME_SOCIAL_UI_SPEC.md`、`TRANSACTION_AND_RECOVERY_SPEC.md`：正式行为契约。
 4. `DEVELOPMENT.md`：长期架构、版本路线和 Git 规范。
 5. `CONTENT_PACK_V1.md`、Schema、`HOST_API.md`：内容、数据和宿主接口契约。
-6. `STAGE_A_REPORT.md`、`STAGE_B_PROGRESS.md`、`V07_IMPLEMENTATION_REPORT.md`、`ZCODE_IMPLEMENTATION_HANDOFF.md`：历史记录，不作为当前任务清单。
+6. `archive/`：历史交付、实施、交接和退役记录，只用于审计，不作为当前任务清单或正式行为契约。
 
 Git 分支、提交、安全排除和验证要求见 `DEVELOPMENT.md` 的“Git 工作规范”。
