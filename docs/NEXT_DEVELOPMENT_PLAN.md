@@ -24,27 +24,32 @@ Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social 
 
 ### D1：Core Runtime operation-level idempotency
 
-- 所有可能被 retry/recovery 重复调用、且会修改 core runtime canonical state 的 `story_*` 操作使用稳定 `operationId`。
-- 同一 logical request 的重试复用相同 `operationId`；新玩家动作即使文本相同也生成新 ID。
-- 使用 request fingerprint 检测同 ID 不同 payload；冲突必须显式失败。
+- 顶层玩家提交/恢复流程预留稳定 `transactionId`；一个 transaction 可以包含多个 core mutations。
+- 所有可能被 retry/recovery 重复调用、且会修改 core runtime canonical state 的 `story_*` mutation 使用各自独立稳定 `operationId`。
+- 同一原子 mutation 的重试复用相同 `operationId`；同一 transaction 内两个不同 mutations 必须使用不同 `operationId`。
+- `operationId` 在首次 mutation 执行前确定并持久化，可以由 `transactionId + 持久 step key` 派生，但不能依赖重试时可能变化的临时 request/tool-call index。
+- 使用 request fingerprint 检测同 operation ID 不同 payload；冲突必须显式失败，并且不得改变已有 journal/receipt 状态。
 - matching receipt 重放直接返回原结果，不增加 state version、不重复追加事件、不再次应用选择、关系或 consequence。
 - receipt 与其保护的 runtime mutation 在同一次持久化提交中写入。
 - `expectedVersion` 继续负责 stale writer 防护，不用 operation idempotency 取代 optimistic locking。
 
-验收：顺序/并发重放只应用一次；同 ID 不同 payload 冲突；“core 已提交但调用方未收到成功”恢复时返回 receipt，不重复修改 runtime。
+验收：顺序/并发重放只应用一次；同 ID 不同 payload 冲突且不污染原 receipt；一个 transaction 内多个不同 operations 可分别提交/重放；“core 已提交但调用方未收到成功”恢复时返回 receipt，不重复修改 runtime。
 
 ### D2：Durable transaction journal 与跨域恢复
 
-- 为跨隐藏 DSH、core runtime 和 social projection 的逻辑操作保存 durable intent/status。
+- 在首次向隐藏 DSH/外部步骤调用前持久化 `transactionId`、input fingerprint 和恢复所需 intent/status。
+- 获得隐藏 DSH `turnId` 后，把 `transactionId ↔ turnId` 映射持久化。
+- journal 记录 child `operationId`/step identities，使多 mutation transaction 在中间崩溃后只补未完成步骤。
 - 不在等待模型、网络或用户选择期间持有 save/runtime 写锁。
 - 支持 `prepared`、`committed`、`cancelled`、`failed`、`needs-recovery` 的最低语义；AI bridge 自身的回合状态保持独立。
-- core mutation 存在时，先形成可查询的 core receipt，再投影 social 可见结果。
-- crash/restart 后重新读取持久状态进行 reconciliation，不用“最后一个 HTTP 是否成功返回”猜测事实。
-- `cancelled` 为提交前终态；晚到 completed result 不得重新提交。
+- core canonical effect 存在时，先形成可查询的 core receipt，再投影该 effect 的 social 可见结果。
+- crash/restart 后重新读取 journal、core receipts/runtime state 与 host projection 进行 reconciliation，不用“最后一个 HTTP 是否成功返回”猜测事实。
+- `cancelled` 只适用于尚无 canonical effect 的 transaction；canonical effect 已落盘后收到取消时不得倒改历史，应完成 recovery/reconciliation。
+- 定义非终态 transaction 与“另存为”的边界；首版可选择非终态期间禁止 fork，而不是复制一个仍指向旧 hidden turn 的不完整 transaction。
 
 正式行为见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
-验收：至少覆盖 intent 后崩溃、模型完成后提交前崩溃、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离和进程重启恢复。
+验收：至少覆盖 intent 后崩溃、hidden turn 映射恢复、模型完成后提交前崩溃、单/多 core operation 部分提交、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离、fork 边界和进程重启恢复。
 
 ### D3：季、集、场景与频道联动
 
@@ -74,7 +79,8 @@ Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social 
 6. 集末总结；
 7. 刷新恢复；
 8. 另存为后两个存档连续性独立；
-9. retry/recovery 不重复 core effect 或 canonical social messages。
+9. retry/recovery 不重复 core operation effect 或 canonical social messages；
+10. 一个 transaction 内存在多个 core mutations 时，部分提交后的恢复只补剩余步骤。
 
 只有上述链路在自动测试和真实浏览器中成立，Stage D 才可宣称完成。
 
