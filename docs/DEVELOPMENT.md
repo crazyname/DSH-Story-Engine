@@ -30,7 +30,7 @@ Content Pack：用户导入的 Markdown / JSON / TXT
 
 核心层只认识通用概念：`entity`、`document`、`scene`、`choice`、`state`、`module`。关系、任务、资源、战斗、前作继承均为可选模块。
 
-UI/宿主集成额外包含 social projection、隐藏 DSH Session 和事务协调层；它们不能绕过 Game Runtime 的 canonical state 规则。跨域 retry/recovery 见 `docs/TRANSACTION_AND_RECOVERY_SPEC.md`。
+UI/宿主集成额外包含 social projection、隐藏 DSH Session 和事务协调层；它们不能绕过 Game Runtime 的 canonical state 规则。顶层可恢复工作流使用 `transactionId`，其中每个可重试 core canonical mutation 使用独立 `operationId` 和 receipt。跨域 retry/recovery 见 `docs/TRANSACTION_AND_RECOVERY_SPEC.md`。
 
 ## 4. 公开 API 方向
 
@@ -47,7 +47,7 @@ UI/宿主集成额外包含 social projection、隐藏 DSH Session 和事务协�
 
 v0.7 起还提供剧本发现/校验、正式场景进入、真实选择记录、工作事件、越界修订和集末总结等通用 `story_*` 工具；实际公开工具集合以代码和当前接口文档为准。
 
-所有修改 canonical state 的工具必须保留 optimistic version 防护。进入 Stage D 后，可被 retry/recovery 重复调用的 mutation 还必须具备 operation-level idempotency；`expectedVersion` 与 `operationId` 解决不同问题，不能互相替代。
+所有修改 canonical state 的工具必须保留 optimistic version 防护。进入 Stage D 后，可被 retry/recovery 重复调用的 mutation 还必须具备 operation-level idempotency；`expectedVersion` 与 `operationId` 解决不同问题，不能互相替代。一个 transaction 可以包含多个不同 `operationId`。
 
 玩家控制权由内容包清单定义，默认 `aiMayControlPlayer: false`。
 
@@ -148,7 +148,7 @@ v0.8 产品线的长期目标：
 - 使用结构化消息保存频道、说话人、季集、场景和 canonical 状态。
 - 普通会话与游戏频道、存档、草稿和消息列表完全隔离。
 - 每个游戏存档使用独立隐藏 DSH Session，后台复用模型、工具和会话能力，但原始技术轨迹不直接成为游戏正史。
-- social projection、隐藏 DSH turn 与 core runtime 在 retry/recovery 下保持幂等和可恢复。
+- 使用 transaction journal、隐藏 `turnId`、core `operationId` receipts 与 social projection 幂等使 retry/recovery 可对账恢复。
 - 将 v0.7 的季/集/场景、工作内/外、选择、越界修订和集末总结完整呈现在游戏界面。
 - 达到公开发布所需的无障碍、性能、迁移、安全、许可证和文档质量。
 
@@ -168,7 +168,7 @@ v1.0 不只是功能完成，还意味着 V1 公共契约被冻结并有明确�
 - 安装、升级、卸载、故障排查和内容包作者文档。
 - Release Candidate、干净安装、旧存档升级、完整原创示例回归和最终发布包审计。
 
-正式 RC/Stable 路线以 `NEXT_DEVELOPMENT_PLAN.md` 为准；Stage E 前建立 `COMPATIBILITY.md` 和 `RELEASE_CHECKLIST.md`。
+正式 RC/Stable 路线以 `NEXT_DEVELOPMENT_PLAN.md` 为准；在 Stage E 文档工作中建立 `COMPATIBILITY.md` 和 `RELEASE_CHECKLIST.md`，并在进入 1.0 RC 前完成评审。
 
 ## 7. 开源策略
 
