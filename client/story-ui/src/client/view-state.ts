@@ -4,8 +4,9 @@
  * reducer stays unit-testable without React; the shell component owns the
  * state and keeps it local (component-private, per the slot discipline).
  *
- * Nothing here persists: drafts survive only while the page lives, and a
- * refresh returns DSH to ordinary chat with the game state discarded.
+ * This module performs no persistence itself. The shell may project selected
+ * values such as drafts into the save projection while transient UI state
+ * remains local to the browser component.
  */
 import type { StoryChannel } from './mock-data.ts'
 
