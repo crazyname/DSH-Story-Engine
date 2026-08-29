@@ -107,7 +107,11 @@ const clientConfig = {
           minify: true,
         })
         const classMap = {}
-        for (const [local, exp] of Object.entries(cssExports ?? {})) classMap[local] = exp.name
+        // lightningcss does not guarantee export-object enumeration order.
+        // Sort by local class name before serializing so identical sources
+        // produce byte-for-byte identical client bundles across repeated builds.
+        const entries = Object.entries(cssExports ?? {}).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+        for (const [local, exp] of entries) classMap[local] = exp.name
         // Every CSS Module needs its own tag identity. Reusing one package-wide
         // id lets the first imported module suppress all later style blocks.
         const styleId = `${ID}/${createHash('sha256').update(fileId).digest('hex').slice(0, 12)}.css`
