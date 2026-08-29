@@ -55,6 +55,23 @@ describe('durable AI turn state machine',()=>{
     release()
     await expect(sending).rejects.toThrow('已取消')
   })
+  it('gives cancellation precedence over a late truncated history',async()=>{
+    const values=new Map<string,string>([['dsh-story-ai-session:save-cancel-race','session-cancel-race']])
+    let release=()=>{}
+    const delayed=new Promise<void>(resolve=>{release=resolve})
+    let history=0
+    const partial={event:{type:'assistant/message',seq:2,data:{message:{content:[{type:'text',text:'{"messages":['}]}}}}
+    const api={sessions:{create:vi.fn(async()=>ok({sessionId:'session-cancel-race'})),history:vi.fn(async()=>{history+=1;return ok({events:history===1?[]:[partial,{event:{type:'turn/end',seq:3,data:{}}}]})}),prompt:vi.fn(async()=>ok({accepted:true})),cancel:vi.fn(async()=>ok({accepted:true}))},workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+    const bridge=new StoryAiBridge(api as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>delayed)
+    const save={...createInitialProjection(),saveId:'save-cancel-race'}
+    const sending=bridge.send(save,save.selectedChannelId,'取消优先')
+    await vi.waitFor(()=>expect(bridge.turn(save.saveId)?.state).toBe('running'))
+    await bridge.cancel(save.saveId)
+    release()
+    await expect(sending).rejects.toThrow('已取消')
+    expect(bridge.turn(save.saveId)?.state).toBe('cancelled')
+    expect(api.sessions.history).toHaveBeenCalledTimes(1)
+  })
   it('retries without duplicating the player input and records a new completed turn',async()=>{
     const values=new Map<string,string>([['dsh-story-ai-session:save-retry','session-retry']])
     let history=0

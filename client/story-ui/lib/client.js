@@ -58,8 +58,8 @@ window.__ModuleLoader__.load({
 		}
 		var StoryGameAction_module_css_default = {
 			"action": "s-a98a_action",
-			"railAction": "s-a98a_railAction",
-			"label": "s-a98a_label"
+			"label": "s-a98a_label",
+			"railAction": "s-a98a_railAction"
 		};
 		//#endregion
 		//#region src/client/StoryGameAction.tsx
@@ -606,20 +606,20 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"question": "gbf0-a_question",
-			"optionActive": "gbf0-a_optionActive",
-			"optionDesc": "gbf0-a_optionDesc",
-			"headerRow": "gbf0-a_headerRow",
-			"detail": "gbf0-a_detail",
-			"send": "gbf0-a_send",
-			"composer": "gbf0-a_composer",
-			"option": "gbf0-a_option",
-			"dismiss": "gbf0-a_dismiss",
-			"optionLabel": "gbf0-a_optionLabel",
-			"input": "gbf0-a_input",
-			"options": "gbf0-a_options",
 			"eyebrow": "gbf0-a_eyebrow",
 			"overlay": "gbf0-a_overlay",
+			"optionActive": "gbf0-a_optionActive",
+			"question": "gbf0-a_question",
+			"input": "gbf0-a_input",
+			"detail": "gbf0-a_detail",
+			"composer": "gbf0-a_composer",
+			"send": "gbf0-a_send",
+			"headerRow": "gbf0-a_headerRow",
+			"option": "gbf0-a_option",
+			"optionDesc": "gbf0-a_optionDesc",
+			"optionLabel": "gbf0-a_optionLabel",
+			"options": "gbf0-a_options",
+			"dismiss": "gbf0-a_dismiss",
 			"card": "gbf0-a_card"
 		};
 		//#endregion
@@ -762,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
-			"badge": "Gwgdiq_badge",
-			"saveItem": "Gwgdiq_saveItem",
-			"header": "Gwgdiq_header",
-			"packMeta": "Gwgdiq_packMeta",
-			"saveAction": "Gwgdiq_saveAction",
-			"saveMeta": "Gwgdiq_saveMeta",
-			"exit": "Gwgdiq_exit",
-			"packList": "Gwgdiq_packList",
-			"saveName": "Gwgdiq_saveName",
-			"saveRowWrap": "Gwgdiq_saveRowWrap",
-			"saveRow": "Gwgdiq_saveRow",
-			"logo": "Gwgdiq_logo",
-			"tagline": "Gwgdiq_tagline",
-			"body": "Gwgdiq_body",
-			"saveList": "Gwgdiq_saveList",
-			"empty": "Gwgdiq_empty",
 			"opButton": "Gwgdiq_opButton",
-			"library": "Gwgdiq_library",
-			"pack": "Gwgdiq_pack",
-			"saveOps": "Gwgdiq_saveOps",
-			"headerTitle": "Gwgdiq_headerTitle",
-			"packHead": "Gwgdiq_packHead",
-			"packTitle": "Gwgdiq_packTitle",
-			"error": "Gwgdiq_error",
-			"packInfo": "Gwgdiq_packInfo",
 			"packDesc": "Gwgdiq_packDesc",
+			"saveRow": "Gwgdiq_saveRow",
+			"exit": "Gwgdiq_exit",
+			"newGame": "Gwgdiq_newGame",
+			"body": "Gwgdiq_body",
+			"packTitle": "Gwgdiq_packTitle",
+			"packList": "Gwgdiq_packList",
+			"library": "Gwgdiq_library",
+			"header": "Gwgdiq_header",
+			"saveMeta": "Gwgdiq_saveMeta",
+			"pack": "Gwgdiq_pack",
+			"headerTitle": "Gwgdiq_headerTitle",
+			"saveList": "Gwgdiq_saveList",
+			"saveItem": "Gwgdiq_saveItem",
+			"error": "Gwgdiq_error",
+			"packHead": "Gwgdiq_packHead",
+			"saveOps": "Gwgdiq_saveOps",
+			"saveName": "Gwgdiq_saveName",
+			"empty": "Gwgdiq_empty",
 			"opDanger": "Gwgdiq_opDanger",
-			"newGame": "Gwgdiq_newGame"
+			"tagline": "Gwgdiq_tagline",
+			"packMeta": "Gwgdiq_packMeta",
+			"badge": "Gwgdiq_badge",
+			"logo": "Gwgdiq_logo",
+			"saveAction": "Gwgdiq_saveAction",
+			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"packInfo": "Gwgdiq_packInfo"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -979,54 +979,54 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"topbarTitle": "p8FQLq_topbarTitle",
-			"detailSection": "p8FQLq_detailSection",
-			"body": "p8FQLq_body",
-			"messageList": "p8FQLq_messageList",
-			"choiceError": "p8FQLq_choiceError",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"systemNote": "p8FQLq_systemNote",
-			"narration": "p8FQLq_narration",
-			"cancelButton": "p8FQLq_cancelButton",
-			"actionMine": "p8FQLq_actionMine",
-			"channelLast": "p8FQLq_channelLast",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"shell": "p8FQLq_shell",
-			"iconButton": "p8FQLq_iconButton",
-			"memberList": "p8FQLq_memberList",
-			"bubbleRowMine": "p8FQLq_bubbleRowMine",
-			"detailBody": "p8FQLq_detailBody",
-			"demoNote": "p8FQLq_demoNote",
-			"frameLabel": "p8FQLq_frameLabel",
-			"bubbleMine": "p8FQLq_bubbleMine",
+			"turnError": "p8FQLq_turnError",
 			"channelItemActive": "p8FQLq_channelItemActive",
-			"input": "p8FQLq_input",
+			"detailSection": "p8FQLq_detailSection",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"demoNote": "p8FQLq_demoNote",
+			"backButton": "p8FQLq_backButton",
 			"channelItem": "p8FQLq_channelItem",
-			"channelTitle": "p8FQLq_channelTitle",
+			"choiceCard": "p8FQLq_choiceCard",
+			"cancelButton": "p8FQLq_cancelButton",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
+			"choiceError": "p8FQLq_choiceError",
+			"narration": "p8FQLq_narration",
+			"detailText": "p8FQLq_detailText",
+			"actionOther": "p8FQLq_actionOther",
+			"frameLabel": "p8FQLq_frameLabel",
 			"messagePane": "p8FQLq_messagePane",
+			"composer": "p8FQLq_composer",
+			"preview": "p8FQLq_preview",
+			"iconButton": "p8FQLq_iconButton",
+			"channelPane": "p8FQLq_channelPane",
+			"shell": "p8FQLq_shell",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"channelName": "p8FQLq_channelName",
+			"channelList": "p8FQLq_channelList",
+			"paneHeader": "p8FQLq_paneHeader",
+			"previewLabel": "p8FQLq_previewLabel",
+			"senderName": "p8FQLq_senderName",
+			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"retryButton": "p8FQLq_retryButton",
+			"memberList": "p8FQLq_memberList",
+			"flipIcon": "p8FQLq_flipIcon",
 			"topbar": "p8FQLq_topbar",
 			"sendButton": "p8FQLq_sendButton",
-			"memberItem": "p8FQLq_memberItem",
-			"backButton": "p8FQLq_backButton",
-			"turnError": "p8FQLq_turnError",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"channelName": "p8FQLq_channelName",
-			"choiceCard": "p8FQLq_choiceCard",
-			"flipIcon": "p8FQLq_flipIcon",
+			"input": "p8FQLq_input",
+			"channelTitle": "p8FQLq_channelTitle",
 			"channelKind": "p8FQLq_channelKind",
-			"memberAvatar": "p8FQLq_memberAvatar",
-			"senderName": "p8FQLq_senderName",
-			"detailText": "p8FQLq_detailText",
-			"channelList": "p8FQLq_channelList",
-			"preview": "p8FQLq_preview",
+			"body": "p8FQLq_body",
+			"bubbleOther": "p8FQLq_bubbleOther",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"systemNote": "p8FQLq_systemNote",
+			"detailPane": "p8FQLq_detailPane",
 			"libraryButton": "p8FQLq_libraryButton",
-			"previewLabel": "p8FQLq_previewLabel",
-			"paneHeader": "p8FQLq_paneHeader",
-			"actionOther": "p8FQLq_actionOther",
-			"channelPane": "p8FQLq_channelPane",
-			"composer": "p8FQLq_composer",
-			"retryButton": "p8FQLq_retryButton",
-			"detailPane": "p8FQLq_detailPane"
+			"detailBody": "p8FQLq_detailBody",
+			"memberItem": "p8FQLq_memberItem",
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"messageList": "p8FQLq_messageList",
+			"channelLast": "p8FQLq_channelLast",
+			"actionMine": "p8FQLq_actionMine"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1987,11 +1987,17 @@ window.__ModuleLoader__.load({
 					if (stored?.id === turn.id) turn = stored;
 					if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 					await this.delay(500);
+					const afterDelay = this.readTurn(projection.saveId);
+					if (afterDelay?.id === turn.id) turn = afterDelay;
+					if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 					try {
 						const history = unwrap(await this.api.sessions.history({
 							sessionId: turn.sessionId,
 							maxMessages: 20
 						}), "读取回复");
+						const afterHistory = this.readTurn(projection.saveId);
+						if (afterHistory?.id === turn.id) turn = afterHistory;
+						if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 						const raw = assistantText(history.events, turn.baseline);
 						if (raw !== void 0 && turnEnded(history.events, turn.baseline)) {
 							let result;
