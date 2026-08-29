@@ -35,13 +35,16 @@
 
 目标：把 v0.7 连载后端完整呈现在独立游戏界面中。
 
+- 先收紧跨域事务边界：隐藏 DSH 回合写入 social projection 时以真实 AI turn ID 作为幂等提交键；同一 turn 的相同 canonical result 重放必须为 no-op，不同结果必须报告冲突。
+- social projection 的宿主保存必须允许“同 revision + 完全相同 projection”的幂等重放，同时继续拒绝同 revision 的不同 stale content，保证崩溃恢复可以在宿主确认成功后再 acknowledge pending turn。
+- 再为会修改 core runtime 的 `story_*` 操作建立独立幂等/恢复契约，避免 retry/recovery 重复应用状态变化；social projection 幂等不能替代 core runtime 幂等。
 - 季、集、场景和频道联动。
 - 工作内小事件按“事件名 + 派遣英雄 + 简要结果”输出，不展开为完整任务模拟。
 - 工作外主线使用详细场景与分支，支持既有内容发展、反转和新内容。
 - 玩家超出预写范围时暂停、修订剧本、校验后恢复。
 - 每集结束显示已选择与未选择的关键节点，不伪造联网玩家比例。
 
-验收：至少用原创示例包完成一整集，从开场、工作事件、工作外剧情、选择、越界修订到集末总结，刷新与另存为后连续性一致。
+验收：至少用原创示例包完成一整集，从开场、工作事件、工作外剧情、选择、越界修订到集末总结，刷新与另存为后连续性一致；在 AI 结果已写入宿主但 pending turn 尚未确认的崩溃窗口中，恢复不得重复写 canonical messages，identical host replay 必须成功且随后清除 pending completed turn；同 revision 的不同 stale content 仍必须冲突；core runtime 的可重试操作不得因重复执行而重复应用状态变化。
 
 ## M4：阶段 E 与发布候选版
 

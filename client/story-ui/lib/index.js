@@ -1,5 +1,6 @@
 import { access, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 //#region src/host-store.ts
 function safe(id) {
 	return basename(id.replace(/[^a-zA-Z0-9_-]/g, "_")).slice(0, 100) || "default";
@@ -69,8 +70,9 @@ var StoryProjectionStore = class {
 		return this.exclusive(id, async () => {
 			const current = await this.read(id);
 			const revision = current === void 0 ? -1 : Number(current.revision);
+			if (value.saveId !== id || !Number.isInteger(value.revision) || Number(value.revision) !== expectedRevision + 1) throw new Error("存档 ID 或新版本无效");
+			if (current !== void 0 && revision === Number(value.revision) && isDeepStrictEqual(current, value)) return current;
 			if (revision !== expectedRevision) throw new Error(`存档版本冲突：当前 ${revision}，提交基于 ${expectedRevision}`);
-			if (value.saveId !== id || !Number.isInteger(value.revision) || current !== void 0 && Number(value.revision) !== expectedRevision + 1) throw new Error("存档 ID 或新版本无效");
 			const path = this.path(id);
 			await mkdir(dirname(path), { recursive: true });
 			const temporary = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;

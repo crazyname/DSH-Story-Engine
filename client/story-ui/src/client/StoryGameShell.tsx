@@ -128,7 +128,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const persist=(next:typeof projection):void=>{const saveId=next.saveId;storage.save(next);void hostStorage.save(next).then(()=>{setSaveSyncError(saveId,undefined)},error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})}
   const commitAiResult=(saveId:string,channelId:string,result:{messages:AiMessageInput[]},turnId:string|undefined,fallback:StorySaveProjection):void=>{
     const latest=storage.load(saveId)??fallback
-    const next=appendAiMessages(latest,channelId,result.messages)
+    const next=appendAiMessages(latest,channelId,result.messages,new Date(),turnId)
     storage.save(next)
     void hostStorage.save(next).then(()=>{
       if(turnId!==undefined)acknowledgeAiTurn(saveId,turnId)
