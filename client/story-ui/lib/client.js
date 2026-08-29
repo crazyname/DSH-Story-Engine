@@ -239,31 +239,50 @@ window.__ModuleLoader__.load({
 				updatedAt: (/* @__PURE__ */ new Date()).toISOString()
 			};
 		}
-		function appendAiMessages(projection, channelId, inputs, now = /* @__PURE__ */ new Date()) {
+		function appendAiMessages(projection, channelId, inputs, now = /* @__PURE__ */ new Date(), commitTurnId) {
 			const channel = projection.channels.find((c) => c.id === channelId);
 			if (!channel) throw new Error("频道不存在");
 			const player = projection.participants.find((p) => p.role === "player");
 			if (inputs.length === 0) throw new Error("AI 消息不能为空");
 			const allowed = new Set([...channel.participantIds, ...projection.participants.filter((p) => p.role === "narrator" || p.role === "system").map((p) => p.id)]);
-			const createdAt = now.toISOString();
-			const messages = inputs.map((input, index) => {
+			const normalized = inputs.map((input) => {
 				if (input.senderId === player?.id) throw new Error("AI 不能替玩家发送消息");
 				if (!allowed.has(input.senderId)) throw new Error(`发送者不属于频道：${input.senderId}`);
-				if (!input.content.trim()) throw new Error("AI 消息内容不能为空");
+				const content = input.content.trim();
+				if (!content) throw new Error("AI 消息内容不能为空");
 				return {
-					id: `ai-${now.getTime()}-${projection.messages.length + index + 1}`,
-					channelId,
 					senderId: input.senderId,
 					kind: input.kind,
-					content: input.content.trim(),
-					createdAt,
-					seasonId: projection.frame.seasonLabel,
-					episodeId: projection.frame.episodeLabel,
-					sceneId: projection.frame.sceneLabel,
-					turnId: `turn-${projection.revision + 1}`,
-					canonStatus: "committed"
+					content
 				};
 			});
+			const stableTurnId = commitTurnId?.trim();
+			if (commitTurnId !== void 0 && !stableTurnId) throw new Error("AI 回合 ID 不能为空");
+			if (stableTurnId) {
+				const existing = projection.messages.filter((message) => message.turnId === stableTurnId);
+				if (existing.length) {
+					if (existing.length === normalized.length && existing.every((message, index) => {
+						const expected = normalized[index];
+						return message.channelId === channelId && message.senderId === expected.senderId && message.kind === expected.kind && message.content === expected.content && message.canonStatus === "committed";
+					})) return projection;
+					throw new Error(`AI 回合提交冲突：${stableTurnId}`);
+				}
+			}
+			const createdAt = now.toISOString();
+			const turnId = stableTurnId ?? `turn-${projection.revision + 1}`;
+			const messages = normalized.map((input, index) => ({
+				id: stableTurnId ? `ai-${stableTurnId}-${index + 1}` : `ai-${now.getTime()}-${projection.messages.length + index + 1}`,
+				channelId,
+				senderId: input.senderId,
+				kind: input.kind,
+				content: input.content,
+				createdAt,
+				seasonId: projection.frame.seasonLabel,
+				episodeId: projection.frame.episodeLabel,
+				sceneId: projection.frame.sceneLabel,
+				turnId,
+				canonStatus: "committed"
+			}));
 			const last = messages.at(-1);
 			return {
 				...projection,
@@ -1171,7 +1190,7 @@ window.__ModuleLoader__.load({
 				});
 			};
 			const commitAiResult = (saveId, channelId, result, turnId, fallback) => {
-				const next = appendAiMessages(storage.load(saveId) ?? fallback, channelId, result.messages);
+				const next = appendAiMessages(storage.load(saveId) ?? fallback, channelId, result.messages, /* @__PURE__ */ new Date(), turnId);
 				storage.save(next);
 				hostStorage.save(next).then(() => {
 					if (turnId !== void 0) acknowledgeAiTurn(saveId, turnId);
