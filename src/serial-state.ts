@@ -86,7 +86,11 @@ export class SerialStateStore {
   async recordChoice(sessionId:string, expected:number, script:EpisodeScript, sceneId:string, choiceId:string, selectedOptionIds:string[], freeInput:string|undefined, consequences:string[]):Promise<RuntimeState> {
     const scene=script.scenes.find(s=>s.id===sceneId); const choice=scene?.choices.find(c=>c.id===choiceId); if(!choice) throw new Error('选择不属于当前场景')
     const valid=new Set(choice.options.map(o=>o.id)); if(!selectedOptionIds.length || selectedOptionIds.some(id=>!valid.has(id))) throw new Error('包含无效选择项')
-    return this.mutate(sessionId,expected,`choice:${choiceId}`,state=>{state.playedCanon.choices.push({episodeId:script.episodeId,sceneId,choiceId,selectedOptionIds:[...selectedOptionIds],...(freeInput?{freeInput}:{}),consequences:[...consequences],createdAt:new Date().toISOString()});state.playedCanon.events.push(event('choice',undefined,{choiceId,selectedOptionIds}))})
+    return this.mutate(sessionId,expected,`choice:${choiceId}`,state=>{
+      const played=state.playedCanon
+      if(played.currentEpisodeId!==script.episodeId||played.currentSceneId!==sceneId)throw new Error(`选择只能记录在当前游玩场景：当前 ${played.currentEpisodeId ?? 'none'}/${played.currentSceneId ?? 'none'}，提交 ${script.episodeId}/${sceneId}`)
+      played.choices.push({episodeId:script.episodeId,sceneId,choiceId,selectedOptionIds:[...selectedOptionIds],...(freeInput?{freeInput}:{}),consequences:[...consequences],createdAt:new Date().toISOString()});played.events.push(event('choice',undefined,{choiceId,selectedOptionIds}))
+    })
   }
   async recordWorkEvent(sessionId:string, expected:number, work:WorkEvent):Promise<RuntimeState>{return this.mutate(sessionId,expected,`work:${work.name}`,state=>{state.playedCanon.events.push(event('work_dispatch',work.name,{work}))}) }
   async queueWorkEvent(sessionId:string, expected:number, work:WorkEvent):Promise<RuntimeState>{return this.mutate(sessionId,expected,`queue_work:${work.name}`,state=>{state.workCache.pendingEvents.push(structuredClone(work))}) }
@@ -102,7 +106,12 @@ export class SerialStateStore {
     const chosen=records.map(r=>{const choice=script.scenes.flatMap(s=>s.choices).find(c=>c.id===r.choiceId)!;return{choiceId:r.choiceId,selected:r.selectedOptionIds.map(id=>{const option=choice.options.find(o=>o.id===id)!;return{id,label:option.label}})}})
     const declined=records.map(r=>{const choice=script.scenes.flatMap(s=>s.choices).find(c=>c.id===r.choiceId)!;return{choiceId:r.choiceId,options:choice.options.filter(o=>!r.selectedOptionIds.includes(o.id)).map(o=>({id:o.id,label:o.label}))}})
     const summary:EpisodeSummary={season:script.season,episodeId:script.episodeId,sceneId,chosen,declined,freeInputs:records.filter(r=>r.freeInput).map(r=>({choiceId:r.choiceId,input:r.freeInput!})),consequences:[...consequences],relationshipChanges:[...relationshipChanges],createdAt:new Date().toISOString()}
-    const state=await this.mutate(sessionId,expected,`episode_summary:${script.episodeId}`,s=>{s.playedCanon.episodeSummaries[script.episodeId]=summary;s.playedCanon.events.push(event('episode_summary',undefined,{summary}));for(const scene of script.scenes)if(!s.playedCanon.completedScenes.includes(scene.id))s.playedCanon.completedScenes.push(scene.id)})
+    const state=await this.mutate(sessionId,expected,`episode_summary:${script.episodeId}`,s=>{
+      s.playedCanon.episodeSummaries[script.episodeId]=summary;s.playedCanon.events.push(event('episode_summary',undefined,{summary}))
+      const authoredSceneIds=new Set(script.scenes.map(scene=>scene.id))
+      const playedSceneIds=s.playedCanon.events.flatMap(item=>item.type==='scene_entered'&&item.episodeId===script.episodeId&&item.sceneId!==undefined&&authoredSceneIds.has(item.sceneId)?[item.sceneId]:[])
+      for(const playedSceneId of playedSceneIds)if(!s.playedCanon.completedScenes.includes(playedSceneId))s.playedCanon.completedScenes.push(playedSceneId)
+    })
     return{state,summary}
   }
   async checkpoint(sessionId:string,label:string):Promise<{id:string;path:string}>{const source=this.path(sessionId);await this.read(sessionId);const id=`${Date.now()}_${this.safe(label).slice(0,50)}`;const target=join(this.directory(sessionId),'checkpoints',`${id}.json`);await mkdir(dirname(target),{recursive:true});await copyFile(source,target);return{id,path:target}}
