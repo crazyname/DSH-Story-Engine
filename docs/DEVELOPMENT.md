@@ -170,6 +170,18 @@ v1.0 不只是功能完成，还意味着 V1 公共契约被冻结并有明确�
 
 正式 RC/Stable 路线以 `NEXT_DEVELOPMENT_PLAN.md` 为准；在 Stage E 文档工作中建立 `COMPATIBILITY.md` 和 `RELEASE_CHECKLIST.md`，并在进入 1.0 RC 前完成评审。
 
+### Post-1.0 方向（非承诺路线）
+
+以下内容是方向性 backlog，不属于 V1 compatibility promise，也不构成已排期功能。具体是否进入 1.x、后续 major version 或被放弃，应在 v1.0 发布后的真实使用、维护成本和兼容性约束下重新评估。
+
+- **Gameplay / UX**：频道与消息搜索、收藏、引用回复、更丰富的消息/媒体表现、内容包主题和 UI 扩展。
+- **Authoring ecosystem**：更强的内容包制作工具、剧本可视化编辑与校验、lint、测试工具和作者 SDK。
+- **Runtime capabilities**：后台异步剧情事件、更复杂的 simulation module、更强的长期历史管理、checkpoint/receipt compaction 和诊断工具。
+- **Portability / Sync**：更完善的导入导出、可选云同步与多设备连续性。
+- **Possible 2.0 territory**：需要 breaking change 的 Runtime/API/Schema 重构、多人联机、移动端原生运行，以及任何无法在 V1 兼容承诺内安全演进的架构变化。
+
+2.0 不由“功能看起来很大”自动触发；只有当 V1 公共契约无法保持向后兼容时，才进入新的 major-version 设计与迁移评审。
+
 ## 7. 开源策略
 
 引擎采用 MIT。示例包必须是原创、CC0 或具备明确再发布授权。每个内容包必须声明 `license`；`packs/private`、运行存档、索引缓存和导入源文件默认不进入 Git。
@@ -223,6 +235,6 @@ git -C D:\DeepSeek-Harness status --short
 - `CURRENT_STATUS.md` 是实时事实的唯一入口；每次已验证里程碑或重要切片合并后更新。
 - `NEXT_DEVELOPMENT_PLAN.md` 只维护当前和未来任务、依赖及验收条件；已完成的大段实施细节不长期占据 roadmap。
 - 长期 Spec 只定义 normative behavior，不写“部分完成”“待验证”等短期状态；需要引用进度时链接 `CURRENT_STATUS.md`。
-- 历史报告只保留审计与纠偏价值，不改写成当前任务清单；后续可以统一移入 `docs/archive/`。
+- 历史报告只保留审计与纠偏价值，统一放在 `docs/archive/`；归档文件不要求随着当前实现持续更新。
 - 发布或预发布时同步两个 `package.json` 的版本，完成全套验证后再创建同名 Git 标签。
 - 内容包的 `version` 和各 Schema 的 `schemaVersion` 独立演进，不随产品版本机械修改。
