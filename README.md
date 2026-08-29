@@ -2,11 +2,13 @@
 
 基于 DeepSeek Harness 的开放文字游戏引擎。作者通过内容包导入原创或已获授权的世界观、人物、机制和剧情资料，AI 负责主持世界、NPC 与后果，玩家负责对话和选择。
 
-## 当前状态：v0.8.0-beta.1 测试版（阶段 C 部分完成）
+## 当前状态：v0.8.0-beta.1 测试版（阶段 D 开发中）
 
-已经实现 V1 内容包加载、DSH 外置插件、动态主持规则、全文与人物检索、逐记录无损读取、独立会话存档、版本锁、检查点、场景推进、原生选择界面、内容包安全安装、本地图形化管理页面、零代码内容包制作向导、连载式可执行剧本（v0.7），以及独立文字游戏界面（v0.8 阶段 A/B 完成，阶段 C 部分完成）：五类频道、结构化消息、宿主存档持久化、真实模型端到端闭环、选择卡、动态内容包目录、多存档、长回合刷新恢复，以及基于 DSH 会话分叉和 Runtime 克隆的真正另存为。
+已经实现 V1 内容包加载、DSH 外置插件、动态主持规则、全文与人物检索、逐记录无损读取、独立会话存档、版本锁、检查点、场景推进、原生选择界面、内容包安全安装、本地图形化管理页面、零代码内容包制作向导、连载式可执行剧本（v0.7），以及独立文字游戏界面（v0.8 阶段 A/B/C 完成）：五类频道、结构化消息、宿主存档持久化、真实模型端到端闭环、选择卡、动态内容包目录、多存档、长回合刷新恢复，以及基于 DSH 会话分叉和 Runtime 克隆的真正另存为。
 
-私人 Dispatch 续作包已作为本地私人内容包被引擎发现，原始游戏内容、只读存档快照和解析审计位于 `packs/private/dispatch-personal-continuation`，默认不会进入 Git。它目前缺少经过人工核对的 `ui/story-ui.json`，游戏库会显示“需诊断”并禁止新建；这不等于已经可以安装游玩。
+Stage D 已完成第一事务切片：AI canonical social result 使用真实 hidden DSH `turnId` 幂等提交，宿主允许 identical same-revision projection replay，同时保留 stale-write 冲突保护。当前继续推进 core runtime operation-level idempotency、durable transaction journal 和跨域 recovery。
+
+私人 Dispatch 续作包已作为本地私人内容包被引擎发现，原始游戏内容、只读存档快照和解析审计位于 `packs/private/dispatch-personal-continuation`，默认不会进入 Git。它目前缺少经过人工核对的 `ui/story-ui.json`，游戏库会显示“需诊断”并禁止新建；这不等于已经可以安装游玩，也不阻塞公开引擎 1.0 路线。
 
 当前唯一状态基线、版本含义和文档阅读顺序见 `docs/CURRENT_STATUS.md`；后续任务、优先级和验收标准见 `docs/NEXT_DEVELOPMENT_PLAN.md`。
 
@@ -46,4 +48,6 @@ npm test
 npm run build
 ```
 
-详细设计见 `docs/DEVELOPMENT.md`，宿主接口见 `docs/HOST_API.md`，内容包格式见 `docs/CONTENT_PACK_V1.md`，连载式游戏规则见 `docs/SERIAL_GAMEPLAY_SPEC.md`，独立文字游戏界面规范见 `docs/TEXT_GAME_SOCIAL_UI_SPEC.md`，分集剧本格式见 `schemas/episode-script.schema.json`，文字游戏界面描述格式见 `schemas/story-ui.schema.json`。`STAGE_A_REPORT.md`、`STAGE_B_PROGRESS.md`、`V07_IMPLEMENTATION_REPORT.md` 和 `ZCODE_IMPLEMENTATION_HANDOFF.md` 是历史交付记录，不作为当前任务清单。
+详细设计见 `docs/DEVELOPMENT.md`，宿主接口见 `docs/HOST_API.md`，内容包格式见 `docs/CONTENT_PACK_V1.md`，连载式游戏规则见 `docs/SERIAL_GAMEPLAY_SPEC.md`，独立文字游戏界面规范见 `docs/TEXT_GAME_SOCIAL_UI_SPEC.md`，事务/幂等/崩溃恢复契约见 `docs/TRANSACTION_AND_RECOVERY_SPEC.md`，分集剧本格式见 `schemas/episode-script.schema.json`，文字游戏界面描述格式见 `schemas/story-ui.schema.json`。
+
+历史交付、实施、交接和退役记录统一保存在 `docs/archive/`；它们只用于审计，不代表当前状态或当前开发任务。
