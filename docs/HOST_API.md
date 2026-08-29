@@ -6,7 +6,7 @@
 - 响应为 JSON，且设置 `cache-control: no-store`。
 - 写操作要求同源；请求体上限 2 MB。
 - 存档、内容包和会话 ID 只允许接口实现规定的安全字符。
-- 涉及 retry、operation identity、receipt 和崩溃恢复的通用语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
+- 涉及 retry、`transactionId`、`operationId`、receipt 和崩溃恢复的通用语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
 ## 存档
 
@@ -78,14 +78,19 @@ projection.revision == expectedRevision + 1
 
 客户端执行“另存为”的顺序固定为：DSH `session.fork` → 归档子会话 → 调用 Runtime 克隆 → 写入新的宿主投影和存档到会话映射。任一步失败都不得把原存档改写为副本。
 
-Runtime clone 必须保留已经属于源 canonical history 的幂等 receipts；否则 fork 后恢复一个历史 pending operation 可能再次应用已经发生的 core effect。新存档在 fork 之后产生的新玩家操作仍使用新的 operation identity。
+Runtime clone 必须保留已经属于源 canonical history 的 core operation receipts；否则 fork 后恢复历史请求时可能再次应用已经发生的 core effect。新存档在 fork 之后产生的新玩家工作流必须使用新的 `transactionId`，其新 core mutations 使用新的 `operationId`。
+
+如果未来 transaction journal 存在非终态记录，fork/另存为必须有明确策略：首版可以在存在非终态 transaction 时拒绝 fork，也可以先完成/取消并对账；不得无条件复制一个仍绑定旧 hidden `turnId` 的不完整 transaction。
 
 ## 未来事务接口边界
 
-当前 Host API 尚未声明通用 journal/operation endpoint。Stage D 后续若新增此类接口，必须遵守以下约束：
+当前 Host API 尚未声明通用 transaction journal / core operation endpoint。Stage D 后续若新增此类接口，必须遵守以下约束：
 
-- API 层传入的 `operationId` 不得在 retry 时自动替换；
+- 顶层 workflow 使用稳定 `transactionId`，retry/recovery 不得自动替换；
+- 一个 transaction 可以包含多个不同 core operations；每个 mutating operation 使用独立稳定 `operationId`；
+- API 层传入的 `operationId` 不得在 retry 时自动替换，也不得让同 transaction 中两个不同 mutations 共用同一 operation key；
 - matching receipt replay 必须返回原结果而不是重新执行 mutation；
-- 同 `operationId` 不同 request fingerprint 必须显式冲突；
+- 同 `operationId` 不同 request fingerprint 必须显式冲突，并保持原 receipt/journal 状态不变；
 - receipt 与 core canonical mutation 必须在 Runtime 持久层原子保存，不能只把 receipt 留在浏览器或 social projection；
+- transaction journal 必须能够持久关联 `transactionId`、hidden `turnId` 和 child `operationId`/step identities；
 - 不宣称跨浏览器、DSH 和 Runtime 存在分布式 exactly-once transaction。
