@@ -33,7 +33,7 @@
 - 玩家重新发起一个新的动作，即使文本完全相同，也必须生成新的 `transactionId`。
 - transaction journal 以 `transactionId` 为主要恢复身份。
 
-一个 transaction 可以包含 0、1 或多个 core canonical mutations，因此 `transactionId` 不能直接被假定为所有 `story_*` mutation 共用的 idempotency key。
+一个 transaction 可以包含 0、1 或多个 hidden DSH turns，也可以包含 0、1 或多个 core canonical mutations，因此 `transactionId` 不能直接被假定为所有 DSH turn 或 `story_*` mutation 共用的 idempotency key。
 
 ### 3.2 `operationId`
 
@@ -50,9 +50,15 @@
 
 ### 3.3 `turnId`
 
-隐藏 DSH AI 回合的稳定 ID。`turnId` 用于该 AI 回合生命周期以及 social canonical messages 的幂等提交。
+`turnId` 是一个实际隐藏 DSH AI turn 的身份。它用于该 turn 的生命周期以及由该 turn 最终产生的 social canonical messages 的幂等提交。
 
-`transactionId` 与 `turnId` 不是同一概念：transaction 在发送模型前已经存在；获得隐藏 DSH turn 后，把 `turnId` 写入 transaction journal。刷新恢复必须能够从 journal 找回这一映射。
+`transactionId` 与 `turnId` 不是同一概念：transaction 在发送模型前已经存在；一个 transaction 在选择继续、安全 retry 或其他控制续跑中可能关联多个 hidden turns。journal 至少要能记录：
+
+- 已知的 ordered turn references / attempts；
+- 当前 active/pending turn（如有）；
+- 哪个 completed `turnId` 最终产生了要提交的 canonical social result。
+
+只有实际产出该 canonical message sequence 的 `turnId` 才作为这组 social messages 的提交键。其他 retry/control turns 不能因为属于同一 transaction 而把玩家输入或 canonical result 重复提交。
 
 ### 3.4 request fingerprint
 
@@ -106,10 +112,11 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 1. 在短临界区内持久化 transaction intent；
 2. 释放锁；
 3. 执行模型/网络/选择等待；
-4. 对每个需要 canonical mutation 的步骤，在第一次执行前确定并持久化 `operationId`；
-5. 获得可验证结果后重新进入短临界区；
-6. 重新读取 transaction、operation receipt 与当前版本；
-7. 幂等提交 canonical effect。
+4. 获得新的 hidden `turnId` 后尽快把 turn reference 写回 journal；
+5. 对每个需要 canonical mutation 的步骤，在第一次执行前确定并持久化 `operationId`；
+6. 获得可验证结果后重新进入短临界区；
+7. 重新读取 transaction、operation receipt 与当前版本；
+8. 幂等提交 canonical effect。
 
 ## 5. Transaction Journal 状态
 
@@ -123,7 +130,7 @@ transaction journal 至少支持以下语义状态；实现可以使用不同字
 - `failed`：transaction 在尚无 canonical effect 时遇到确定性的、不可通过同请求重试修复的终态错误，例如 schema 或权限校验失败。
 - `needs-recovery`：发生进程退出、网络结果不确定或跨域提交中断，不能安全宣称 committed/failed；恢复器必须重新读取各域状态并幂等协调。
 
-journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input fingerprint、已知 `turnId`、child `operationId` 列表/step keys、必要 base revision/version 和时间戳。
+journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input fingerprint、已知 hidden turn references/active turn/canonical-result turn、child `operationId` 列表或 step keys、必要 base revision/version 和时间戳。
 
 `idempotency conflict` 是对错误调用的拒绝，不得自动改写已经存在的原 transaction/operation 状态。
 
@@ -159,7 +166,7 @@ journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input 
 
 隐藏 DSH AI 回合提交 canonical social messages 时：
 
-- 使用真实 `turnId` 作为该 AI result 的稳定提交键；
+- 使用**实际产出这组 canonical result 的真实 `turnId`**作为稳定提交键；
 - 同一 `turnId` + 相同 canonical message sequence 重放必须为严格 no-op；
 - no-op 不增加 projection revision，不生成新的 message ID；
 - 同一 `turnId` + 不同 canonical content 必须报告提交冲突；
@@ -176,15 +183,15 @@ journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input 
 
 ## 8. 跨域提交与恢复顺序
 
-一次 transaction 可能只影响 social projection，也可能包含多个 core operations 并最终投影 social 可见结果。
+一次 transaction 可能只影响 social projection，也可能包含多个 hidden turns、多个 core operations 并最终投影 social 可见结果。
 
 若一个 canonical effect 同时需要进入 core runtime 与 social 可见结果，对应 core operation 必须先形成可查询的 idempotent receipt，social projection 再投影**该 canonical effect 的可见结果**。如果 core 已经提交而 social 写入失败，恢复器通过 receipt 确认“不能再次应用该 core operation”，然后只补 social projection。
 
 玩家原始输入、pending indicator 或其他尚未表示 canonical result 的 UI intent 可以在 core commit 前被单独持久化；它们不能被当作“core effect 已经提交”的证明。
 
-对于只有 AI social messages、没有独立 core mutation 的 transaction，可以直接使用 `turnId` social idempotency + identical host replay，再 acknowledge hidden turn。
+对于只有 AI social messages、没有独立 core mutation 的 transaction，可以直接使用 canonical-result `turnId` social idempotency + identical host replay，再 acknowledge hidden turn。
 
-协调器不得把“最后一个 HTTP 请求是否成功返回”当作唯一事实来源。恢复时必须重新读取 transaction journal、core receipts/runtime state 与 host projection。
+协调器不得把“最后一个 HTTP 请求是否成功返回”当作唯一事实来源。恢复时必须重新读取 transaction journal、hidden DSH history/turn state（能力允许时）、core receipts/runtime state 与 host projection。
 
 ## 9. 必须支持的崩溃窗口
 
@@ -192,33 +199,45 @@ journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input 
 
 恢复：保留同一 `transactionId`；根据外部回合状态继续等待或安全重试。不得生成新 transaction。
 
-### 9.2 隐藏 DSH turn 已创建，journal 尚未完成后续步骤
+### 9.2 Hidden dispatch 结果不确定
 
-恢复：从 journal 中找到 transaction 与 `turnId` 映射；如果映射写入发生在不确定窗口，必须通过持久状态对账，不能盲目创建第二个隐藏 turn。
+最危险的窗口是：DSH 可能已经接受新的 hidden turn，但页面/进程在收到或持久化该 `turnId` 前退出。
 
-### 9.3 模型结果已完成，canonical commit 尚未开始
+优先策略：
 
-恢复：重新取得并校验已完成结果，再以原 `transactionId`、`turnId` 和已持久化 child operation identities 进入提交路径。
+1. 如果 DSH 支持客户端幂等键或可查询 correlation metadata，使用 `transactionId`/稳定 dispatch key 对账，恢复已存在 turn，而不是创建第二个。
+2. 如果只能通过 history/请求内容中的安全 correlation marker 可靠识别，则必须先完成对账再决定是否重发。
+3. 如果 DSH 既没有稳定幂等/metadata，也无法可靠从 history 判断，transaction 必须进入 `needs-recovery`；实现不得宣称 hidden transport exactly-once。
 
-### 9.4 某个 core operation 已提交，调用方在收到成功前崩溃
+在第三种情况下，如最终恢复策略不得不产生重复 hidden transcript artifact，这些重复 transport artifacts 仍然不是 canonical history。core `operationId` receipts 和 social `turnId` commit rules 必须保证它们不能重复应用 core effect 或重复进入 canonical social messages。该限制和 DSH 能力边界必须在 Stage D 集成测试中明确记录。
+
+### 9.3 多个 Hidden turns / retry continuation
+
+安全 retry、选择 continuation 或控制提示可能在同一 transaction 下创建新的 hidden `turnId`。恢复必须保留已有 turn references，不重新追加原始玩家输入；只有实际产生最终 canonical result 的 turn 才进入 social commit。
+
+### 9.4 模型结果已完成，canonical commit 尚未开始
+
+恢复：重新取得并校验已完成结果，再以原 `transactionId`、canonical-result `turnId` 和已持久化 child operation identities 进入提交路径。
+
+### 9.5 某个 core operation 已提交，调用方在收到成功前崩溃
 
 恢复：同一 `operationId` 命中 receipt，返回原结果，不重复应用状态；继续同一 transaction 中尚未完成的 operation/social projection。
 
-### 9.5 多个 core operations 只完成了一部分
+### 9.6 多个 core operations 只完成了一部分
 
 恢复：逐个检查 child `operationId` receipt；已 committed 的步骤只复用结果，未执行步骤才继续。不得通过重新执行整个 transaction 重复应用前半段。
 
-### 9.6 social projection 已写入宿主，pending AI turn 尚未 acknowledge
+### 9.7 social projection 已写入宿主，pending AI turn 尚未 acknowledge
 
-恢复：同一 `turnId` 的 social commit 为 no-op；identical same-revision host replay 成功；随后 acknowledge 并清除 pending completed turn。
+恢复：同一 canonical-result `turnId` 的 social commit 为 no-op；identical same-revision host replay 成功；随后 acknowledge 并清除 pending completed turn。
 
-### 9.7 用户取消后模型结果晚到
+### 9.8 用户取消后模型结果晚到
 
 恢复/轮询必须先读取持久取消状态。已经在 canonical commit 前持久化为 `cancelled` 的 transaction，不得因为晚到 history、流式片段、解析错误或 completed result 重新进入 commit/failed。
 
 如果 canonical effect 已在取消到达前提交，则不能把该事实倒改为未发生；剩余跨域状态按 `needs-recovery` 对账。
 
-### 9.8 同一 ID 被不同请求复用
+### 9.9 同一 ID 被不同请求复用
 
 同一 transaction 或 operation identity 被不同 fingerprint 复用时立即报告 conflict。不得选择其中一个请求静默覆盖，也不得自动生成新 ID 后继续执行；已有 journal/receipt 不得被该冲突调用改写。
 
@@ -232,11 +251,11 @@ v1 首版**不要求把整个客户端重写为完整 event sourcing**。
 transactionId
     ↓
 durable transaction journal
-    ├─ hidden DSH turnId lifecycle
+    ├─ hidden DSH turnId[] lifecycle / canonical-result turn
     ├─ core operationId → atomic receipt + core runtime canonical state
-    └─ turnId → StorySaveProjection canonical social commit
-                         ↓
-                         UI
+    └─ canonical-result turnId → StorySaveProjection social commit
+                                     ↓
+                                     UI
 ```
 
 权威边界：
@@ -252,11 +271,11 @@ Projection 不是 core receipt 的替代品；receipt 也不是 social projectio
 
 ## 11. Fork、另存为与身份
 
-`session.fork` / Runtime clone 创建新存档时，已有 canonical history 与用于证明这段历史的 receipts 应随 runtime 一起复制，从而保证恢复历史 pending operation 时不会重复应用已经发生的 core effect。
+`session.fork` / Runtime clone 创建新存档时，已有 canonical history 与用于证明这段历史的 receipts 应随 runtime 一起复制，从而保证恢复历史请求时不会重复应用已经发生的 core effect。
 
 复制后的新存档拥有新的 save/session scope。之后新产生的玩家 transaction 必须生成新的 `transactionId`，其 child operations 也生成新的 `operationId`；不能因为两个存档来自同一祖先而共享未来操作身份。
 
-如果 fork 时存在非终态 transaction，产品必须定义是禁止 fork、先完成/取消该 transaction，还是把其恢复映射显式复制到新存档；不得隐式复制一个仍指向旧隐藏 DSH turn 的不完整 transaction。首版可以选择在非终态 transaction 存在时禁止另存为。
+如果 fork 时存在非终态 transaction，产品必须定义是禁止 fork、先完成/取消该 transaction，还是把其完整恢复映射（包括所有必要 hidden turn references）显式迁移到新存档；不得隐式复制一个仍指向旧隐藏 DSH context 的不完整 transaction。首版可以选择在非终态 transaction 存在时禁止另存为。
 
 ## 12. Receipt 与 Journal 保留/压缩
 
@@ -274,16 +293,18 @@ Projection 不是 core receipt 的替代品；receipt 也不是 social projectio
 4. 同一 `transactionId` 被不同玩家 input fingerprint 复用时冲突。
 5. 一个 transaction 内两个不同 core mutations 使用不同 `operationId`，能够各自提交和重放。
 6. 首次 operation 提交成功后重试不增加 state version。
-7. core operation commit 后、social commit 前崩溃恢复。
-8. 多 operation transaction 在中间崩溃后只补未完成步骤。
-9. social host save 后、AI acknowledge 前崩溃恢复。
-10. `cancelled` 后晚到 completed result 不提交。
-11. canonical effect 已提交后才收到 cancel 时，不倒改历史并正确进入 reconciliation。
-12. stale expected version 与 idempotent replay 的优先级正确：已有 matching receipt 可以返回原结果；新的 stale operation 仍被拒绝。
-13. 两个 save 的相同/相似 transaction/operation 互不命中 receipt。
-14. fork 后历史 receipt 保持有效，新 transaction/operation 身份独立；非终态 transaction 的 fork 策略有测试。
-15. 进程重启后仍能发现并恢复非终态 journal 记录。
-16. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
+7. hidden dispatch 在 turnId 持久化前进入不确定状态时，按实际 DSH 能力进行 correlation/recovery，不盲目宣称 exactly-once。
+8. 同一 transaction 包含多个 hidden retry/continuation turns 时，不重复提交原始玩家输入，只提交最终 canonical result。
+9. core operation commit 后、social commit 前崩溃恢复。
+10. 多 operation transaction 在中间崩溃后只补未完成步骤。
+11. social host save 后、AI acknowledge 前崩溃恢复。
+12. `cancelled` 后晚到 completed result 不提交。
+13. canonical effect 已提交后才收到 cancel 时，不倒改历史并正确进入 reconciliation。
+14. stale expected version 与 idempotent replay 的优先级正确：已有 matching receipt 可以返回原结果；新的 stale operation 仍被拒绝。
+15. 两个 save 的相同/相似 transaction/operation 互不命中 receipt。
+16. fork 后历史 receipt 保持有效，新 transaction/operation 身份独立；非终态 transaction 的 fork 策略有测试。
+17. 进程重启后仍能发现并恢复非终态 journal 记录。
+18. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
 
 ## 14. 非目标
 
