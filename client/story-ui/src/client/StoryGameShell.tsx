@@ -397,6 +397,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
               <MessageRow key={message.id} message={message} scene={selected.kind === 'scene'} participants={projection.participants} />
             ))}
           </div>
+          {syncError !== undefined ? <div className={css.turnError} role="alert">存档或 AI 回合错误：{syncError}</div> : null}
           <div className={css.composer}>
             <textarea
               className={css.input}
