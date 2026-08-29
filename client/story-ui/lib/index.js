@@ -16,6 +16,7 @@ function summaryOf(value) {
 }
 var StoryProjectionStore = class {
 	root;
+	queues = /* @__PURE__ */ new Map();
 	constructor(root) {
 		this.root = root;
 	}
@@ -24,6 +25,22 @@ var StoryProjectionStore = class {
 	}
 	path(id) {
 		return join(this.directory(), `${safe(id)}.json`);
+	}
+	async exclusive(id, work) {
+		const previous = this.queues.get(id) ?? Promise.resolve();
+		let release;
+		const current = new Promise((resolve) => {
+			release = resolve;
+		});
+		const queued = previous.then(() => current);
+		this.queues.set(id, queued);
+		await previous;
+		try {
+			return await work();
+		} finally {
+			release();
+			if (this.queues.get(id) === queued) this.queues.delete(id);
+		}
 	}
 	async read(id) {
 		try {
@@ -49,26 +66,30 @@ var StoryProjectionStore = class {
 		return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 	}
 	async write(id, expectedRevision, value) {
-		const current = await this.read(id);
-		const revision = current === void 0 ? -1 : Number(current.revision);
-		if (revision !== expectedRevision) throw new Error(`存档版本冲突：当前 ${revision}，提交基于 ${expectedRevision}`);
-		if (value.saveId !== id || !Number.isInteger(value.revision) || current !== void 0 && Number(value.revision) !== expectedRevision + 1) throw new Error("存档 ID 或新版本无效");
-		const path = this.path(id);
-		await mkdir(dirname(path), { recursive: true });
-		const temporary = `${path}.${process.pid}.tmp`;
-		await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-		await rename(temporary, path);
-		return value;
+		return this.exclusive(id, async () => {
+			const current = await this.read(id);
+			const revision = current === void 0 ? -1 : Number(current.revision);
+			if (revision !== expectedRevision) throw new Error(`存档版本冲突：当前 ${revision}，提交基于 ${expectedRevision}`);
+			if (value.saveId !== id || !Number.isInteger(value.revision) || current !== void 0 && Number(value.revision) !== expectedRevision + 1) throw new Error("存档 ID 或新版本无效");
+			const path = this.path(id);
+			await mkdir(dirname(path), { recursive: true });
+			const temporary = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+			await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+			await rename(temporary, path);
+			return value;
+		});
 	}
 	/** Remove one save. Returns false when the save did not exist. */
 	async remove(id) {
-		try {
-			await rm(this.path(id));
-			return true;
-		} catch (error) {
-			if (error.code === "ENOENT") return false;
-			throw error;
-		}
+		return this.exclusive(id, async () => {
+			try {
+				await rm(this.path(id));
+				return true;
+			} catch (error) {
+				if (error.code === "ENOENT") return false;
+				throw error;
+			}
+		});
 	}
 };
 //#endregion
