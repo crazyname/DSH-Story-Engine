@@ -2,9 +2,9 @@
 
 ## 1. 文档状态
 
-本文定义 DSH Story Engine 后续图形界面的正式产品边界、交互结构、数据模型和实施顺序。它与 `SERIAL_GAMEPLAY_SPEC.md` 共同构成开发契约：后者规定游戏怎样运行，本文规定玩家怎样进入和操作游戏。
+本文定义 DSH Story Engine 图形界面的正式产品边界、交互结构、数据模型和阶段性能力边界。它与 `SERIAL_GAMEPLAY_SPEC.md`、`TRANSACTION_AND_RECOVERY_SPEC.md` 共同构成开发契约：前者规定游戏怎样运行，本文规定玩家怎样进入和操作游戏，事务规范规定 retry、幂等和跨域恢复怎样成立。
 
-当前对应版本为 `v0.8.0-beta.1` 测试版。本规范中的阶段 A/B 已完成，阶段 C 部分完成，阶段 D/E 尚未完成；具体实现状态与后续任务分别以 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 为准。
+本文是长期 normative contract，不记录短期完成度。当前实现状态与下一步任务分别以 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 为准。
 
 本文确认以下决策：
 
@@ -13,7 +13,7 @@
 - 普通聊天与文字游戏通过 DSH 侧边栏中的固定入口切换。
 - 普通会话、游戏频道、消息列表、草稿和存档不得在界面上混用。
 - 文字游戏可以在后台复用 DSH 的模型、工具、流式响应和会话能力。
-- `D:\DeepSeek-Harness` 保持原版；界面及适配代码在 `D:\DSH-Story-Engine` 中开发。
+- DSH 原版业务源码保持不修改；界面及适配代码在 Story Engine 项目中开发。
 
 ## 2. 产品目标
 
@@ -210,6 +210,8 @@ interface StoryMessage {
 
 同一个模型回合可以产生多条消息，并分别属于不同人物。运行时必须按提交顺序保存，不能把整次模型响应折叠为一个助手气泡。
 
+同一隐藏 DSH AI 回合的 canonical messages 使用真实 `turnId` 作为稳定提交身份。retry/recovery 重放相同 canonical sequence 必须为 no-op；同 `turnId` 的不同 canonical content 必须冲突。具体语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
+
 ### 8.2 消息呈现
 
 - 玩家角色默认右侧气泡。
@@ -236,16 +238,18 @@ interface StoryMessage {
 
 不同频道分别保存草稿。切换到普通聊天时，游戏草稿不得进入 DSH 普通输入框。
 
+可能产生 canonical effect 的逻辑玩家操作必须在首次外部调用前获得稳定 `operationId`；retry、刷新和恢复不得通过生成新 ID 把同一玩家输入再次提交。
+
 ## 10. AI 输出协议
 
-新增通用的结构化输出能力，建议提供以下工具或等价事务接口：
+结构化输出能力可以通过以下工具或等价事务接口提供：
 
 - `story_emit_messages`：一次提交一组带频道和发送者的消息。
 - `story_upsert_channel`：创建或修改私聊、群聊和场景频道。
 - `story_mark_episode_summary`：提交经可见性过滤的集末总结。
 - `story_pause_for_revision`：实质性越界时暂停并记录修订请求。
 
-`story_emit_messages` 必须先校验：
+`story_emit_messages` 或等价提交必须先校验：
 
 1. 内容包、存档、频道和人物存在。
 2. 发送者属于频道或是获准的旁白／系统身份。
@@ -253,6 +257,8 @@ interface StoryMessage {
 4. AI 未替玩家角色作出未经玩家输入的承诺、恋爱接受、道德决定或关键行动。
 5. 消息引用的事实没有越过人物知识边界。
 6. 所有消息校验成功后才原子提交，禁止半组写入。
+
+流式预览、模型自由文本和未经完整校验的结构化片段都不是正史，不得在解析失败时降级为 canonical narration。
 
 ## 11. 游戏状态与持久化
 
@@ -274,30 +280,42 @@ interface StoryMessage {
 
 - 不作为人物或群聊显示。
 - 不把原始助手文本直接当作游戏正史。
-- 只有通过结构化工具校验并提交的数据进入 `played_canon` 和 `social_state`。
+- 只有通过结构化校验和 canonical commit 的数据进入 `played_canon` 和 `social_state`。
 - 调试模式可以查看底层轨迹，普通游戏模式不显示。
 
-### 11.3 可回放事件
+### 11.3 Authoritative projection、journal 与历史
 
-频道和消息变化应写成带稳定 ID 的持久事件。客户端根据事件重建界面，实时追加、加载旧历史和完整重放必须得到同一结果。
+首版不要求把所有 UI 状态实现为完整 event sourcing。
 
-事件建议包括：
+`StorySaveProjection` 是客户端加载和恢复 social state 的权威投影，使用 revision 与宿主 optimistic locking 防止 stale writer。跨隐藏 DSH、core runtime 和 social projection 的可重试 canonical operation 使用稳定 ID、durable transaction journal 与 runtime receipts 负责幂等和崩溃恢复，具体见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
-- `story/channel-created`
-- `story/channel-updated`
-- `story/message-committed`
-- `story/message-retracted`
-- `story/read-cursor-updated`
-- `story/draft-updated`
-- `story/mode-state-updated`
+正式关系为：
 
-消息编辑或撤回不能静默覆盖历史，应保留修订原因和事件链。
+```text
+stable operation / turn IDs
+          ↓
+durable journal + runtime receipts
+          ↓
+authoritative runtime/social state
+          ↓
+StorySaveProjection
+          ↓
+UI
+```
+
+这意味着：
+
+- 客户端不得从模型原文、工具轨迹或 UI 临时状态猜测 canonical history；
+- projection snapshot 可以作为当前 social state 的高效加载形式；
+- journal/receipt 不能只存在浏览器内，它们用于证明跨域 operation 是否已经应用；
+- 未来可以增加 append-only domain events 用于审计、迁移或增量同步，但 v1 首版不要求草稿、阅读游标和每个 UI 改动都只能通过 event log 重建；
+- 消息编辑或撤回不能静默伪造从未发生过的历史，应保留明确的 retracted/revision 语义和必要原因。
 
 ## 12. DSH 集成方式
 
 ### 12.1 独立 Client 插件
 
-新增 Story Engine 浏览器侧插件，负责：
+Story Engine 浏览器侧插件负责：
 
 - 注册侧边栏“文字游戏”入口。
 - 管理普通聊天与游戏壳的可见模式。
@@ -305,9 +323,9 @@ interface StoryMessage {
 - 订阅 Story Engine 的会话投影和远程接口。
 - 保持普通 DSH 组件不被修改。
 
-DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插件不能直接依赖 DSH 仓库内未发布的全部构建预设，本项目需要维护一层很薄的客户端构建适配，并通过配置把构建产物装入 DSH。不得为了方便直接修改 `D:\DeepSeek-Harness` 的业务源码。
+DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插件不能直接依赖 DSH 仓库内未发布的全部构建预设，本项目维护一层很薄的客户端构建适配，并通过配置把构建产物装入 DSH。不得为了方便直接修改 DSH 原版业务源码。
 
-第一阶段优先使用 DSH 已有的两个增量扩展位，不替换其单占的 `sidebar`、`conversation` 或 `root`：
+首版优先使用 DSH 已有的两个增量扩展位，不替换其单占的 `sidebar`、`conversation` 或 `root`：
 
 - 在 `sidebar.footer.action` 注册“文字游戏”模式入口。
 - 在 `shell.overlay` 注册游戏壳；非游戏模式返回空内容，游戏模式以覆盖整个 AppFrame 的不透明交互层呈现独立界面。
@@ -318,11 +336,11 @@ DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插�
 
 ### 12.2 宿主侧插件
 
-现有 Story Engine 插件继续负责：
+Story Engine 宿主插件负责：
 
 - 内容包和存档权限边界。
 - 结构化工具与参数校验。
-- 持久化、检查点、版本锁和事务提交。
+- 持久化、检查点、版本锁、幂等 receipt 和事务提交。
 - 面向客户端提供完整投影，不让浏览器自行猜测剧情状态。
 
 ### 12.3 故障隔离
@@ -334,7 +352,7 @@ DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插�
 
 ## 13. 开源组件策略
 
-首选方案是复用 DSH 的 React 18、插槽、运行时和基础组件，自行实现社交叙事视图。
+首选方案是复用 DSH 的 React、插槽、运行时和基础组件，自行实现社交叙事视图。
 
 可参考或局部采用：
 
@@ -350,9 +368,11 @@ DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插�
 
 最终界面可以采用用户熟悉的社交软件结构，但不得复制微信名称、商标、官方图标、声音、素材或像素级设计。项目必须形成独立名称、主题和图标系统。
 
-## 14. 实施阶段
+## 14. 实施阶段定义
 
-### 阶段 A：界面壳与模式切换（已完成）
+本节定义阶段能力边界，不作为进度看板。阶段完成状态只在 `CURRENT_STATUS.md` 中维护。
+
+### 阶段 A：界面壳与模式切换
 
 - 默认启动普通聊天。
 - 侧边栏文字游戏入口。
@@ -360,35 +380,40 @@ DSH 的客户端插件采用专用 `dsh.client` bundle 格式。由于外置插�
 - 返回普通聊天并恢复两侧界面状态。
 - 使用模拟数据验证三栏布局。
 
-阶段 A 不接入真实 AI、游戏存档、Dispatch 私有内容或结构化消息持久化；它只负责证明外置 Client 插件的装载、模式隔离和独立界面布局。详细交接和验证要求见 `docs/ZCODE_IMPLEMENTATION_HANDOFF.md`。
+阶段 A 不要求真实 AI、游戏存档、私人内容或 canonical message commit；它只证明外置 Client 插件装载、模式隔离和独立界面布局。
 
-### 阶段 B：频道和消息域（已完成）
+### 阶段 B：频道和消息域
 
 - 人物、频道和结构化消息模型。
 - 私聊、群聊、现场、工作和系统频道。
 - 未读、草稿、置顶、滚动位置与重启恢复。
 - 旁白、对白、行动、选择和派遣卡片。
+- StorySaveProjection、宿主 revision 与客户端持久化队列。
 
-### 阶段 C：Host 与 AI 桥接（部分完成）
+### 阶段 C：Host 与 AI 桥接
 
-- 持久事件和客户端投影。
-- `story_emit_messages` 等结构化事务接口。
-- 流式生成的临时预览与提交后的正史区分。
-- 工具错误、取消和重试处理。
+- 每存档独立隐藏 DSH Session。
+- 结构化 AI result 提取和校验。
+- 流式临时预览与 committed canonical messages 分离。
+- queued/running/waiting-choice/completed/failed/cancelled AI turn 生命周期。
+- 用户取消、安全重试、刷新恢复、跨存档隔离和宿主冲突处理。
+- 选择卡在游戏壳内回答并支持恢复。
 
-### 阶段 D：连载玩法集成（未完成）
+### 阶段 D：连载玩法集成
 
+- 跨隐藏 DSH、social projection 与 core runtime 的 operation-level idempotency 和 durable recovery。
 - 季、集、场景与频道联动。
 - 工作内轻量输出和工作外详细剧情。
 - 越界暂停、剧本修订、校验和恢复。
 - 集末选择总结及下一集连续性。
 
-### 阶段 E：公开发布质量（未开始）
+### 阶段 E：公开发布质量
 
 - 主题、头像资源、响应式布局和键盘操作。
 - 无障碍、性能、长历史分页和存档迁移测试。
 - 原创示例内容包和插件开发文档。
 - 第三方许可证清单和发布审计。
+- V1 兼容、升级迁移和 release gate 文档。
 
 ## 15. 首版验收标准
 
