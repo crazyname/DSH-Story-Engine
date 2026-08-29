@@ -38,18 +38,19 @@ Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social 
 ### D2：Durable transaction journal 与跨域恢复
 
 - 在首次向隐藏 DSH/外部步骤调用前持久化 `transactionId`、input fingerprint 和恢复所需 intent/status。
-- 获得隐藏 DSH `turnId` 后，把 `transactionId ↔ turnId` 映射持久化。
+- journal 持久记录一个 transaction 已知的 ordered hidden `turnId` references、当前 active/pending turn，以及实际产生最终 canonical social result 的 `turnId`；选择 continuation 或安全 retry 可以在同一 transaction 下产生新的 hidden turn。
+- hidden dispatch 如果发生“DSH 可能已接受 turn、但客户端尚未拿到或持久化 `turnId`”的不确定窗口，必须按 DSH 实际支持的 idempotency/correlation/history 能力先对账；无法可靠判断时进入 `needs-recovery`，不宣称 transport exactly-once，也不盲目重发玩家输入。
 - journal 记录 child `operationId`/step identities，使多 mutation transaction 在中间崩溃后只补未完成步骤。
 - 不在等待模型、网络或用户选择期间持有 save/runtime 写锁。
 - 支持 `prepared`、`committed`、`cancelled`、`failed`、`needs-recovery` 的最低语义；AI bridge 自身的回合状态保持独立。
 - core canonical effect 存在时，先形成可查询的 core receipt，再投影该 effect 的 social 可见结果。
-- crash/restart 后重新读取 journal、core receipts/runtime state 与 host projection 进行 reconciliation，不用“最后一个 HTTP 是否成功返回”猜测事实。
+- crash/restart 后重新读取 journal、hidden DSH 可查询状态、core receipts/runtime state 与 host projection 进行 reconciliation，不用“最后一个 HTTP 是否成功返回”猜测事实。
 - `cancelled` 只适用于尚无 canonical effect 的 transaction；canonical effect 已落盘后收到取消时不得倒改历史，应完成 recovery/reconciliation。
-- 定义非终态 transaction 与“另存为”的边界；首版可选择非终态期间禁止 fork，而不是复制一个仍指向旧 hidden turn 的不完整 transaction。
+- 定义非终态 transaction 与“另存为”的边界；首版可选择非终态期间禁止 fork，而不是复制一个仍依赖旧 hidden context/turn references 的不完整 transaction。
 
 正式行为见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
-验收：至少覆盖 intent 后崩溃、hidden turn 映射恢复、模型完成后提交前崩溃、单/多 core operation 部分提交、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离、fork 边界和进程重启恢复。
+验收：至少覆盖 intent 后崩溃、hidden dispatch 不确定窗口的 correlation/recovery、同 transaction 多 hidden retry/continuation turns、模型完成后提交前崩溃、单/多 core operation 部分提交、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离、fork 边界和进程重启恢复。
 
 ### D3：季、集、场景与频道联动
 
@@ -80,7 +81,8 @@ Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social 
 7. 刷新恢复；
 8. 另存为后两个存档连续性独立；
 9. retry/recovery 不重复 core operation effect 或 canonical social messages；
-10. 一个 transaction 内存在多个 core mutations 时，部分提交后的恢复只补剩余步骤。
+10. 一个 transaction 内存在多个 core mutations 时，部分提交后的恢复只补剩余步骤；
+11. 一个 transaction 经过 hidden retry/continuation 后只提交实际 canonical-result turn 的消息，不重新追加原始玩家输入。
 
 只有上述链路在自动测试和真实浏览器中成立，Stage D 才可宣称完成。
 
