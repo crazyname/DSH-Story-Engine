@@ -46,6 +46,8 @@
 - fingerprint 相同：视为同一逻辑操作的重试或恢复；
 - fingerprint 不同：必须报告 **idempotency conflict**，不得覆盖旧 receipt，也不得当作新操作执行。
 
+发生 conflict 时，已有 operation/journal/receipt 的状态保持不变。尤其不能把一个已经 `committed` 的原操作改写成 `failed`。
+
 ### 3.4 receipt
 
 已经成功应用 canonical effect 后保存的持久结果。receipt 至少能够证明：
@@ -96,9 +98,13 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 
 - `prepared`：操作意图已经持久化，尚无 canonical effect。
 - `committed`：所有本操作要求的 canonical effects 已确认，receipt 可用于重放。
-- `cancelled`：在 canonical commit 前持久化取消；这是终态，之后晚到的模型结果不能提交。
-- `failed`：确定性的、不可通过同请求重试修复的终态错误，例如 schema/权限/idempotency conflict。
+- `cancelled`：在任何 canonical effect 应用前持久化取消；这是终态，之后晚到的模型结果不能提交。
+- `failed`：该 operation 本身在尚无 canonical effect 时遇到确定性的、不可通过同请求重试修复的终态错误，例如 schema 或权限校验失败。
 - `needs-recovery`：发生进程退出、网络结果不确定或跨域提交中断，不能安全宣称 committed/failed；恢复器必须重新读取各域状态并幂等协调。
+
+`idempotency conflict` 是对错误调用的拒绝，不得自动改写已经存在的原 operation 状态。
+
+一旦某个 canonical effect 已经提交，后续用户取消不能把该 effect 回滚并把整个 operation 改写成 `cancelled`。如果仍有其他域尚未完成，应进入或保持 `needs-recovery`，完成对账后收敛到 `committed` 或明确的人工诊断状态。
 
 实现可以增加 `running`、`external-complete`、`committing` 等中间状态，但这些状态不能成为绕过 receipt/idempotency 检查的另一套提交路径。
 
@@ -110,7 +116,7 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 
 1. 查找 `operationId` 对应 receipt。
 2. 若 receipt 存在且 fingerprint 相同，直接返回原结果；不得增加 state version，不得重复追加事件或再次应用状态变化。
-3. 若 receipt 存在但 fingerprint 不同，报告 idempotency conflict。
+3. 若 receipt 存在但 fingerprint 不同，报告 idempotency conflict，并保持原 receipt/operation 不变。
 4. 若 receipt 不存在，再校验 expected version、当前 episode/scene、选择可用性和其他领域前置条件。
 5. 应用一次 canonical mutation。
 6. 在**同一次持久化提交**中写入 receipt。
@@ -148,7 +154,9 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 
 一次操作可能只影响 social projection，也可能同时影响 core runtime 与 social projection。
 
-若存在 core canonical mutation，core runtime 必须先形成可查询的 idempotent receipt，social projection 再投影其可见结果。原因是：如果 core 已经提交而 social 写入失败，恢复器可以通过 receipt 确认“不能再次应用 core effect”，然后只补 social projection。
+若一个逻辑操作产生需要同时进入 core canonical state 与 social 可见结果的 effect，core runtime 必须先形成可查询的 idempotent receipt，social projection 再投影**该 canonical effect 的可见结果**。如果 core 已经提交而 social 写入失败，恢复器通过 receipt 确认“不能再次应用 core effect”，然后只补 social projection。
+
+玩家原始输入、pending indicator 或其他尚未表示 canonical result 的 UI intent 可以在 core commit 前被单独持久化；它们不能被当作“core effect 已经提交”的证明。
 
 对于只有 AI social messages、没有独立 core mutation 的回合，可以直接使用 `turnId` social idempotency + identical host replay，再 acknowledge hidden turn。
 
@@ -174,11 +182,13 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 
 ### 9.5 用户取消后模型结果晚到
 
-恢复/轮询必须先读取持久取消状态。已经 `cancelled` 的操作不得因为晚到 history、流式片段、解析错误或 completed result 重新进入 commit/failed。
+恢复/轮询必须先读取持久取消状态。已经在 canonical commit 前持久化为 `cancelled` 的操作，不得因为晚到 history、流式片段、解析错误或 completed result 重新进入 commit/failed。
+
+如果 canonical effect 已在取消到达前提交，则不能把该事实倒改为未发生；剩余跨域状态按 `needs-recovery` 对账。
 
 ### 9.6 同一 ID 被不同请求复用
 
-立即报告 idempotency conflict。不得选择其中一个请求静默覆盖，也不得自动生成新 ID 后继续执行。
+立即报告 idempotency conflict。不得选择其中一个请求静默覆盖，也不得自动生成新 ID 后继续执行；已有 operation/journal/receipt 不得被该冲突调用改写。
 
 ## 10. Journal 与 Projection 的关系
 
@@ -223,16 +233,17 @@ Projection 不是 receipt 的替代品；receipt 也不要求 UI 直接消费。
 
 1. 同一 `operationId` 顺序重放，只应用一次 effect。
 2. 同一 `operationId` 并发重放，只应用一次 effect。
-3. 同一 `operationId` + 不同 payload/fingerprint 冲突。
+3. 同一 `operationId` + 不同 payload/fingerprint 冲突，并且不改变原 operation/receipt 状态。
 4. 首次提交成功后重试不增加 state version。
 5. core commit 后、social commit 前崩溃恢复。
 6. social host save 后、AI acknowledge 前崩溃恢复。
 7. `cancelled` 后晚到 completed result 不提交。
-8. stale expected version 与 idempotent replay 的优先级正确：已有 matching receipt 可以返回原结果；新的 stale operation 仍被拒绝。
-9. 两个 save 的相同/相似操作互不命中 receipt。
-10. fork 后历史 receipt 保持有效，新操作身份独立。
-11. 进程重启后仍能发现并恢复非终态 journal 记录。
-12. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
+8. canonical effect 已提交后才收到 cancel 时，不倒改历史并正确进入 reconciliation。
+9. stale expected version 与 idempotent replay 的优先级正确：已有 matching receipt 可以返回原结果；新的 stale operation 仍被拒绝。
+10. 两个 save 的相同/相似操作互不命中 receipt。
+11. fork 后历史 receipt 保持有效，新操作身份独立。
+12. 进程重启后仍能发现并恢复非终态 journal 记录。
+13. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
 
 ## 14. 非目标
 
