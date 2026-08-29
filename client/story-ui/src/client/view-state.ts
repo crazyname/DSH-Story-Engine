@@ -16,6 +16,9 @@ export interface GameViewState {
   readonly rightOpen: boolean
 }
 
+/** Ephemeral shell errors keyed by save so late async failures cannot leak across saves. */
+export type SaveErrorState = Readonly<Record<string, string>>
+
 export type PanelSide = 'left' | 'right'
 
 /** Initial state: first pinned channel, empty drafts, both columns open. */
@@ -41,6 +44,24 @@ export function setDraft(state: GameViewState, channelId: string, text: string):
   const previous = state.drafts[channelId] ?? ''
   if (previous === text) return state
   return { ...state, drafts: { ...state.drafts, [channelId]: text } }
+}
+
+/** Read only the error belonging to the selected save. */
+export function saveErrorFor(state: SaveErrorState, saveId: string): string | undefined {
+  return state[saveId]
+}
+
+/** Set or clear one save's error without disturbing errors belonging to other saves. */
+export function updateSaveError(state: SaveErrorState, saveId: string, error: string | undefined): SaveErrorState {
+  const previous = state[saveId]
+  if (previous === error) return state
+  if (error === undefined) {
+    if (previous === undefined) return state
+    const next = { ...state }
+    delete next[saveId]
+    return next
+  }
+  return { ...state, [saveId]: error }
 }
 
 export function togglePanel(state: GameViewState, side: PanelSide): GameViewState {
