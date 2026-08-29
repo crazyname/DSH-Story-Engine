@@ -210,7 +210,7 @@ interface StoryMessage {
 
 同一个模型回合可以产生多条消息，并分别属于不同人物。运行时必须按提交顺序保存，不能把整次模型响应折叠为一个助手气泡。
 
-同一隐藏 DSH AI 回合的 canonical messages 使用真实 `turnId` 作为稳定提交身份。retry/recovery 重放相同 canonical sequence 必须为 no-op；同 `turnId` 的不同 canonical content 必须冲突。具体语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
+实际产出某组 canonical messages 的隐藏 DSH AI 回合使用其真实 `turnId` 作为稳定提交身份。一个玩家 transaction 可以包含多个 retry/continuation turns，但只有 canonical-result turn 的消息进入该次 social commit。retry/recovery 重放相同 canonical sequence 必须为 no-op；同 `turnId` 的不同 canonical content 必须冲突。具体语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
 ### 8.2 消息呈现
 
@@ -238,7 +238,7 @@ interface StoryMessage {
 
 不同频道分别保存草稿。切换到普通聊天时，游戏草稿不得进入 DSH 普通输入框。
 
-可能产生 canonical effect 的顶层玩家提交必须在首次隐藏 DSH/外部调用前获得稳定 `transactionId`。如果该 transaction 中需要调用一个或多个 mutating core `story_*` 操作，每个原子 mutation 使用自己的稳定 `operationId`。retry、刷新和恢复不得通过生成新 transaction/operation identity 把同一玩家输入或已完成 core mutation 再提交一次。
+可能产生 canonical effect 的顶层玩家提交必须在首次隐藏 DSH/外部调用前获得稳定 `transactionId`。如果该 transaction 中需要调用一个或多个 mutating core `story_*` 操作，每个原子 mutation 使用自己的稳定 `operationId`。retry、刷新和恢复不得通过生成新 transaction/operation identity 把同一玩家输入或已完成 core mutation 再提交一次；同一 transaction 下产生新的 hidden continuation turn 也不得重新追加原始玩家输入。
 
 ## 10. AI 输出协议
 
@@ -295,18 +295,19 @@ interface StoryMessage {
 transactionId
     ↓
 durable transaction journal
-    ├─ hidden DSH turnId lifecycle
+    ├─ hidden DSH turnId[] lifecycle / active / canonical-result turn
     ├─ core operationId → receipt + core runtime canonical state
-    └─ turnId → StorySaveProjection canonical social commit
-                         ↓
-                         UI
+    └─ canonical-result turnId → StorySaveProjection canonical social commit
+                                      ↓
+                                      UI
 ```
 
 这意味着：
 
 - core runtime 是 `played_canon`、当前 episode/scene、选择和后果等游戏 canonical state 的权威来源；
 - `StorySaveProjection` 是当前 social/UI state 的宿主持久化权威投影，但不能反向覆盖 core canonical truth；
-- transaction journal 保存跨域恢复身份和阶段，operation receipts 证明具体 core mutation 是否已经应用；
+- transaction journal 保存跨域恢复身份和阶段，包括 hidden turn references；operation receipts 证明具体 core mutation 是否已经应用；
+- hidden dispatch 结果不确定时必须按 DSH 实际支持的 correlation/history 能力对账；无法可靠判断时进入 `needs-recovery`，不能通过盲目创建新 turn 宣称 exactly-once；
 - 客户端不得从模型原文、工具轨迹或 UI 临时状态猜测 canonical history；
 - UI 主要读取 projection，不直接消费 runtime receipts；
 - 未来可以增加 append-only domain events 用于审计、迁移或增量同步，但 v1 首版不要求草稿、阅读游标和每个 UI 改动都只能通过 event log 重建；
@@ -402,7 +403,7 @@ Story Engine 宿主插件负责：
 
 ### 阶段 D：连载玩法集成
 
-- transaction-level journal、隐藏 `turnId` 映射、core operation-level idempotency/receipts 和 durable recovery。
+- transaction-level journal、hidden turn references/active/canonical-result turn、core operation-level idempotency/receipts 和 durable recovery。
 - 季、集、场景与频道联动。
 - 工作内轻量输出和工作外详细剧情。
 - 越界暂停、剧本修订、校验和恢复。
