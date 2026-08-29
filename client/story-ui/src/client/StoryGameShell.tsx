@@ -180,6 +180,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   }, [active])
 
   const selected = projection.channels.find(channel => channel.id === view.selectedChannelId) ?? projection.channels[0]!
+  const playerId=projection.participants.find(participant=>participant.role==='player')?.id
   const channelMessages = useMemo(() => projection.messages.filter(message => message.channelId === selected.id), [selected.id,projection.messages])
   const draft = projection.drafts[selected.id] ?? ''
   const turn=aiTurn(projection.saveId)
@@ -403,12 +404,12 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
         <main className={css.messagePane} aria-label="频道消息">
           <div className={css.messageList}>
             {channelMessages.map(message => (
-              <MessageRow key={message.id} message={message} scene={selected.kind === 'scene'} participants={projection.participants} />
+              <MessageRow key={message.id} message={message} scene={selected.kind === 'scene'} participants={projection.participants} playerId={playerId} />
             ))}
             {turn?.preview?.channelId===selected.id ? (
               <section className={css.preview} aria-live="polite" aria-label="AI 临时预览">
                 <div className={css.previewLabel}>AI 临时预览（尚未写入剧情）</div>
-                {turn.preview.messages.map((message,index)=><MessageRow key={`${turn.preview!.turnId}-${index}`} message={{...message,id:`preview-${index}`,createdAt:'',senderId:message.senderId}} scene={selected.kind === 'scene'} participants={projection.participants} />)}
+                {turn.preview.messages.map((message,index)=><MessageRow key={`${turn.preview!.turnId}-${index}`} message={{...message,id:`preview-${index}`,createdAt:'',senderId:message.senderId}} scene={selected.kind === 'scene'} participants={projection.participants} playerId={playerId} />)}
               </section>
             ) : null}
           </div>
@@ -473,13 +474,13 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
 }
 
 /** Render one structured mock message with the right visual class. */
-function MessageRow({ message, scene, participants }: { message: {
+function MessageRow({ message, scene, participants, playerId }: { message: {
   id: string
   senderId: string
   kind: StoryMessage['kind']
   content: string
   createdAt: string
-}, scene: boolean, participants:StorySaveProjection['participants'] }) {
+}, scene: boolean, participants:StorySaveProjection['participants'],playerId:string|undefined }) {
   const sender = participants.find(participant=>participant.id===message.senderId)
   const name = sender === undefined ? message.senderId : sender.heroNameZh ?? sender.realNameZh
   if (message.kind === 'narration') {
@@ -491,7 +492,7 @@ function MessageRow({ message, scene, participants }: { message: {
   if (message.kind === 'choice') {
     return <div className={css.choiceCard}>{message.content}</div>
   }
-  const mine = message.senderId === 'p-player'
+  const mine = message.senderId === playerId
   if (message.kind === 'action') {
     return <div className={mine ? css.actionMine : css.actionOther}>（{name}）{message.content}</div>
   }

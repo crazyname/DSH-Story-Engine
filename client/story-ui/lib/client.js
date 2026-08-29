@@ -57,8 +57,8 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameAction_module_css_default = {
-			"railAction": "s-a98a_railAction",
 			"action": "s-a98a_action",
+			"railAction": "s-a98a_railAction",
 			"label": "s-a98a_label"
 		};
 		//#endregion
@@ -606,21 +606,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"optionLabel": "gbf0-a_optionLabel",
-			"overlay": "gbf0-a_overlay",
-			"detail": "gbf0-a_detail",
-			"headerRow": "gbf0-a_headerRow",
-			"eyebrow": "gbf0-a_eyebrow",
-			"optionDesc": "gbf0-a_optionDesc",
-			"input": "gbf0-a_input",
-			"send": "gbf0-a_send",
-			"option": "gbf0-a_option",
-			"composer": "gbf0-a_composer",
 			"question": "gbf0-a_question",
-			"card": "gbf0-a_card",
-			"options": "gbf0-a_options",
 			"optionActive": "gbf0-a_optionActive",
-			"dismiss": "gbf0-a_dismiss"
+			"optionDesc": "gbf0-a_optionDesc",
+			"headerRow": "gbf0-a_headerRow",
+			"detail": "gbf0-a_detail",
+			"send": "gbf0-a_send",
+			"composer": "gbf0-a_composer",
+			"option": "gbf0-a_option",
+			"dismiss": "gbf0-a_dismiss",
+			"optionLabel": "gbf0-a_optionLabel",
+			"input": "gbf0-a_input",
+			"options": "gbf0-a_options",
+			"eyebrow": "gbf0-a_eyebrow",
+			"overlay": "gbf0-a_overlay",
+			"card": "gbf0-a_card"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -762,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
-			"logo": "Gwgdiq_logo",
-			"packList": "Gwgdiq_packList",
-			"opDanger": "Gwgdiq_opDanger",
-			"packTitle": "Gwgdiq_packTitle",
-			"saveList": "Gwgdiq_saveList",
-			"packInfo": "Gwgdiq_packInfo",
 			"badge": "Gwgdiq_badge",
-			"body": "Gwgdiq_body",
-			"packDesc": "Gwgdiq_packDesc",
-			"packMeta": "Gwgdiq_packMeta",
-			"exit": "Gwgdiq_exit",
-			"saveRow": "Gwgdiq_saveRow",
-			"tagline": "Gwgdiq_tagline",
-			"headerTitle": "Gwgdiq_headerTitle",
-			"saveMeta": "Gwgdiq_saveMeta",
-			"saveName": "Gwgdiq_saveName",
-			"saveAction": "Gwgdiq_saveAction",
 			"saveItem": "Gwgdiq_saveItem",
-			"pack": "Gwgdiq_pack",
-			"packHead": "Gwgdiq_packHead",
-			"library": "Gwgdiq_library",
 			"header": "Gwgdiq_header",
-			"newGame": "Gwgdiq_newGame",
-			"error": "Gwgdiq_error",
-			"empty": "Gwgdiq_empty",
+			"packMeta": "Gwgdiq_packMeta",
+			"saveAction": "Gwgdiq_saveAction",
+			"saveMeta": "Gwgdiq_saveMeta",
+			"exit": "Gwgdiq_exit",
+			"packList": "Gwgdiq_packList",
+			"saveName": "Gwgdiq_saveName",
 			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"saveRow": "Gwgdiq_saveRow",
+			"logo": "Gwgdiq_logo",
+			"tagline": "Gwgdiq_tagline",
+			"body": "Gwgdiq_body",
+			"saveList": "Gwgdiq_saveList",
+			"empty": "Gwgdiq_empty",
+			"opButton": "Gwgdiq_opButton",
+			"library": "Gwgdiq_library",
+			"pack": "Gwgdiq_pack",
 			"saveOps": "Gwgdiq_saveOps",
-			"opButton": "Gwgdiq_opButton"
+			"headerTitle": "Gwgdiq_headerTitle",
+			"packHead": "Gwgdiq_packHead",
+			"packTitle": "Gwgdiq_packTitle",
+			"error": "Gwgdiq_error",
+			"packInfo": "Gwgdiq_packInfo",
+			"packDesc": "Gwgdiq_packDesc",
+			"opDanger": "Gwgdiq_opDanger",
+			"newGame": "Gwgdiq_newGame"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -979,54 +979,54 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"iconButton": "p8FQLq_iconButton",
-			"channelTitle": "p8FQLq_channelTitle",
-			"flipIcon": "p8FQLq_flipIcon",
-			"turnError": "p8FQLq_turnError",
-			"channelName": "p8FQLq_channelName",
-			"messagePane": "p8FQLq_messagePane",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"preview": "p8FQLq_preview",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"channelLast": "p8FQLq_channelLast",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"detailPane": "p8FQLq_detailPane",
-			"memberItem": "p8FQLq_memberItem",
-			"libraryButton": "p8FQLq_libraryButton",
-			"cancelButton": "p8FQLq_cancelButton",
-			"detailBody": "p8FQLq_detailBody",
-			"topbar": "p8FQLq_topbar",
-			"narration": "p8FQLq_narration",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"channelList": "p8FQLq_channelList",
-			"channelPane": "p8FQLq_channelPane",
-			"detailText": "p8FQLq_detailText",
-			"choiceCard": "p8FQLq_choiceCard",
-			"previewLabel": "p8FQLq_previewLabel",
-			"detailSection": "p8FQLq_detailSection",
-			"memberList": "p8FQLq_memberList",
-			"frameLabel": "p8FQLq_frameLabel",
-			"messageList": "p8FQLq_messageList",
-			"systemNote": "p8FQLq_systemNote",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"sendButton": "p8FQLq_sendButton",
 			"topbarTitle": "p8FQLq_topbarTitle",
-			"input": "p8FQLq_input",
-			"shell": "p8FQLq_shell",
-			"paneHeader": "p8FQLq_paneHeader",
-			"actionMine": "p8FQLq_actionMine",
-			"memberAvatar": "p8FQLq_memberAvatar",
-			"choiceError": "p8FQLq_choiceError",
-			"composer": "p8FQLq_composer",
-			"channelItem": "p8FQLq_channelItem",
-			"senderName": "p8FQLq_senderName",
-			"retryButton": "p8FQLq_retryButton",
-			"backButton": "p8FQLq_backButton",
-			"actionOther": "p8FQLq_actionOther",
-			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"detailSection": "p8FQLq_detailSection",
 			"body": "p8FQLq_body",
+			"messageList": "p8FQLq_messageList",
+			"choiceError": "p8FQLq_choiceError",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
+			"systemNote": "p8FQLq_systemNote",
+			"narration": "p8FQLq_narration",
+			"cancelButton": "p8FQLq_cancelButton",
+			"actionMine": "p8FQLq_actionMine",
+			"channelLast": "p8FQLq_channelLast",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"shell": "p8FQLq_shell",
+			"iconButton": "p8FQLq_iconButton",
+			"memberList": "p8FQLq_memberList",
+			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"detailBody": "p8FQLq_detailBody",
+			"demoNote": "p8FQLq_demoNote",
+			"frameLabel": "p8FQLq_frameLabel",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"input": "p8FQLq_input",
+			"channelItem": "p8FQLq_channelItem",
+			"channelTitle": "p8FQLq_channelTitle",
+			"messagePane": "p8FQLq_messagePane",
+			"topbar": "p8FQLq_topbar",
+			"sendButton": "p8FQLq_sendButton",
+			"memberItem": "p8FQLq_memberItem",
+			"backButton": "p8FQLq_backButton",
+			"turnError": "p8FQLq_turnError",
+			"bubbleOther": "p8FQLq_bubbleOther",
+			"channelName": "p8FQLq_channelName",
+			"choiceCard": "p8FQLq_choiceCard",
+			"flipIcon": "p8FQLq_flipIcon",
 			"channelKind": "p8FQLq_channelKind",
-			"demoNote": "p8FQLq_demoNote"
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"senderName": "p8FQLq_senderName",
+			"detailText": "p8FQLq_detailText",
+			"channelList": "p8FQLq_channelList",
+			"preview": "p8FQLq_preview",
+			"libraryButton": "p8FQLq_libraryButton",
+			"previewLabel": "p8FQLq_previewLabel",
+			"paneHeader": "p8FQLq_paneHeader",
+			"actionOther": "p8FQLq_actionOther",
+			"channelPane": "p8FQLq_channelPane",
+			"composer": "p8FQLq_composer",
+			"retryButton": "p8FQLq_retryButton",
+			"detailPane": "p8FQLq_detailPane"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1202,6 +1202,7 @@ window.__ModuleLoader__.load({
 				};
 			}, [active]);
 			const selected = projection.channels.find((channel) => channel.id === view.selectedChannelId) ?? projection.channels[0];
+			const playerId = projection.participants.find((participant) => participant.role === "player")?.id;
 			const channelMessages = (0, react.useMemo)(() => projection.messages.filter((message) => message.channelId === selected.id), [selected.id, projection.messages]);
 			const draft = projection.drafts[selected.id] ?? "";
 			const turn = aiTurn(projection.saveId);
@@ -1533,7 +1534,8 @@ window.__ModuleLoader__.load({
 										children: [channelMessages.map((message) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
 											message,
 											scene: selected.kind === "scene",
-											participants: projection.participants
+											participants: projection.participants,
+											playerId
 										}, message.id)), turn?.preview?.channelId === selected.id ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 											className: StoryGameShell_module_css_default.preview,
 											"aria-live": "polite",
@@ -1549,7 +1551,8 @@ window.__ModuleLoader__.load({
 													senderId: message.senderId
 												},
 												scene: selected.kind === "scene",
-												participants: projection.participants
+												participants: projection.participants,
+												playerId
 											}, `${turn.preview.turnId}-${index}`))]
 										}) : null]
 									}),
@@ -1671,7 +1674,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** Render one structured mock message with the right visual class. */
-		function MessageRow({ message, scene, participants }) {
+		function MessageRow({ message, scene, participants, playerId }) {
 			const sender = participants.find((participant) => participant.id === message.senderId);
 			const name = sender === void 0 ? message.senderId : sender.heroNameZh ?? sender.realNameZh;
 			if (message.kind === "narration") return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -1686,7 +1689,7 @@ window.__ModuleLoader__.load({
 				className: StoryGameShell_module_css_default.choiceCard,
 				children: message.content
 			});
-			const mine = message.senderId === "p-player";
+			const mine = message.senderId === playerId;
 			if (message.kind === "action") return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: mine ? StoryGameShell_module_css_default.actionMine : StoryGameShell_module_css_default.actionOther,
 				children: [
