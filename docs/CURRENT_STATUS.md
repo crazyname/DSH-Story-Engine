@@ -29,7 +29,7 @@
 
 ## 尚未完成
 
-- 阶段 D：跨隐藏 DSH、social projection 与 core runtime 的事务/幂等边界仍需完整收紧；当前第一切片正在处理“已完成 AI turn 的 canonical social 消息提交幂等”，尚待本地验证。之后还需为会修改 core runtime 的 `story_*` 操作建立独立幂等/恢复契约。
+- 阶段 D：跨隐藏 DSH、social projection 与 core runtime 的事务/幂等边界仍需完整收紧；当前第一切片已经实现“已完成 AI turn 的 canonical social 消息提交幂等”和宿主 identical replay，源码与跟踪 node/client 产物已同步，尚待本地自动测试与 crash-window 浏览器验收。之后还需为会修改 core runtime 的 `story_*` 操作建立独立幂等/恢复契约。
 - 阶段 D：季/集/场景与频道的完整自动联动、工作内轻量结算的正式界面、越界修订操作界面、集末总结界面。
 - 阶段 E：无障碍、长历史分页、存档迁移矩阵、主题/头像、发布审计和第三方许可证清单。
 - 存档重命名、覆盖保存、封面等游戏库细节。
