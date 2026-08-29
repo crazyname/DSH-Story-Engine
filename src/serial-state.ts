@@ -108,8 +108,7 @@ export class SerialStateStore {
     const summary:EpisodeSummary={season:script.season,episodeId:script.episodeId,sceneId,chosen,declined,freeInputs:records.filter(r=>r.freeInput).map(r=>({choiceId:r.choiceId,input:r.freeInput!})),consequences:[...consequences],relationshipChanges:[...relationshipChanges],createdAt:new Date().toISOString()}
     const state=await this.mutate(sessionId,expected,`episode_summary:${script.episodeId}`,s=>{
       s.playedCanon.episodeSummaries[script.episodeId]=summary;s.playedCanon.events.push(event('episode_summary',undefined,{summary}))
-      const authoredSceneIds=new Set(script.scenes.map(scene=>scene.id))
-      const playedSceneIds=s.playedCanon.events.flatMap(item=>item.type==='scene_entered'&&item.episodeId===script.episodeId&&item.sceneId!==undefined&&authoredSceneIds.has(item.sceneId)?[item.sceneId]:[])
+      const playedSceneIds=s.playedCanon.events.flatMap(item=>item.type==='scene_entered'&&item.episodeId===script.episodeId&&item.sceneId!==undefined?[item.sceneId]:[])
       for(const playedSceneId of playedSceneIds)if(!s.playedCanon.completedScenes.includes(playedSceneId))s.playedCanon.completedScenes.push(playedSceneId)
     })
     return{state,summary}
