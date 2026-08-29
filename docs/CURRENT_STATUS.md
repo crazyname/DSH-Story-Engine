@@ -2,13 +2,13 @@
 
 ## 唯一状态基线
 
-- 产品开发版本：`v0.8.0-alpha.1`。
-- 核心包 `dsh-story-engine`：`0.8.0-alpha.1`。
-- 客户端包 `dsh-story-client`：`0.8.0-alpha.1`。
+- 产品开发版本：`v0.8.0-beta.1`（GitHub 测试版）。
+- 核心包 `dsh-story-engine`：`0.8.0-beta.1`。
+- 客户端包 `dsh-story-client`：`0.8.0-beta.1`。
 - 当前阶段：v0.8 阶段 A、B 已完成；阶段 C 部分完成；阶段 D、E 未完成。
 - DSH 原版目录：`D:\DeepSeek-Harness`，仅作为依赖与运行环境，不修改源码。
 - 项目目录：`D:\DSH-Story-Engine`。
-- Git 基线：`main` 分支上的 `v0.8.0-alpha.1` 标签；具体提交以 `git rev-list -n 1 v0.8.0-alpha.1` 查询为准。
+- Git 基线：`main` 分支上的 `v0.8.0-beta.1` 标签；具体提交以 `git rev-list -n 1 v0.8.0-beta.1` 查询为准。
 
 内容包、剧本和存档 Schema 有独立版本，不与产品版本强制相同：`pack.json`、`episode-script` 和 `ui/story-ui.json` 当前均使用 `schemaVersion: 1`；每个内容包的 `version` 由内容作者独立维护。
 
@@ -42,7 +42,7 @@ M1 的通用技术底座已补齐：目录会拒绝所有不满足 `story-ui.sch
 
 ## 验证基线
 
-最近一次完整回归：核心 7 个测试文件共 20 项，客户端 12 个测试文件共 72 项；两端类型检查和生产构建通过。隔离浏览器验证覆盖动态目录、公开示例包新建、会话创建失败时的错误呈现与可操作性，以及此前的长回合刷新恢复和真正另存为。`D:\DeepSeek-Harness` 保持干净。
+最近一次完整回归：核心 7 个测试文件共 20 项，客户端 12 个测试文件共 73 项；两端类型检查和生产构建通过。隔离浏览器验证覆盖动态目录、公开示例包新建、会话创建失败时的错误呈现与可操作性，以及此前的长回合刷新恢复和真正另存为。`D:\DeepSeek-Harness` 保持干净。
 
 ## 文档优先级
 

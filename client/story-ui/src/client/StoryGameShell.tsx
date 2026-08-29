@@ -455,7 +455,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
               </ul>
               <div className={css.detailSection}>当前位置</div>
               <div className={css.detailText}>{projection.frame.sceneLabel}</div>
-              <div className={css.demoNote}>{syncError===undefined?'v0.8 Alpha：频道、消息与草稿已保存到宿主本地存档。':`本地存档同步异常：${syncError}`}</div>
+              <div className={css.demoNote}>{syncError===undefined?'v0.8 Beta：频道、消息与草稿已保存到宿主本地存档。':`本地存档同步异常：${syncError}`}</div>
             </div>
           </aside>
         ) : null}

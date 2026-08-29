@@ -1,6 +1,6 @@
 # DSH Story Engine 开发文档
 
-> 当前开发版本：`v0.8.0-alpha.1`。本文件描述长期架构和版本路线；当前事实以 `CURRENT_STATUS.md` 为准，下一步任务以 `NEXT_DEVELOPMENT_PLAN.md` 为准。
+> 当前开发版本：`v0.8.0-beta.1`（测试版）。本文件描述长期架构和版本路线；当前事实以 `CURRENT_STATUS.md` 为准，下一步任务以 `NEXT_DEVELOPMENT_PLAN.md` 为准。
 
 ## 1. 目标
 
@@ -129,7 +129,7 @@ V1 使用 `pack.json` 作为规范入口，支持 Markdown、JSON、JSONL/NDJSON
 
 正式行为契约见 `docs/SERIAL_GAMEPLAY_SPEC.md`，剧本格式见 `schemas/episode-script.schema.json`。
 
-### v0.8.0-alpha.1：独立文字游戏界面与社交叙事（阶段 C 部分完成）
+### v0.8.0-beta.1：独立文字游戏界面与社交叙事（阶段 C 部分完成）
 
 - DSH 启动后保持原有普通 AI 聊天为默认界面。
 - 通过侧边栏入口切换到独立文字游戏界面，不增加启动选择页，也不混入普通聊天标签页。
@@ -167,7 +167,7 @@ V1 使用 `pack.json` 作为规范入口，支持 Markdown、JSON、JSONL/NDJSON
 
 - `D:\DSH-Story-Engine` 是本项目唯一 Git 仓库；不得把工作树复制到 `D:\DeepSeek-Harness`，也不得在 DSH 原版仓库中提交本项目代码。
 - `main` 只保存已经通过回归的可恢复基线。日常功能和修复使用 `codex/<简短任务名>` 分支；合并前保持提交边界清晰。
-- 当前预发布基线使用标签 `v0.8.0-alpha.1`。产品版本以根 `package.json`、客户端 `package.json` 和 `CURRENT_STATUS.md` 三者一致为准。
+- 当前测试版基线使用标签 `v0.8.0-beta.1`。产品版本以根 `package.json`、客户端 `package.json` 和 `CURRENT_STATUS.md` 三者一致为准。
 
 ### 8.2 提交内容
 

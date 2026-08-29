@@ -4,7 +4,7 @@
 
 本文定义 DSH Story Engine 后续图形界面的正式产品边界、交互结构、数据模型和实施顺序。它与 `SERIAL_GAMEPLAY_SPEC.md` 共同构成开发契约：后者规定游戏怎样运行，本文规定玩家怎样进入和操作游戏。
 
-当前对应版本为 `v0.8.0-alpha.1`。本规范中的阶段 A/B 已完成，阶段 C 部分完成，阶段 D/E 尚未完成；具体实现状态与后续任务分别以 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 为准。
+当前对应版本为 `v0.8.0-beta.1` 测试版。本规范中的阶段 A/B 已完成，阶段 C 部分完成，阶段 D/E 尚未完成；具体实现状态与后续任务分别以 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 为准。
 
 本文确认以下决策：
 

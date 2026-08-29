@@ -1,6 +1,6 @@
 # 阶段 B 收尾记录（更新：真实模型端到端验证通过）
 
-> 历史实施与纠偏记录，覆盖阶段 B 及阶段 C 的部分桥接工作。当前开发版本为 `v0.8.0-alpha.1`；唯一当前状态见 `CURRENT_STATUS.md`，后续任务见 `NEXT_DEVELOPMENT_PLAN.md`。
+> 历史实施与纠偏记录，覆盖阶段 B 及阶段 C 的部分桥接工作。当前开发版本为 `v0.8.0-beta.1`；唯一当前状态见 `CURRENT_STATUS.md`，后续任务见 `NEXT_DEVELOPMENT_PLAN.md`。
 
 ## 本次已完成
 
