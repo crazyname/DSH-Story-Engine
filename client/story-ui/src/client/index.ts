@@ -68,7 +68,7 @@ export function apply(ctx: ClientContext): void {
           aiTurn:(saveId:string)=>ai.turn(saveId),
           markWaitingChoice:(saveId:string,sessionId:string)=>ai.markWaitingChoice(saveId,sessionId),
           forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>ai.forkSave(sourceSaveId,targetSaveId,packId),
-          releaseAiSave:(saveId:string)=>ai.releaseSave(saveId),
+          releaseAiSave:(saveId:string,packId?:string)=>ai.releaseSave(saveId,packId),
           choices,
           hooks: { gameMode: controller.source },
         }),

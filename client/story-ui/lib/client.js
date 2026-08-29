@@ -57,8 +57,8 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameAction_module_css_default = {
-			"action": "s-a98a_action",
 			"railAction": "s-a98a_railAction",
+			"action": "s-a98a_action",
 			"label": "s-a98a_label"
 		};
 		//#endregion
@@ -606,21 +606,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"send": "gbf0-a_send",
+			"optionLabel": "gbf0-a_optionLabel",
+			"overlay": "gbf0-a_overlay",
+			"detail": "gbf0-a_detail",
+			"headerRow": "gbf0-a_headerRow",
 			"eyebrow": "gbf0-a_eyebrow",
+			"optionDesc": "gbf0-a_optionDesc",
+			"input": "gbf0-a_input",
+			"send": "gbf0-a_send",
+			"option": "gbf0-a_option",
 			"composer": "gbf0-a_composer",
 			"question": "gbf0-a_question",
-			"optionLabel": "gbf0-a_optionLabel",
-			"dismiss": "gbf0-a_dismiss",
-			"input": "gbf0-a_input",
-			"option": "gbf0-a_option",
-			"detail": "gbf0-a_detail",
-			"optionDesc": "gbf0-a_optionDesc",
 			"card": "gbf0-a_card",
-			"overlay": "gbf0-a_overlay",
 			"options": "gbf0-a_options",
 			"optionActive": "gbf0-a_optionActive",
-			"headerRow": "gbf0-a_headerRow"
+			"dismiss": "gbf0-a_dismiss"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -762,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
+			"logo": "Gwgdiq_logo",
+			"packList": "Gwgdiq_packList",
+			"opDanger": "Gwgdiq_opDanger",
+			"packTitle": "Gwgdiq_packTitle",
+			"saveList": "Gwgdiq_saveList",
+			"packInfo": "Gwgdiq_packInfo",
+			"badge": "Gwgdiq_badge",
+			"body": "Gwgdiq_body",
+			"packDesc": "Gwgdiq_packDesc",
 			"packMeta": "Gwgdiq_packMeta",
+			"exit": "Gwgdiq_exit",
+			"saveRow": "Gwgdiq_saveRow",
 			"tagline": "Gwgdiq_tagline",
 			"headerTitle": "Gwgdiq_headerTitle",
-			"saveList": "Gwgdiq_saveList",
-			"packHead": "Gwgdiq_packHead",
-			"saveAction": "Gwgdiq_saveAction",
-			"saveRowWrap": "Gwgdiq_saveRowWrap",
-			"body": "Gwgdiq_body",
-			"library": "Gwgdiq_library",
-			"saveOps": "Gwgdiq_saveOps",
-			"logo": "Gwgdiq_logo",
-			"error": "Gwgdiq_error",
-			"packInfo": "Gwgdiq_packInfo",
-			"newGame": "Gwgdiq_newGame",
-			"saveRow": "Gwgdiq_saveRow",
-			"header": "Gwgdiq_header",
-			"packList": "Gwgdiq_packList",
-			"packTitle": "Gwgdiq_packTitle",
-			"saveName": "Gwgdiq_saveName",
 			"saveMeta": "Gwgdiq_saveMeta",
+			"saveName": "Gwgdiq_saveName",
+			"saveAction": "Gwgdiq_saveAction",
 			"saveItem": "Gwgdiq_saveItem",
-			"opDanger": "Gwgdiq_opDanger",
 			"pack": "Gwgdiq_pack",
-			"exit": "Gwgdiq_exit",
-			"badge": "Gwgdiq_badge",
+			"packHead": "Gwgdiq_packHead",
+			"library": "Gwgdiq_library",
+			"header": "Gwgdiq_header",
+			"newGame": "Gwgdiq_newGame",
+			"error": "Gwgdiq_error",
 			"empty": "Gwgdiq_empty",
-			"opButton": "Gwgdiq_opButton",
-			"packDesc": "Gwgdiq_packDesc"
+			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"saveOps": "Gwgdiq_saveOps",
+			"opButton": "Gwgdiq_opButton"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -979,54 +979,54 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"bubbleRowMine": "p8FQLq_bubbleRowMine",
-			"libraryButton": "p8FQLq_libraryButton",
-			"frameLabel": "p8FQLq_frameLabel",
-			"sendButton": "p8FQLq_sendButton",
-			"choiceError": "p8FQLq_choiceError",
-			"backButton": "p8FQLq_backButton",
-			"systemNote": "p8FQLq_systemNote",
-			"channelName": "p8FQLq_channelName",
-			"preview": "p8FQLq_preview",
-			"detailBody": "p8FQLq_detailBody",
-			"topbar": "p8FQLq_topbar",
-			"turnError": "p8FQLq_turnError",
-			"detailSection": "p8FQLq_detailSection",
-			"demoNote": "p8FQLq_demoNote",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"messageList": "p8FQLq_messageList",
-			"detailText": "p8FQLq_detailText",
-			"channelTitle": "p8FQLq_channelTitle",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"senderName": "p8FQLq_senderName",
-			"input": "p8FQLq_input",
-			"channelKind": "p8FQLq_channelKind",
-			"previewLabel": "p8FQLq_previewLabel",
-			"narration": "p8FQLq_narration",
-			"choiceCard": "p8FQLq_choiceCard",
-			"memberAvatar": "p8FQLq_memberAvatar",
-			"topbarTitle": "p8FQLq_topbarTitle",
 			"iconButton": "p8FQLq_iconButton",
-			"channelList": "p8FQLq_channelList",
-			"body": "p8FQLq_body",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"paneHeader": "p8FQLq_paneHeader",
+			"channelTitle": "p8FQLq_channelTitle",
 			"flipIcon": "p8FQLq_flipIcon",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"shell": "p8FQLq_shell",
-			"channelLast": "p8FQLq_channelLast",
-			"channelItem": "p8FQLq_channelItem",
-			"channelPane": "p8FQLq_channelPane",
+			"turnError": "p8FQLq_turnError",
+			"channelName": "p8FQLq_channelName",
 			"messagePane": "p8FQLq_messagePane",
-			"actionMine": "p8FQLq_actionMine",
-			"actionOther": "p8FQLq_actionOther",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"composer": "p8FQLq_composer",
-			"cancelButton": "p8FQLq_cancelButton",
-			"retryButton": "p8FQLq_retryButton",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"preview": "p8FQLq_preview",
+			"bubbleOther": "p8FQLq_bubbleOther",
+			"channelLast": "p8FQLq_channelLast",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
 			"detailPane": "p8FQLq_detailPane",
 			"memberItem": "p8FQLq_memberItem",
-			"memberList": "p8FQLq_memberList"
+			"libraryButton": "p8FQLq_libraryButton",
+			"cancelButton": "p8FQLq_cancelButton",
+			"detailBody": "p8FQLq_detailBody",
+			"topbar": "p8FQLq_topbar",
+			"narration": "p8FQLq_narration",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"channelList": "p8FQLq_channelList",
+			"channelPane": "p8FQLq_channelPane",
+			"detailText": "p8FQLq_detailText",
+			"choiceCard": "p8FQLq_choiceCard",
+			"previewLabel": "p8FQLq_previewLabel",
+			"detailSection": "p8FQLq_detailSection",
+			"memberList": "p8FQLq_memberList",
+			"frameLabel": "p8FQLq_frameLabel",
+			"messageList": "p8FQLq_messageList",
+			"systemNote": "p8FQLq_systemNote",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"sendButton": "p8FQLq_sendButton",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"input": "p8FQLq_input",
+			"shell": "p8FQLq_shell",
+			"paneHeader": "p8FQLq_paneHeader",
+			"actionMine": "p8FQLq_actionMine",
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"choiceError": "p8FQLq_choiceError",
+			"composer": "p8FQLq_composer",
+			"channelItem": "p8FQLq_channelItem",
+			"senderName": "p8FQLq_senderName",
+			"retryButton": "p8FQLq_retryButton",
+			"backButton": "p8FQLq_backButton",
+			"actionOther": "p8FQLq_actionOther",
+			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"body": "p8FQLq_body",
+			"channelKind": "p8FQLq_channelKind",
+			"demoNote": "p8FQLq_demoNote"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1363,7 +1363,7 @@ window.__ModuleLoader__.load({
 					try {
 						await cancelAiTurn(saveId);
 						await hostStorage.remove(saveId);
-						await releaseAiSave(saveId);
+						await releaseAiSave(saveId, saves.find((save) => save.saveId === saveId)?.packId);
 						try {
 							window.localStorage.removeItem(`dsh-story-save:${saveId}`);
 						} catch {}
@@ -1927,7 +1927,7 @@ window.__ModuleLoader__.load({
 				return forked.sessionId;
 			}
 			/** DSH exposes archive/cancel but no safe session-delete RPC; retain a local diagnostic rather than guessing. */
-			async releaseSave(saveId) {
+			async releaseSave(saveId, packId) {
 				const sessionId = this.currentSessionId(saveId);
 				const turn = this.readTurn(saveId);
 				if (turn !== null && [
@@ -1938,6 +1938,7 @@ window.__ModuleLoader__.load({
 				if (sessionId === null) return void 0;
 				const diagnostic = {
 					saveId,
+					...packId === void 0 ? {} : { packId },
 					sessionId,
 					removedAt: (/* @__PURE__ */ new Date()).toISOString(),
 					reason: "save-deleted",
@@ -2288,7 +2289,7 @@ window.__ModuleLoader__.load({
 					aiTurn: (saveId) => ai.turn(saveId),
 					markWaitingChoice: (saveId, sessionId) => ai.markWaitingChoice(saveId, sessionId),
 					forkAiSession: (sourceSaveId, targetSaveId, packId) => ai.forkSave(sourceSaveId, targetSaveId, packId),
-					releaseAiSave: (saveId) => ai.releaseSave(saveId),
+					releaseAiSave: (saveId, packId) => ai.releaseSave(saveId, packId),
 					choices,
 					hooks: { gameMode: controller.source }
 				})

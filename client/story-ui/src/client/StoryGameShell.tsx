@@ -38,7 +38,7 @@ export interface StoryGameShellInjected {
   aiTurn:(saveId:string)=>AiTurn|null
   markWaitingChoice:(saveId:string,sessionId:string)=>void
   forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>Promise<string|null>
-  releaseAiSave:(saveId:string)=>Promise<OrphanedSessionDiagnostic|undefined>
+  releaseAiSave:(saveId:string,packId?:string)=>Promise<OrphanedSessionDiagnostic|undefined>
   /** Choice-card bridge answering story_present_choice inside the shell. */
   choices: StoryChoiceBridge
   /** Bare observable riding the reserved hooks compartment. */
@@ -305,7 +305,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
       try {
         await cancelAiTurn(saveId)
         await hostStorage.remove(saveId)
-        await releaseAiSave(saveId)
+        await releaseAiSave(saveId,saves.find(save=>save.saveId===saveId)?.packId)
         // Clear the local cache copy if present.
         try { window.localStorage.removeItem(`dsh-story-save:${saveId}`) } catch { /* ignore */ }
         const list = await hostStorage.list()

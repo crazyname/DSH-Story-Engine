@@ -73,7 +73,7 @@ describe('durable AI turn state machine',()=>{
   it('records a local orphan diagnostic instead of pretending to delete a DSH session',async()=>{
     const values=new Map<string,string>([['dsh-story-ai-session:save-removed','session-removed']])
     const bridge=new StoryAiBridge({sessions:{cancel:vi.fn(async()=>ok({accepted:true}))}} as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>{})
-    await expect(bridge.releaseSave('save-removed')).resolves.toMatchObject({saveId:'save-removed',sessionId:'session-removed',reason:'save-deleted'})
+    await expect(bridge.releaseSave('save-removed','example-pack')).resolves.toMatchObject({saveId:'save-removed',packId:'example-pack',sessionId:'session-removed',reason:'save-deleted'})
     expect(values.get('dsh-story-ai-session:save-removed')).toBe('')
     expect(values.get('dsh-story-ai-orphan:save-removed')).toContain('session-removed')
   })
