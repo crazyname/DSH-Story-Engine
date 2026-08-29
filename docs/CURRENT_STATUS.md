@@ -33,17 +33,17 @@
 
 阶段 D 当前重点是把已经验证的 social projection 幂等继续推进到 core runtime 和跨域恢复：
 
-1. 顶层玩家提交/恢复流程使用稳定 `transactionId`；隐藏 DSH `turnId` 与 transaction 建立持久映射。
+1. 顶层玩家提交/恢复流程使用稳定 `transactionId`；transaction journal 持久关联已知 hidden turn references、当前 active/pending turn 和最终 canonical-result `turnId`。
 2. 同一 transaction 内每个可重试 core `story_*` canonical mutation 使用独立稳定 `operationId`、request fingerprint 和持久 receipt；一个 transaction 可以包含多个 operations。
 3. 保持 optimistic `expectedVersion` 与 operation-level idempotency 两套保护：前者拒绝 stale writer，后者拒绝重复应用同一原子 mutation。
-4. 建立 durable transaction journal / recovery 协调，使“部分 core operations 已提交但 social 未提交”等跨域中断能够逐步对账恢复，而不是盲目重放整个玩家回合。
+4. 建立 durable transaction journal / recovery 协调，使“部分 core operations 已提交但 social 未提交”等跨域中断能够逐步对账恢复，而不是盲目重放整个玩家回合；hidden dispatch 结果不确定时按实际 DSH correlation 能力进入 reconciliation，而不宣称传输层 exactly-once。
 5. 在事务边界稳定后继续季/集/场景/频道联动、工作内轻量结算、越界修订界面和集末总结界面。
 
 正式事务语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
 ## 尚未完成
 
-- 阶段 D：`transactionId` journal、core runtime child `operationId`/receipt、部分提交恢复与跨域 reconciliation。
+- 阶段 D：`transactionId` journal、hidden turn reference/recovery、core runtime child `operationId`/receipt、部分提交恢复与跨域 reconciliation。
 - 阶段 D：季/集/场景与频道的完整自动联动、工作内轻量结算的正式界面、越界修订操作界面、集末总结界面。
 - 阶段 E：无障碍、长历史分页、存档迁移矩阵、主题/头像、发布审计和第三方许可证清单。
 - 1.0 前：V1 兼容承诺、版本/迁移政策、release checklist、公开安装与升级文档和正式发布包。
