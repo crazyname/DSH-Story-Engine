@@ -58,8 +58,8 @@ window.__ModuleLoader__.load({
 		}
 		var StoryGameAction_module_css_default = {
 			"action": "s-a98a_action",
-			"label": "s-a98a_label",
-			"railAction": "s-a98a_railAction"
+			"railAction": "s-a98a_railAction",
+			"label": "s-a98a_label"
 		};
 		//#endregion
 		//#region src/client/StoryGameAction.tsx
@@ -606,21 +606,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
-			"options": "gbf0-a_options",
-			"input": "gbf0-a_input",
-			"eyebrow": "gbf0-a_eyebrow",
-			"headerRow": "gbf0-a_headerRow",
-			"optionActive": "gbf0-a_optionActive",
 			"send": "gbf0-a_send",
-			"option": "gbf0-a_option",
+			"eyebrow": "gbf0-a_eyebrow",
 			"composer": "gbf0-a_composer",
-			"detail": "gbf0-a_detail",
-			"optionDesc": "gbf0-a_optionDesc",
 			"question": "gbf0-a_question",
 			"optionLabel": "gbf0-a_optionLabel",
 			"dismiss": "gbf0-a_dismiss",
+			"input": "gbf0-a_input",
+			"option": "gbf0-a_option",
+			"detail": "gbf0-a_detail",
+			"optionDesc": "gbf0-a_optionDesc",
 			"card": "gbf0-a_card",
-			"overlay": "gbf0-a_overlay"
+			"overlay": "gbf0-a_overlay",
+			"options": "gbf0-a_options",
+			"optionActive": "gbf0-a_optionActive",
+			"headerRow": "gbf0-a_headerRow"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -762,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
-			"tagline": "Gwgdiq_tagline",
-			"opButton": "Gwgdiq_opButton",
-			"packInfo": "Gwgdiq_packInfo",
-			"saveList": "Gwgdiq_saveList",
-			"newGame": "Gwgdiq_newGame",
-			"library": "Gwgdiq_library",
-			"opDanger": "Gwgdiq_opDanger",
-			"packHead": "Gwgdiq_packHead",
-			"header": "Gwgdiq_header",
-			"badge": "Gwgdiq_badge",
-			"saveMeta": "Gwgdiq_saveMeta",
-			"empty": "Gwgdiq_empty",
-			"saveItem": "Gwgdiq_saveItem",
-			"saveRowWrap": "Gwgdiq_saveRowWrap",
-			"pack": "Gwgdiq_pack",
-			"logo": "Gwgdiq_logo",
-			"exit": "Gwgdiq_exit",
-			"body": "Gwgdiq_body",
-			"saveRow": "Gwgdiq_saveRow",
-			"packTitle": "Gwgdiq_packTitle",
-			"packDesc": "Gwgdiq_packDesc",
-			"saveName": "Gwgdiq_saveName",
-			"saveOps": "Gwgdiq_saveOps",
-			"packList": "Gwgdiq_packList",
-			"headerTitle": "Gwgdiq_headerTitle",
-			"error": "Gwgdiq_error",
 			"packMeta": "Gwgdiq_packMeta",
-			"saveAction": "Gwgdiq_saveAction"
+			"tagline": "Gwgdiq_tagline",
+			"headerTitle": "Gwgdiq_headerTitle",
+			"saveList": "Gwgdiq_saveList",
+			"packHead": "Gwgdiq_packHead",
+			"saveAction": "Gwgdiq_saveAction",
+			"saveRowWrap": "Gwgdiq_saveRowWrap",
+			"body": "Gwgdiq_body",
+			"library": "Gwgdiq_library",
+			"saveOps": "Gwgdiq_saveOps",
+			"logo": "Gwgdiq_logo",
+			"error": "Gwgdiq_error",
+			"packInfo": "Gwgdiq_packInfo",
+			"newGame": "Gwgdiq_newGame",
+			"saveRow": "Gwgdiq_saveRow",
+			"header": "Gwgdiq_header",
+			"packList": "Gwgdiq_packList",
+			"packTitle": "Gwgdiq_packTitle",
+			"saveName": "Gwgdiq_saveName",
+			"saveMeta": "Gwgdiq_saveMeta",
+			"saveItem": "Gwgdiq_saveItem",
+			"opDanger": "Gwgdiq_opDanger",
+			"pack": "Gwgdiq_pack",
+			"exit": "Gwgdiq_exit",
+			"badge": "Gwgdiq_badge",
+			"empty": "Gwgdiq_empty",
+			"opButton": "Gwgdiq_opButton",
+			"packDesc": "Gwgdiq_packDesc"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -969,7 +969,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dsh-css:D:\DSH-Story-Engine\client\story-ui\src\client\StoryGameShell.module.css.mjs
-		const css = ".p8FQLq_shell{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);flex-direction:column;font-size:14px;display:flex;position:absolute;inset:0;overflow:hidden}.p8FQLq_topbar{border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;justify-content:space-between;align-items:center;gap:12px;height:52px;padding:0 12px;display:flex}.p8FQLq_topbarTitle{flex-direction:column;align-items:center;gap:2px;min-width:0;display:flex}.p8FQLq_channelTitle{white-space:nowrap;text-overflow:ellipsis;font-weight:600;overflow:hidden}.p8FQLq_frameLabel{color:var(--dsw-alias-label-tertiary);font-size:12px}.p8FQLq_topbarToggle{align-items:center;gap:8px;display:flex}.p8FQLq_iconButton{width:32px;height:32px;color:inherit;cursor:pointer;background:0 0;border:none;border-radius:8px;justify-content:center;align-items:center;display:flex}.p8FQLq_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_iconButton:focus-visible,.p8FQLq_backButton:focus-visible,.p8FQLq_channelItem:focus-visible,.p8FQLq_sendButton:focus-visible,.p8FQLq_input:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:1px}.p8FQLq_flipIcon{transform:scaleX(-1)}.p8FQLq_backButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_backButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_body{flex:1;min-height:0;display:flex}.p8FQLq_channelPane{border-right:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:264px;display:flex;overflow-y:auto}.p8FQLq_paneHeader{color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;padding:12px 12px 8px;font-size:12px;overflow:hidden}.p8FQLq_channelList{flex-direction:column;gap:2px;margin:0;padding:0 8px 12px;list-style:none;display:flex}.p8FQLq_channelItem,.p8FQLq_channelItemActive{width:100%;color:inherit;text-align:left;cursor:pointer;background:0 0;border:none;border-radius:8px;grid-template-columns:36px 1fr auto;align-items:center;gap:6px;padding:8px;font-size:13px;display:grid}.p8FQLq_channelItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_channelItemActive{background:var(--dsw-alias-interactive-bg-active);font-weight:600}.p8FQLq_channelKind{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_channelName{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.p8FQLq_channelLast{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_messagePane{flex-direction:column;flex:1;min-width:0;display:flex}.p8FQLq_messageList{flex-direction:column;flex:1;gap:8px;min-height:0;padding:16px;display:flex;overflow-y:auto}.p8FQLq_bubbleRowMine,.p8FQLq_bubbleRowOther{flex-direction:column;max-width:68%;display:flex}.p8FQLq_bubbleRowMine{align-self:flex-end;align-items:flex-end}.p8FQLq_bubbleRowOther{align-self:flex-start;align-items:flex-start}.p8FQLq_senderName{color:var(--dsw-alias-label-tertiary);margin-bottom:2px;font-size:12px}.p8FQLq_bubbleMine,.p8FQLq_bubbleOther{white-space:pre-wrap;word-break:break-word;border-radius:12px;padding:8px 12px}.p8FQLq_bubbleMine{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_bubbleOther{background:var(--dsw-alias-bg-layer-2)}.p8FQLq_narration{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px;font-style:italic}.p8FQLq_systemNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);text-align:center;border-radius:8px;align-self:center;padding:4px 12px;font-size:12px}.p8FQLq_choiceCard{border:1px dashed var(--dsw-alias-border-l2);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px}.p8FQLq_actionMine,.p8FQLq_actionOther{color:var(--dsw-alias-label-secondary);align-self:stretch;padding:2px 8px;font-size:13px}.p8FQLq_actionMine{text-align:right}.p8FQLq_composer{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;gap:8px;padding:12px;display:flex}.p8FQLq_input{resize:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-height:44px;max-height:120px;color:inherit;font:inherit;border-radius:10px;flex:1;padding:10px 12px}.p8FQLq_sendButton{background:var(--dsw-alias-interactive-bg-active);height:40px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;flex:none;align-self:flex-end;padding:0 18px;font-size:13px}.p8FQLq_cancelButton,.p8FQLq_retryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:40px;color:inherit;cursor:pointer;border-radius:10px;flex:none;align-self:flex-end;padding:0 12px;font-size:13px}.p8FQLq_retryButton{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_turnError{border-top:1px solid var(--dsw-alias-border-l1);color:#92400e;background:#fef3c7;flex:none;padding:8px 12px;font-size:12px}.p8FQLq_detailPane{border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:232px;display:flex;overflow-y:auto}.p8FQLq_detailBody{flex-direction:column;gap:8px;padding:0 12px 12px;display:flex}.p8FQLq_detailSection{margin-top:8px;font-size:12px;font-weight:600}.p8FQLq_detailText{color:var(--dsw-alias-label-secondary);font-size:13px}.p8FQLq_memberList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.p8FQLq_memberItem{align-items:center;gap:8px;font-size:13px;display:flex}.p8FQLq_memberAvatar{background:var(--dsw-alias-interactive-bg-active);border-radius:50%;justify-content:center;align-items:center;width:26px;height:26px;font-size:12px;display:flex}.p8FQLq_demoNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border-radius:8px;margin-top:12px;padding:8px 10px;font-size:12px}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane,.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{z-index:2;position:absolute;top:52px;bottom:0;box-shadow:0 0 24px #0000002e}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane{left:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{right:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_frameLabel{display:none}.p8FQLq_choiceError{color:#92400e;z-index:30;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;max-width:80%;padding:8px 14px;font-size:13px;position:absolute;bottom:84px;left:50%;transform:translate(-50%)}.p8FQLq_libraryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_libraryButton:hover{border-color:var(--dsw-alias-border-l2)}";
+		const css = ".p8FQLq_shell{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);flex-direction:column;font-size:14px;display:flex;position:absolute;inset:0;overflow:hidden}.p8FQLq_topbar{border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;justify-content:space-between;align-items:center;gap:12px;height:52px;padding:0 12px;display:flex}.p8FQLq_topbarTitle{flex-direction:column;align-items:center;gap:2px;min-width:0;display:flex}.p8FQLq_channelTitle{white-space:nowrap;text-overflow:ellipsis;font-weight:600;overflow:hidden}.p8FQLq_frameLabel{color:var(--dsw-alias-label-tertiary);font-size:12px}.p8FQLq_topbarToggle{align-items:center;gap:8px;display:flex}.p8FQLq_iconButton{width:32px;height:32px;color:inherit;cursor:pointer;background:0 0;border:none;border-radius:8px;justify-content:center;align-items:center;display:flex}.p8FQLq_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_iconButton:focus-visible,.p8FQLq_backButton:focus-visible,.p8FQLq_channelItem:focus-visible,.p8FQLq_sendButton:focus-visible,.p8FQLq_input:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:1px}.p8FQLq_flipIcon{transform:scaleX(-1)}.p8FQLq_backButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_backButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_body{flex:1;min-height:0;display:flex}.p8FQLq_channelPane{border-right:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:264px;display:flex;overflow-y:auto}.p8FQLq_paneHeader{color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;padding:12px 12px 8px;font-size:12px;overflow:hidden}.p8FQLq_channelList{flex-direction:column;gap:2px;margin:0;padding:0 8px 12px;list-style:none;display:flex}.p8FQLq_channelItem,.p8FQLq_channelItemActive{width:100%;color:inherit;text-align:left;cursor:pointer;background:0 0;border:none;border-radius:8px;grid-template-columns:36px 1fr auto;align-items:center;gap:6px;padding:8px;font-size:13px;display:grid}.p8FQLq_channelItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.p8FQLq_channelItemActive{background:var(--dsw-alias-interactive-bg-active);font-weight:600}.p8FQLq_channelKind{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_channelName{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.p8FQLq_channelLast{color:var(--dsw-alias-label-tertiary);font-size:11px}.p8FQLq_messagePane{flex-direction:column;flex:1;min-width:0;display:flex}.p8FQLq_messageList{flex-direction:column;flex:1;gap:8px;min-height:0;padding:16px;display:flex;overflow-y:auto}.p8FQLq_preview{border:1px dashed var(--dsw-alias-border-l2);opacity:.72;border-radius:10px;flex-direction:column;gap:8px;padding:10px;display:flex}.p8FQLq_previewLabel{color:var(--dsw-alias-label-tertiary);text-align:center;font-size:12px}.p8FQLq_bubbleRowMine,.p8FQLq_bubbleRowOther{flex-direction:column;max-width:68%;display:flex}.p8FQLq_bubbleRowMine{align-self:flex-end;align-items:flex-end}.p8FQLq_bubbleRowOther{align-self:flex-start;align-items:flex-start}.p8FQLq_senderName{color:var(--dsw-alias-label-tertiary);margin-bottom:2px;font-size:12px}.p8FQLq_bubbleMine,.p8FQLq_bubbleOther{white-space:pre-wrap;word-break:break-word;border-radius:12px;padding:8px 12px}.p8FQLq_bubbleMine{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_bubbleOther{background:var(--dsw-alias-bg-layer-2)}.p8FQLq_narration{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px;font-style:italic}.p8FQLq_systemNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);text-align:center;border-radius:8px;align-self:center;padding:4px 12px;font-size:12px}.p8FQLq_choiceCard{border:1px dashed var(--dsw-alias-border-l2);text-align:center;border-radius:10px;align-self:stretch;padding:10px 14px}.p8FQLq_actionMine,.p8FQLq_actionOther{color:var(--dsw-alias-label-secondary);align-self:stretch;padding:2px 8px;font-size:13px}.p8FQLq_actionMine{text-align:right}.p8FQLq_composer{border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex:none;gap:8px;padding:12px;display:flex}.p8FQLq_input{resize:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);min-height:44px;max-height:120px;color:inherit;font:inherit;border-radius:10px;flex:1;padding:10px 12px}.p8FQLq_sendButton{background:var(--dsw-alias-interactive-bg-active);height:40px;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;border-radius:10px;flex:none;align-self:flex-end;padding:0 18px;font-size:13px}.p8FQLq_cancelButton,.p8FQLq_retryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:40px;color:inherit;cursor:pointer;border-radius:10px;flex:none;align-self:flex-end;padding:0 12px;font-size:13px}.p8FQLq_retryButton{background:var(--dsw-alias-interactive-bg-active)}.p8FQLq_turnError{border-top:1px solid var(--dsw-alias-border-l1);color:#92400e;background:#fef3c7;flex:none;padding:8px 12px;font-size:12px}.p8FQLq_detailPane{border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);flex-direction:column;flex:none;width:232px;display:flex;overflow-y:auto}.p8FQLq_detailBody{flex-direction:column;gap:8px;padding:0 12px 12px;display:flex}.p8FQLq_detailSection{margin-top:8px;font-size:12px;font-weight:600}.p8FQLq_detailText{color:var(--dsw-alias-label-secondary);font-size:13px}.p8FQLq_memberList{flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;display:flex}.p8FQLq_memberItem{align-items:center;gap:8px;font-size:13px;display:flex}.p8FQLq_memberAvatar{background:var(--dsw-alias-interactive-bg-active);border-radius:50%;justify-content:center;align-items:center;width:26px;height:26px;font-size:12px;display:flex}.p8FQLq_demoNote{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);border-radius:8px;margin-top:12px;padding:8px 10px;font-size:12px}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane,.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{z-index:2;position:absolute;top:52px;bottom:0;box-shadow:0 0 24px #0000002e}.p8FQLq_shell[data-narrow=true] .p8FQLq_channelPane{left:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_detailPane{right:0}.p8FQLq_shell[data-narrow=true] .p8FQLq_frameLabel{display:none}.p8FQLq_choiceError{color:#92400e;z-index:30;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;max-width:80%;padding:8px 14px;font-size:13px;position:absolute;bottom:84px;left:50%;transform:translate(-50%)}.p8FQLq_libraryButton{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);height:32px;color:inherit;cursor:pointer;border-radius:8px;align-items:center;gap:4px;padding:0 12px;font-size:13px;display:flex}.p8FQLq_libraryButton:hover{border-color:var(--dsw-alias-border-l2)}";
 		const tagId = "dsh-story-client/0dc4df35d127.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -979,52 +979,54 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"flipIcon": "p8FQLq_flipIcon",
-			"topbarToggle": "p8FQLq_topbarToggle",
-			"composer": "p8FQLq_composer",
-			"channelTitle": "p8FQLq_channelTitle",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"detailText": "p8FQLq_detailText",
-			"choiceError": "p8FQLq_choiceError",
-			"actionMine": "p8FQLq_actionMine",
+			"bubbleRowMine": "p8FQLq_bubbleRowMine",
 			"libraryButton": "p8FQLq_libraryButton",
-			"channelPane": "p8FQLq_channelPane",
+			"frameLabel": "p8FQLq_frameLabel",
+			"sendButton": "p8FQLq_sendButton",
+			"choiceError": "p8FQLq_choiceError",
+			"backButton": "p8FQLq_backButton",
+			"systemNote": "p8FQLq_systemNote",
+			"channelName": "p8FQLq_channelName",
+			"preview": "p8FQLq_preview",
 			"detailBody": "p8FQLq_detailBody",
 			"topbar": "p8FQLq_topbar",
-			"iconButton": "p8FQLq_iconButton",
-			"systemNote": "p8FQLq_systemNote",
-			"memberList": "p8FQLq_memberList",
-			"cancelButton": "p8FQLq_cancelButton",
-			"memberAvatar": "p8FQLq_memberAvatar",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"frameLabel": "p8FQLq_frameLabel",
-			"retryButton": "p8FQLq_retryButton",
-			"demoNote": "p8FQLq_demoNote",
 			"turnError": "p8FQLq_turnError",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"actionOther": "p8FQLq_actionOther",
-			"channelKind": "p8FQLq_channelKind",
-			"channelItem": "p8FQLq_channelItem",
-			"channelName": "p8FQLq_channelName",
-			"messagePane": "p8FQLq_messagePane",
-			"choiceCard": "p8FQLq_choiceCard",
-			"channelList": "p8FQLq_channelList",
-			"memberItem": "p8FQLq_memberItem",
-			"input": "p8FQLq_input",
-			"shell": "p8FQLq_shell",
-			"topbarTitle": "p8FQLq_topbarTitle",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"bubbleRowMine": "p8FQLq_bubbleRowMine",
+			"detailSection": "p8FQLq_detailSection",
+			"demoNote": "p8FQLq_demoNote",
+			"bubbleOther": "p8FQLq_bubbleOther",
 			"messageList": "p8FQLq_messageList",
-			"backButton": "p8FQLq_backButton",
-			"sendButton": "p8FQLq_sendButton",
-			"body": "p8FQLq_body",
-			"paneHeader": "p8FQLq_paneHeader",
-			"channelLast": "p8FQLq_channelLast",
+			"detailText": "p8FQLq_detailText",
+			"channelTitle": "p8FQLq_channelTitle",
+			"topbarToggle": "p8FQLq_topbarToggle",
 			"senderName": "p8FQLq_senderName",
+			"input": "p8FQLq_input",
+			"channelKind": "p8FQLq_channelKind",
+			"previewLabel": "p8FQLq_previewLabel",
 			"narration": "p8FQLq_narration",
+			"choiceCard": "p8FQLq_choiceCard",
+			"memberAvatar": "p8FQLq_memberAvatar",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"iconButton": "p8FQLq_iconButton",
+			"channelList": "p8FQLq_channelList",
+			"body": "p8FQLq_body",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"paneHeader": "p8FQLq_paneHeader",
+			"flipIcon": "p8FQLq_flipIcon",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
+			"shell": "p8FQLq_shell",
+			"channelLast": "p8FQLq_channelLast",
+			"channelItem": "p8FQLq_channelItem",
+			"channelPane": "p8FQLq_channelPane",
+			"messagePane": "p8FQLq_messagePane",
+			"actionMine": "p8FQLq_actionMine",
+			"actionOther": "p8FQLq_actionOther",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"composer": "p8FQLq_composer",
+			"cancelButton": "p8FQLq_cancelButton",
+			"retryButton": "p8FQLq_retryButton",
 			"detailPane": "p8FQLq_detailPane",
-			"detailSection": "p8FQLq_detailSection"
+			"memberItem": "p8FQLq_memberItem",
+			"memberList": "p8FQLq_memberList"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -1065,6 +1067,7 @@ window.__ModuleLoader__.load({
 			const [generatingSaves, setGeneratingSaves] = (0, react.useState)(() => /* @__PURE__ */ new Set());
 			const [choiceCard, setChoiceCard] = (0, react.useState)();
 			const [choiceError, setChoiceError] = (0, react.useState)();
+			const [, setTurnRefresh] = (0, react.useState)(0);
 			(0, react.useEffect)(() => {
 				if (!active) return;
 				return choices.subscribe((card) => {
@@ -1203,6 +1206,15 @@ window.__ModuleLoader__.load({
 			const draft = projection.drafts[selected.id] ?? "";
 			const turn = aiTurn(projection.saveId);
 			const generating = generatingSaves.has(projection.saveId) || turn?.state === "queued" || turn?.state === "running" || turn?.state === "waiting-choice";
+			(0, react.useEffect)(() => {
+				if (!generating) return;
+				const timer = window.setInterval(() => {
+					setTurnRefresh((value) => value + 1);
+				}, 500);
+				return () => {
+					window.clearInterval(timer);
+				};
+			}, [generating, projection.saveId]);
 			const submit = () => {
 				const text = draft.trim();
 				if (text === "" || generating) return;
@@ -1516,13 +1528,30 @@ window.__ModuleLoader__.load({
 								className: StoryGameShell_module_css_default.messagePane,
 								"aria-label": "频道消息",
 								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: StoryGameShell_module_css_default.messageList,
-										children: channelMessages.map((message) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
+										children: [channelMessages.map((message) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
 											message,
 											scene: selected.kind === "scene",
 											participants: projection.participants
-										}, message.id))
+										}, message.id)), turn?.preview?.channelId === selected.id ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+											className: StoryGameShell_module_css_default.preview,
+											"aria-live": "polite",
+											"aria-label": "AI 临时预览",
+											children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+												className: StoryGameShell_module_css_default.previewLabel,
+												children: "AI 临时预览（尚未写入剧情）"
+											}), turn.preview.messages.map((message, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MessageRow, {
+												message: {
+													...message,
+													id: `preview-${index}`,
+													createdAt: "",
+													senderId: message.senderId
+												},
+												scene: selected.kind === "scene",
+												participants: projection.participants
+											}, `${turn.preview.turnId}-${index}`))]
+										}) : null]
 									}),
 									syncError !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 										className: StoryGameShell_module_css_default.turnError,
@@ -1786,6 +1815,7 @@ window.__ModuleLoader__.load({
 				this.cloneRuntime = cloneRuntime;
 			}
 			cached = /* @__PURE__ */ new Map();
+			previews = /* @__PURE__ */ new Map();
 			key(saveId) {
 				return `dsh-story-ai-session:${saveId}`;
 			}
@@ -1838,15 +1868,25 @@ window.__ModuleLoader__.load({
 					...turn,
 					...change
 				};
+				if (next.state === "failed" || next.state === "cancelled") this.previews.delete(saveId);
 				this.writeTurn(saveId, next);
 				return next;
 			}
 			turn(saveId) {
-				return this.readTurn(saveId);
+				const turn = this.readTurn(saveId);
+				if (turn === null) return null;
+				const preview = this.previews.get(saveId);
+				return preview?.turnId === turn.id ? {
+					...turn,
+					preview
+				} : turn;
 			}
 			acknowledge(saveId, turnId) {
 				const turn = this.readTurn(saveId);
-				if (turn?.id === turnId && turn.state === "completed") this.storage.setItem(this.pendingKey(saveId), "");
+				if (turn?.id === turnId && turn.state === "completed") {
+					this.storage.setItem(this.pendingKey(saveId), "");
+					this.previews.delete(saveId);
+				}
 			}
 			async session(saveId, agentPreset) {
 				let id = this.currentSessionId(saveId);
@@ -1907,6 +1947,7 @@ window.__ModuleLoader__.load({
 				this.storage.setItem(this.key(saveId), "");
 				this.storage.setItem(this.pendingKey(saveId), "");
 				this.cached.delete(saveId);
+				this.previews.delete(saveId);
 				return diagnostic;
 			}
 			async cancel(saveId) {
@@ -1918,6 +1959,7 @@ window.__ModuleLoader__.load({
 				].includes(turn.state)) return;
 				try {
 					unwrap(await this.api.sessions.cancel({ sessionId: turn.sessionId }), "取消 AI 回合");
+					this.previews.delete(saveId);
 					this.change(saveId, turn, {
 						state: "cancelled",
 						error: void 0
@@ -1972,6 +2014,13 @@ window.__ModuleLoader__.load({
 								turnId: turn.id
 							};
 						}
+						if (raw !== void 0) try {
+							this.previews.set(projection.saveId, {
+								turnId: turn.id,
+								channelId: turn.channelId,
+								messages: parseMessages(raw, projection, turn.channelId)
+							});
+						} catch {}
 						if (raw === void 0 && turnEnded(history.events, turn.baseline)) {
 							const error = "AI 回合已结束，但没有产生结构化回复";
 							this.change(projection.saveId, turn, {
@@ -2045,6 +2094,7 @@ window.__ModuleLoader__.load({
 					prompt,
 					state: "queued"
 				};
+				this.previews.delete(projection.saveId);
 				this.writeTurn(projection.saveId, turn);
 				try {
 					unwrap(await this.api.sessions.prompt({

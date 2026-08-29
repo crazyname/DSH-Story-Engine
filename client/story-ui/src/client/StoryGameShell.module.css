@@ -193,6 +193,22 @@
   gap: 8px;
 }
 
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  opacity: 0.72;
+}
+
+.previewLabel {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
 .bubbleRowMine,
 .bubbleRowOther {
   display: flex;

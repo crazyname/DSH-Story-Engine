@@ -72,6 +72,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const [generatingSaves,setGeneratingSaves]=useState<Set<string>>(()=>new Set())
   const [choiceCard,setChoiceCard]=useState<StoryChoiceCard|undefined>()
   const [choiceError,setChoiceError]=useState<string|undefined>()
+  const [,setTurnRefresh]=useState(0)
 
   // Subscribe to story_present_choice cards while the shell is active.
   useEffect(() => {
@@ -183,6 +184,14 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const draft = projection.drafts[selected.id] ?? ''
   const turn=aiTurn(projection.saveId)
   const generating=generatingSaves.has(projection.saveId)||turn?.state==='queued'||turn?.state==='running'||turn?.state==='waiting-choice'
+
+  // Preview data is intentionally ephemeral. Polling only forces a render while
+  // a turn is active; it never persists raw model chunks into the story save.
+  useEffect(()=>{
+    if(!generating)return
+    const timer=window.setInterval(()=>{setTurnRefresh(value=>value+1)},500)
+    return()=>{window.clearInterval(timer)}
+  },[generating,projection.saveId])
 
   const submit = (): void => {
     const text = draft.trim()
@@ -396,6 +405,12 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
             {channelMessages.map(message => (
               <MessageRow key={message.id} message={message} scene={selected.kind === 'scene'} participants={projection.participants} />
             ))}
+            {turn?.preview?.channelId===selected.id ? (
+              <section className={css.preview} aria-live="polite" aria-label="AI 临时预览">
+                <div className={css.previewLabel}>AI 临时预览（尚未写入剧情）</div>
+                {turn.preview.messages.map((message,index)=><MessageRow key={`${turn.preview!.turnId}-${index}`} message={{...message,id:`preview-${index}`,createdAt:'',senderId:message.senderId}} scene={selected.kind === 'scene'} participants={projection.participants} />)}
+              </section>
+            ) : null}
           </div>
           {syncError !== undefined ? <div className={css.turnError} role="alert">存档或 AI 回合错误：{syncError}</div> : null}
           <div className={css.composer}>

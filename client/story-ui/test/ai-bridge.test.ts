@@ -95,6 +95,23 @@ describe('durable AI turn state machine',()=>{
     expect(cancel).toHaveBeenCalledWith({sessionId:'session-a'})
     expect(bridge.turn('save-b')?.state).toBe('running')
   })
+  it('shows only a verified ephemeral preview before the turn commits',async()=>{
+    const values=new Map<string,string>([['dsh-story-ai-session:save-preview','session-preview']])
+    let release=()=>{}
+    const paused=new Promise<void>(resolve=>{release=resolve})
+    let waits=0,history=0
+    const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"正在靠近。"}]}'
+    const message={event:{type:'assistant/message',seq:2,data:{message:{content:[{type:'text',text:raw}]}}}}
+    const ended={event:{type:'turn/end',seq:3,data:{}}}
+    const api={sessions:{create:vi.fn(async()=>ok({sessionId:'session-preview'})),prompt:vi.fn(async()=>ok({accepted:true})),cancel:vi.fn(async()=>ok({accepted:true})),history:vi.fn(async()=>{history+=1;if(history===1)return ok({events:[]});if(history===2)return ok({events:[message]});return ok({events:[message,ended]})})},workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+    const bridge=new StoryAiBridge(api as never,{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}},async()=>{waits+=1;if(waits>1)await paused})
+    const save={...createInitialProjection(),saveId:'save-preview'}
+    const sending=bridge.send(save,save.selectedChannelId,'继续')
+    await vi.waitFor(()=>expect(bridge.turn(save.saveId)?.preview?.messages[0]?.content).toBe('正在靠近。'))
+    expect(values.get('dsh-story-ai-pending:save-preview')).not.toContain('正在靠近。')
+    release()
+    await expect(sending).resolves.toMatchObject({messages:[{content:'正在靠近。'}]})
+  })
 })
 
 describe('parseMessages quote tolerance',()=>{
