@@ -142,7 +142,7 @@ V1 使用 `pack.json` 作为规范入口，支持 Markdown、JSON、JSONL/NDJSON
 
 - 阶段 A 完成：外置 Web Client 插件经 `sidebar.footer.action` + `shell.overlay` 装载，模式切换与游戏壳已验证。
 - 阶段 B 完成：五类频道、结构化消息、草稿/游标/版本投影、宿主存档接口 `GET/PUT/DELETE /story-engine/api/saves/<saveId>` 与列表 `GET /story-engine/api/saves`、浏览器持久化队列。
-- 阶段 C 部分完成：真实模型端到端闭环已跑通——隐藏 AI 会话桥接、结构化 JSON 回复提取（含引号容错与角色 ID 映射）、`story_present_choice` 选择卡已绑定为游戏壳内界面（`choice-bridge.ts` + `ChoiceCard.tsx`，经 `/api/respond` 回答，支持刷新恢复重放）。待完成回合按存档持久化为 `dsh-story-ai-pending:<saveId>`，具有 `queued`、`running`、`waiting-choice`、`completed`、`failed`、`cancelled` 明确状态；完成结果在宿主投影前保留，刷新后能够恢复投影。取消经 DSH `session.cancel` 确认；重试复用原提示，不会追加玩家输入、选择或已提交消息。无法解析的结构化输出显示为非正史错误，绝不降级为旁白。DSH 没有可靠会话删除 RPC，所以删除存档仅保留已归档隐藏会话及其会话专属 Runtime，并写入本地孤儿诊断；缺少原子删除契约时不单独回收 Runtime。
+- 阶段 C 部分完成：真实模型端到端闭环已跑通——隐藏 AI 会话桥接、结构化 JSON 回复提取（含引号容错与角色 ID 映射）、`story_present_choice` 选择卡已绑定为游戏壳内界面（`choice-bridge.ts` + `ChoiceCard.tsx`，经 `/api/respond` 回答，支持刷新恢复重放）。待完成回合按存档持久化为 `dsh-story-ai-pending:<saveId>`，具有 `queued`、`running`、`waiting-choice`、`completed`、`failed`、`cancelled` 明确状态；完成结果在宿主投影前保留，刷新后能够恢复投影。取消经 DSH `session.cancel` 确认；重试仅发送“继续上一回合”的控制提示，不会重复转述或追加玩家输入、选择或已提交消息。无法解析的结构化输出显示为非正史错误，绝不降级为旁白。DSH 没有可靠会话删除 RPC，所以删除存档仅保留已归档隐藏会话及其会话专属 Runtime，并写入本地孤儿诊断；缺少原子删除契约时不单独回收 Runtime。
 - 游戏库与多存档 UI 完成：进入游戏模式先显示游戏库（`StoryGameLibrary.tsx` + `game-library.ts`），通过 `/story-engine/api/catalog` 动态列出已安装内容包及各自存档，支持"新游戏/继续游戏/另存为/删除"，游戏内可返回游戏库；另存为使用 DSH `session.fork` 与宿主 Runtime 原子克隆，副本具有独立会话和运行状态。
 - AI 会话按存档隔离：隐藏会话 key 为 `dsh-story-ai-session:<saveId>`，每个存档独立会话；选择卡桥接按会话保留 pending 卡，只表面当前存档的问题卡，外档残留卡不会污染当前游戏，也不会因切换存档被误删。
 - 已知边界：`story_present_choice` 问题卡曾因渲染在普通聊天 composer 区被游戏壳盖住而挂起，已在客户端桥接修复；`respond` 返回裸 receipt（`{accepted}`）而非 RPC 包络，不做 `unwrap`。

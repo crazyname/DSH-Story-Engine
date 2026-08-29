@@ -67,7 +67,8 @@ describe('durable AI turn state machine',()=>{
     expect(result.messages).toEqual([{senderId:'p-hezhou',kind:'dialogue',content:'收到。'}])
     expect(prompt).toHaveBeenCalledTimes(2)
     expect(prompt.mock.calls[0]![0].content[0].text).toContain('只发送一次的玩家输入')
-    expect(prompt.mock.calls[1]![0].content[0].text).toContain('只发送一次的玩家输入')
+    expect(prompt.mock.calls[1]![0].content[0].text).toContain('不要再次转述或提交玩家输入')
+    expect(prompt.mock.calls[1]![0].content[0].text).not.toContain('只发送一次的玩家输入')
   })
   it('records a local orphan diagnostic instead of pretending to delete a DSH session',async()=>{
     const values=new Map<string,string>([['dsh-story-ai-session:save-removed','session-removed']])

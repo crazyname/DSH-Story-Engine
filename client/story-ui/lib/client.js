@@ -58,8 +58,8 @@ window.__ModuleLoader__.load({
 		}
 		var StoryGameAction_module_css_default = {
 			"action": "s-a98a_action",
-			"railAction": "s-a98a_railAction",
-			"label": "s-a98a_label"
+			"label": "s-a98a_label",
+			"railAction": "s-a98a_railAction"
 		};
 		//#endregion
 		//#region src/client/StoryGameAction.tsx
@@ -606,21 +606,21 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ChoiceCard_module_css_default = {
+			"dismiss": "gbf0-a_dismiss",
+			"optionLabel": "gbf0-a_optionLabel",
+			"composer": "gbf0-a_composer",
+			"question": "gbf0-a_question",
+			"detail": "gbf0-a_detail",
+			"options": "gbf0-a_options",
+			"optionDesc": "gbf0-a_optionDesc",
 			"headerRow": "gbf0-a_headerRow",
 			"card": "gbf0-a_card",
-			"input": "gbf0-a_input",
-			"eyebrow": "gbf0-a_eyebrow",
-			"question": "gbf0-a_question",
-			"composer": "gbf0-a_composer",
-			"option": "gbf0-a_option",
-			"detail": "gbf0-a_detail",
-			"optionDesc": "gbf0-a_optionDesc",
-			"optionActive": "gbf0-a_optionActive",
-			"optionLabel": "gbf0-a_optionLabel",
+			"send": "gbf0-a_send",
 			"overlay": "gbf0-a_overlay",
-			"dismiss": "gbf0-a_dismiss",
-			"options": "gbf0-a_options",
-			"send": "gbf0-a_send"
+			"eyebrow": "gbf0-a_eyebrow",
+			"option": "gbf0-a_option",
+			"optionActive": "gbf0-a_optionActive",
+			"input": "gbf0-a_input"
 		};
 		//#endregion
 		//#region src/client/ChoiceCard.tsx
@@ -762,34 +762,34 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameLibrary_module_css_default = {
-			"header": "Gwgdiq_header",
-			"saveItem": "Gwgdiq_saveItem",
 			"packDesc": "Gwgdiq_packDesc",
-			"saveList": "Gwgdiq_saveList",
-			"exit": "Gwgdiq_exit",
+			"opButton": "Gwgdiq_opButton",
+			"saveAction": "Gwgdiq_saveAction",
+			"saveRow": "Gwgdiq_saveRow",
+			"saveItem": "Gwgdiq_saveItem",
+			"packTitle": "Gwgdiq_packTitle",
+			"saveOps": "Gwgdiq_saveOps",
+			"logo": "Gwgdiq_logo",
+			"newGame": "Gwgdiq_newGame",
+			"pack": "Gwgdiq_pack",
+			"empty": "Gwgdiq_empty",
 			"saveName": "Gwgdiq_saveName",
-			"saveMeta": "Gwgdiq_saveMeta",
+			"header": "Gwgdiq_header",
 			"saveRowWrap": "Gwgdiq_saveRowWrap",
 			"library": "Gwgdiq_library",
 			"packHead": "Gwgdiq_packHead",
-			"opDanger": "Gwgdiq_opDanger",
-			"badge": "Gwgdiq_badge",
-			"packTitle": "Gwgdiq_packTitle",
-			"saveRow": "Gwgdiq_saveRow",
-			"pack": "Gwgdiq_pack",
-			"packInfo": "Gwgdiq_packInfo",
 			"body": "Gwgdiq_body",
-			"saveAction": "Gwgdiq_saveAction",
-			"error": "Gwgdiq_error",
-			"empty": "Gwgdiq_empty",
-			"opButton": "Gwgdiq_opButton",
 			"tagline": "Gwgdiq_tagline",
-			"packMeta": "Gwgdiq_packMeta",
-			"logo": "Gwgdiq_logo",
-			"saveOps": "Gwgdiq_saveOps",
+			"exit": "Gwgdiq_exit",
 			"headerTitle": "Gwgdiq_headerTitle",
+			"packInfo": "Gwgdiq_packInfo",
+			"saveList": "Gwgdiq_saveList",
+			"saveMeta": "Gwgdiq_saveMeta",
+			"opDanger": "Gwgdiq_opDanger",
 			"packList": "Gwgdiq_packList",
-			"newGame": "Gwgdiq_newGame"
+			"error": "Gwgdiq_error",
+			"packMeta": "Gwgdiq_packMeta",
+			"badge": "Gwgdiq_badge"
 		};
 		//#endregion
 		//#region src/client/StoryGameLibrary.tsx
@@ -979,52 +979,52 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var StoryGameShell_module_css_default = {
-			"frameLabel": "p8FQLq_frameLabel",
-			"actionMine": "p8FQLq_actionMine",
-			"backButton": "p8FQLq_backButton",
-			"bubbleOther": "p8FQLq_bubbleOther",
-			"cancelButton": "p8FQLq_cancelButton",
-			"channelItem": "p8FQLq_channelItem",
-			"detailPane": "p8FQLq_detailPane",
-			"composer": "p8FQLq_composer",
-			"channelItemActive": "p8FQLq_channelItemActive",
-			"shell": "p8FQLq_shell",
-			"narration": "p8FQLq_narration",
-			"choiceCard": "p8FQLq_choiceCard",
-			"turnError": "p8FQLq_turnError",
-			"detailText": "p8FQLq_detailText",
-			"demoNote": "p8FQLq_demoNote",
-			"choiceError": "p8FQLq_choiceError",
-			"sendButton": "p8FQLq_sendButton",
-			"bubbleRowOther": "p8FQLq_bubbleRowOther",
-			"channelKind": "p8FQLq_channelKind",
-			"senderName": "p8FQLq_senderName",
-			"channelPane": "p8FQLq_channelPane",
-			"systemNote": "p8FQLq_systemNote",
-			"retryButton": "p8FQLq_retryButton",
-			"messageList": "p8FQLq_messageList",
-			"iconButton": "p8FQLq_iconButton",
-			"topbarTitle": "p8FQLq_topbarTitle",
-			"channelList": "p8FQLq_channelList",
-			"memberItem": "p8FQLq_memberItem",
-			"paneHeader": "p8FQLq_paneHeader",
-			"flipIcon": "p8FQLq_flipIcon",
-			"messagePane": "p8FQLq_messagePane",
-			"bubbleMine": "p8FQLq_bubbleMine",
-			"detailSection": "p8FQLq_detailSection",
-			"topbar": "p8FQLq_topbar",
 			"body": "p8FQLq_body",
-			"channelLast": "p8FQLq_channelLast",
-			"topbarToggle": "p8FQLq_topbarToggle",
+			"detailText": "p8FQLq_detailText",
+			"shell": "p8FQLq_shell",
+			"bubbleOther": "p8FQLq_bubbleOther",
+			"libraryButton": "p8FQLq_libraryButton",
+			"iconButton": "p8FQLq_iconButton",
+			"channelName": "p8FQLq_channelName",
+			"narration": "p8FQLq_narration",
+			"bubbleRowOther": "p8FQLq_bubbleRowOther",
 			"detailBody": "p8FQLq_detailBody",
 			"bubbleRowMine": "p8FQLq_bubbleRowMine",
-			"channelName": "p8FQLq_channelName",
-			"channelTitle": "p8FQLq_channelTitle",
-			"input": "p8FQLq_input",
+			"bubbleMine": "p8FQLq_bubbleMine",
+			"frameLabel": "p8FQLq_frameLabel",
+			"systemNote": "p8FQLq_systemNote",
+			"messagePane": "p8FQLq_messagePane",
+			"backButton": "p8FQLq_backButton",
+			"channelPane": "p8FQLq_channelPane",
 			"actionOther": "p8FQLq_actionOther",
+			"retryButton": "p8FQLq_retryButton",
+			"demoNote": "p8FQLq_demoNote",
+			"messageList": "p8FQLq_messageList",
+			"channelKind": "p8FQLq_channelKind",
+			"actionMine": "p8FQLq_actionMine",
+			"composer": "p8FQLq_composer",
+			"topbar": "p8FQLq_topbar",
+			"cancelButton": "p8FQLq_cancelButton",
+			"detailPane": "p8FQLq_detailPane",
+			"topbarToggle": "p8FQLq_topbarToggle",
+			"turnError": "p8FQLq_turnError",
+			"choiceError": "p8FQLq_choiceError",
+			"channelItem": "p8FQLq_channelItem",
+			"channelList": "p8FQLq_channelList",
+			"detailSection": "p8FQLq_detailSection",
 			"memberList": "p8FQLq_memberList",
+			"senderName": "p8FQLq_senderName",
+			"input": "p8FQLq_input",
+			"channelLast": "p8FQLq_channelLast",
+			"channelItemActive": "p8FQLq_channelItemActive",
+			"topbarTitle": "p8FQLq_topbarTitle",
+			"sendButton": "p8FQLq_sendButton",
+			"memberItem": "p8FQLq_memberItem",
+			"paneHeader": "p8FQLq_paneHeader",
 			"memberAvatar": "p8FQLq_memberAvatar",
-			"libraryButton": "p8FQLq_libraryButton"
+			"choiceCard": "p8FQLq_choiceCard",
+			"flipIcon": "p8FQLq_flipIcon",
+			"channelTitle": "p8FQLq_channelTitle"
 		};
 		//#endregion
 		//#region src/client/StoryGameShell.tsx
@@ -2019,6 +2019,11 @@ window.__ModuleLoader__.load({
 				if (channel === void 0) throw new Error("频道不存在");
 				return `当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(", ")}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;
 			}
+			retryPrompt(projection, channelId) {
+				const channel = projection.channels.find((c) => c.id === channelId);
+				if (channel === void 0) throw new Error("频道不存在");
+				return `继续刚才未完成的文字游戏回合。不要再次转述或提交玩家输入、选择或已提交的剧情消息。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。只在通过必要的 story_* 工具后输出新的结构化 JSON 回复。`;
+			}
 			async start(projection, channelId, prompt) {
 				const sessionId = await this.session(projection.saveId, projection.agentPreset ?? `story-${projection.packId}`);
 				const before = unwrap(await this.api.sessions.history({
@@ -2078,7 +2083,7 @@ window.__ModuleLoader__.load({
 			async retry(projection) {
 				const prior = this.readTurn(projection.saveId);
 				if (prior === null || !["failed", "cancelled"].includes(prior.state) || prior.prompt === "") throw new Error("当前 AI 回合不可安全重试");
-				const completed = await this.start(projection, prior.channelId, prior.prompt);
+				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId));
 				return {
 					...completed.result,
 					turnId: completed.turnId
