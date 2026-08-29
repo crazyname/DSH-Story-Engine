@@ -238,7 +238,7 @@ interface StoryMessage {
 
 不同频道分别保存草稿。切换到普通聊天时，游戏草稿不得进入 DSH 普通输入框。
 
-可能产生 canonical effect 的逻辑玩家操作必须在首次外部调用前获得稳定 `operationId`；retry、刷新和恢复不得通过生成新 ID 把同一玩家输入再次提交。
+可能产生 canonical effect 的顶层玩家提交必须在首次隐藏 DSH/外部调用前获得稳定 `transactionId`。如果该 transaction 中需要调用一个或多个 mutating core `story_*` 操作，每个原子 mutation 使用自己的稳定 `operationId`。retry、刷新和恢复不得通过生成新 transaction/operation identity 把同一玩家输入或已完成 core mutation 再提交一次。
 
 ## 10. AI 输出协议
 
@@ -287,27 +287,28 @@ interface StoryMessage {
 
 首版不要求把所有 UI 状态实现为完整 event sourcing。
 
-`StorySaveProjection` 是客户端加载和恢复 social state 的权威投影，使用 revision 与宿主 optimistic locking 防止 stale writer。跨隐藏 DSH、core runtime 和 social projection 的可重试 canonical operation 使用稳定 ID、durable transaction journal 与 runtime receipts 负责幂等和崩溃恢复，具体见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
+跨隐藏 DSH、core runtime 和 social projection 的可重试 transaction 使用稳定身份、durable transaction journal 与 runtime receipts 负责幂等和崩溃恢复；`StorySaveProjection` 是当前 social/UI state 的宿主持久化权威投影。具体见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
 正式关系为：
 
 ```text
-stable operation / turn IDs
-          ↓
-durable journal + runtime receipts
-          ↓
-authoritative runtime/social state
-          ↓
-StorySaveProjection
-          ↓
-UI
+transactionId
+    ↓
+durable transaction journal
+    ├─ hidden DSH turnId lifecycle
+    ├─ core operationId → receipt + core runtime canonical state
+    └─ turnId → StorySaveProjection canonical social commit
+                         ↓
+                         UI
 ```
 
 这意味着：
 
+- core runtime 是 `played_canon`、当前 episode/scene、选择和后果等游戏 canonical state 的权威来源；
+- `StorySaveProjection` 是当前 social/UI state 的宿主持久化权威投影，但不能反向覆盖 core canonical truth；
+- transaction journal 保存跨域恢复身份和阶段，operation receipts 证明具体 core mutation 是否已经应用；
 - 客户端不得从模型原文、工具轨迹或 UI 临时状态猜测 canonical history；
-- projection snapshot 可以作为当前 social state 的高效加载形式；
-- journal/receipt 不能只存在浏览器内，它们用于证明跨域 operation 是否已经应用；
+- UI 主要读取 projection，不直接消费 runtime receipts；
 - 未来可以增加 append-only domain events 用于审计、迁移或增量同步，但 v1 首版不要求草稿、阅读游标和每个 UI 改动都只能通过 event log 重建；
 - 消息编辑或撤回不能静默伪造从未发生过的历史，应保留明确的 retracted/revision 语义和必要原因。
 
@@ -340,7 +341,7 @@ Story Engine 宿主插件负责：
 
 - 内容包和存档权限边界。
 - 结构化工具与参数校验。
-- 持久化、检查点、版本锁、幂等 receipt 和事务提交。
+- 持久化、检查点、版本锁、transaction journal、幂等 receipt 和事务提交。
 - 面向客户端提供完整投影，不让浏览器自行猜测剧情状态。
 
 ### 12.3 故障隔离
@@ -401,7 +402,7 @@ Story Engine 宿主插件负责：
 
 ### 阶段 D：连载玩法集成
 
-- 跨隐藏 DSH、social projection 与 core runtime 的 operation-level idempotency 和 durable recovery。
+- transaction-level journal、隐藏 `turnId` 映射、core operation-level idempotency/receipts 和 durable recovery。
 - 季、集、场景与频道联动。
 - 工作内轻量输出和工作外详细剧情。
 - 越界暂停、剧本修订、校验和恢复。
