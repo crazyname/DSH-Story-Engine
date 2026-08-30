@@ -71,13 +71,15 @@ D2 journal 使用与 projection 相同的 `runtimeRoot`，但保存于独立的 
 }
 ```
 
-列表按 `createdAt`、`transactionId` 稳定排序。若某份 journal JSON 损坏、schema 无效或文件名身份与内容身份不一致，读取 fail-closed；不会静默跳过恢复证据。
+列表按 `createdAt`、`transactionId` 稳定排序。若某份 journal JSON 损坏、schema 无效、input fingerprint 与持久 input 不匹配，或文件名身份与内容身份不一致，读取 fail-closed；不会静默跳过恢复证据。
 
 ### `GET /story-engine/api/transactions/{saveId}/{transactionId}`
 
 返回完整 `StoryTransactionRecord`；不存在时 `204`。
 
 `transactionId` 的逻辑 stable-ID 格式为 1–128 位 ASCII：首字符字母或数字，其余可使用字母、数字、`.`、`_`、`:`、`-`。URL path segment 应正常 percent-encode。
+
+transaction input 的 `channelId` 使用现有 Story UI stable-ID 契约：1–100 位，首字符为字母或数字，其余允许字母、数字、`.`、`_`、`-`。Host Store 会根据 `saveId + channelId + input text` 重新计算 input fingerprint 并与 record 比较，而不是只检查 fingerprint 的字符串格式。
 
 宿主磁盘文件名**不是**原 transactionId。Store 使用带固定 `tx-` 前缀的有界 base64url 编码，以兼容 Windows `:`、设备保留名和单文件名长度限制；读取时会反向校验 canonical 编码与 record identity。
 
@@ -92,7 +94,7 @@ D2 journal 使用与 projection 相同的 `runtimeRoot`，但保存于独立的 
 }
 ```
 
-新建 journal 使用 `expectedRevision: -1`，且 record `revision` 必须为 `0`。后续更新必须满足：
+新建 journal 使用 `expectedRevision: -1`。bootstrap record 必须是 `revision: 0` 的 `prepared` intent，并且不得预填 hidden-turn evidence、child operation identity、`activeTurnId` 或 `canonicalResultTurnId`；hidden/core child identity 必须在后续 revision 中先持久化，再执行相应外部步骤。后续更新必须满足：
 
 ```text
 host current transaction revision == expectedRevision
@@ -118,8 +120,11 @@ transaction.revision == expectedRevision + 1
 
 - `committed` / `cancelled` / `failed` 为不可产生后续 revision 的终态；
 - hidden evidence 只增不删；已有 hidden identity 不可替换；
+- 新增 hidden turn 必须从 `planned` 开始，且 `planned` 状态不能携带伪造的 native `dshTurn`；
 - `completed` / `failed` / `cancelled` hidden turn 不可被 late result 改写；
-- `canonicalResultTurnId` 一旦确定不可替换；
+- `dshTurn` 一旦存在必须同时有 `sessionId`，同一 record 中 `(sessionId, dshTurn)` 不得重复；
+- Story Engine `turnId` 与 `dshRequestId` 在同一 transaction 中各自唯一；
+- `canonicalResultTurnId` 只能引用 completed hidden turn，且一旦确定不可替换；
 - child `stepKey` / `operationId` evidence 只增不删、不可改写。
 
 #### Hidden DSH identity
