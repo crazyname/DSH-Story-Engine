@@ -55,7 +55,7 @@ export function validateTransactionRecord(value:unknown):StoryTransactionRecord{
  if(raw.schemaVersion!==TRANSACTION_JOURNAL_SCHEMA_VERSION)throw new Error('transaction.schemaVersion 必须为 1')
  const transactionId=stableString(raw.transactionId,'transactionId')
  const saveId=text(raw.saveId,'saveId');assertSaveId(saveId)
- const inputRaw=object(raw.input,'input');const channelId=storyUiId(inputRaw.channelId,'input.channelId');const inputText=text(inputRaw.text,'input.text')
+ const inputRaw=object(raw.input,'input');const channelId=storyUiId(inputRaw.channelId,'input.channelId');const inputText=text(inputRaw.text,'input.text');if(inputText.trim()!==inputText)throw new Error('input.text 必须是已规范化的非空字符串')
  const inputFingerprint=text(raw.inputFingerprint,'inputFingerprint');assertFingerprint(inputFingerprint)
  if(!Number.isInteger(raw.baseProjectionRevision)||Number(raw.baseProjectionRevision)<0)throw new Error('baseProjectionRevision 必须是非负整数')
  const statuses=new Set<StoryTransactionStatus>(['prepared','committed','cancelled','failed','needs-recovery']);if(!statuses.has(raw.status as StoryTransactionStatus))throw new Error('transaction.status 无效')
@@ -76,7 +76,7 @@ export function assertInitialTransactionRecord(record:StoryTransactionRecord):vo
 const TERMINAL_TRANSACTION=new Set<StoryTransactionStatus>(['committed','cancelled','failed'])
 const TRANSACTION_TRANSITIONS:Record<StoryTransactionStatus,ReadonlySet<StoryTransactionStatus>>={prepared:new Set(['prepared','committed','cancelled','failed','needs-recovery']),committed:new Set(),cancelled:new Set(),failed:new Set(),'needs-recovery':new Set(['needs-recovery','committed','failed'])}
 const TERMINAL_TURN=new Set<StoryHiddenTurnState>(['completed','failed','cancelled'])
-const TURN_TRANSITIONS:Record<StoryHiddenTurnState,ReadonlySet<StoryHiddenTurnState>>={planned:new Set(['planned','dispatched','failed','cancelled','uncertain']),dispatched:new Set(['dispatched','completed','failed','cancelled','uncertain']),completed:new Set(),failed:new Set(),cancelled:new Set(),uncertain:new Set(['uncertain','dispatched','completed','failed','cancelled'])}
+const TURN_TRANSITIONS:Record<StoryHiddenTurnState,ReadonlySet<StoryHiddenTurnState>>={planned:new Set(['planned','dispatched','failed','cancelled','uncertain']),dispatched:new Set(['dispatched','completed','failed','cancelled']),completed:new Set(),failed:new Set(),cancelled:new Set(),uncertain:new Set(['uncertain','dispatched','completed','failed','cancelled'])}
 function conflict(message:string):never{throw new Error(`transaction 幂等冲突：${message}`)}
 export function assertTransactionUpdate(current:StoryTransactionRecord,next:StoryTransactionRecord):void{
  if(next.transactionId!==current.transactionId||next.saveId!==current.saveId)conflict('identity 不可修改')
