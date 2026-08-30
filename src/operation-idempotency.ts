@@ -73,6 +73,7 @@ export function normalizeOperationReceipts(value: unknown): Record<string, Opera
       || typeof receipt.fingerprint !== 'string' || !SHA256.test(receipt.fingerprint)
       || !Number.isInteger(receipt.stateVersion) || Number(receipt.stateVersion) < 0
       || typeof receipt.committedAt !== 'string' || !receipt.committedAt
+      || !Object.prototype.hasOwnProperty.call(receipt, 'result')
       || (receipt.transactionId !== undefined && (typeof receipt.transactionId !== 'string' || !STABLE_ID.test(receipt.transactionId)))) {
       throw new Error('operationReceipts 损坏')
     }
