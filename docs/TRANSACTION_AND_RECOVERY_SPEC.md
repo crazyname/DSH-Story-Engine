@@ -43,6 +43,7 @@
 - 同一个原子 mutation 的重试复用同一 `operationId`。
 - 同一 transaction 内两个不同 mutation，即使调用同一个 tool、payload 相似，也必须使用不同 `operationId`。
 - 调用方必须在**第一次 core mutation 调用之前确定**稳定 `operationId`，不能让每次 retry 根据临时网络 request ID 或未持久化 tool-call index 重新生成。
+- 首版 core stable ID 使用 1–128 位 ASCII：首字符必须为字母或数字，其余字符可使用字母、数字、`.`、`_`、`:`、`-`。`transactionId` 若通过 core tool 一并传入，使用同一格式约束。
 - Core Runtime 的职责是接收这个稳定 ID，并在 canonical mutation 成功时把 receipt 与 mutation 原子持久化；core 不需要为了 D1 幂等能力单独先写一份 operation intent。
 - 在完整跨域 transaction 中，coordinator / transaction journal 负责在首次执行该 child step 之前把稳定 step identity / `operationId` 持久化，从而保证进程重启后仍能恢复同一个 ID。这属于 journal/recovery 层，而不是 core receipt 提交本身。
 - 实现可以把 `operationId` 设计成随机稳定 ID，也可以由 `transactionId + 持久 step key` 确定性派生；关键是恢复后能够得到同一个值。
