@@ -16,7 +16,11 @@ const objectOutput={schema:{type:'object',additionalProperties:true} as const,re
 const arrayOutput={schema:{type:'array',items:{type:'object',additionalProperties:true}} as const,render:objectOutput.render}
 function sessionId(exec:{agent?:{session?:{id?:unknown}}}):string{const id=exec.agent?.session?.id;if(!id)throw new Error('Story 工具只能在 Agent 会话中使用');return String(id)}
 const operationParameters={operation_id:{type:'string',required:true},transaction_id:{type:'string'}} as const
-function operationIdentity(args:{operation_id:unknown;transaction_id?:unknown}):OperationIdentity{return{operationId:String(args.operation_id),...(args.transaction_id===undefined?{}:{transactionId:String(args.transaction_id)})}}
+function operationIdentity(args:{operation_id?:unknown;transaction_id?:unknown}):OperationIdentity{
+ if(typeof args.operation_id!=='string')throw new Error('operation_id 必须是字符串')
+ if(args.transaction_id!==undefined&&typeof args.transaction_id!=='string')throw new Error('transaction_id 必须是字符串')
+ return{operationId:args.operation_id,...(args.transaction_id===undefined?{}:{transactionId:args.transaction_id})}
+}
 const highImpactWords=['死亡','永久','关键','主线','道德','感情','恋爱','背叛','失踪','重伤','重大']
 function isHighImpact(work:WorkEvent):boolean{return work.result==='disaster'||highImpactWords.some(word=>`${work.name} ${work.stateEffects.join(' ')}`.includes(word))}
 
