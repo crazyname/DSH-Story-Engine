@@ -13,6 +13,12 @@ function merge(target: JsonObject, patch: JsonObject): JsonObject {
   for (const [key,value] of Object.entries(patch)) result[key] = value && typeof value === 'object' && !Array.isArray(value) && result[key] && typeof result[key] === 'object' && !Array.isArray(result[key]) ? merge(result[key], value as JsonObject) : structuredClone(value)
   return result
 }
+function replayableJson<T>(value:T,operation:string):T{
+  let serialized:string|undefined
+  try{serialized=JSON.stringify(value)}catch{throw new Error(`幂等 operation 结果无法持久化：${operation}`)}
+  if(serialized===undefined)throw new Error(`幂等 operation 必须返回可重放结果：${operation}`)
+  return JSON.parse(serialized) as T
+}
 function event(type: PlayedEvent['type'], content?: string, metadata?: Record<string, unknown>): PlayedEvent {
   return {
     id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
@@ -101,8 +107,7 @@ export class SerialStateStore {
       this.assertVersion(state, expected)
       await action.validate?.(state)
       await action.prepare?.()
-      const result = await action.mutate(state)
-      if (result === undefined) throw new Error(`幂等 operation 必须返回可重放结果：${prepared.operation}`)
+      const result = replayableJson(await action.mutate(state),prepared.operation)
       state._engine.stateVersion += 1
       const committedAt = new Date().toISOString()
       state._engine.updatedAt = committedAt
@@ -114,7 +119,7 @@ export class SerialStateStore {
         fingerprint: prepared.fingerprint,
         stateVersion: state._engine.stateVersion,
         committedAt,
-        result: structuredClone(result),
+        result,
       }
       state._engine.operationReceipts[prepared.operationId] = receipt
       await this.atomicWrite(this.path(sessionId), state)
@@ -172,6 +177,6 @@ export class SerialStateStore {
   }
   async checkpoint(sessionId:string,label:string,operationId?:string):Promise<{id:string;path:string}>{const source=this.path(sessionId);await this.read(sessionId);const id=operationId?`op_${operationCheckpointKey(operationId)}_${this.safe(label).slice(0,40)}`:`${Date.now()}_${this.safe(label).slice(0,50)}`;const target=join(this.directory(sessionId),'checkpoints',`${id}.json`);await mkdir(dirname(target),{recursive:true});await copyFile(source,target);return{id,path:target}}
   async checkpoints(sessionId:string):Promise<Array<{id:string}>>{const directory=join(this.directory(sessionId),'checkpoints');const names=await readdir(directory).catch(e=>{if((e as NodeJS.ErrnoException).code==='ENOENT')return[];throw e});return names.filter(n=>n.endsWith('.json')).sort().reverse().map(n=>({id:n.slice(0,-5)}))}
-  async restoreCheckpoint(sessionId:string,checkpointId:string):Promise<RuntimeState>{return this.exclusive(sessionId,async()=>{if(this.safe(checkpointId)!==checkpointId)throw new Error('检查点 ID 无效');const source=join(this.directory(sessionId),'checkpoints',`${checkpointId}.json`);const restored=this.normalize(JSON.parse(await readFile(source,'utf8')),sessionId);const current=await this.read(sessionId);for(const[id,receipt]of Object.entries(restored._engine.operationReceipts)){const currentReceipt=current._engine.operationReceipts[id];if(currentReceipt&&!isDeepStrictEqual(currentReceipt,receipt))throw new Error(`检查点 operation receipt 冲突：${id}`)}restored._engine.operationReceipts={...restored._engine.operationReceipts,...current._engine.operationReceipts};restored._engine.stateVersion=current._engine.stateVersion+1;restored._engine.updatedAt=new Date().toISOString();await this.atomicWrite(this.path(sessionId),restored);return restored})}
+  async restoreCheckpoint(sessionId:string,checkpointId:string):Promise<RuntimeState>{return this.exclusive(sessionId,async()=>{if(this.safe(checkpointId)!==checkpointId)throw new Error('检查点 ID 无效');const source=join(this.directory(sessionId),'checkpoints',`${checkpointId}.json`);const restored=this.normalize(JSON.parse(await readFile(source,'utf8')),sessionId);const current=await this.read(sessionId);for(const[id,receipt]of Object.entries(restored._engine.operationReceipts)){const currentReceipt=current._engine.operationReceipts[id];if(!currentReceipt)throw new Error(`检查点包含当前状态未知的 operation receipt：${id}`);if(!isDeepStrictEqual(currentReceipt,receipt))throw new Error(`检查点 operation receipt 冲突：${id}`)}restored._engine.operationReceipts=structuredClone(current._engine.operationReceipts);restored._engine.stateVersion=current._engine.stateVersion+1;restored._engine.updatedAt=new Date().toISOString();await this.atomicWrite(this.path(sessionId),restored);return restored})}
   private async atomicWrite(path:string,value:unknown):Promise<void>{await mkdir(dirname(path),{recursive:true});const temporary=`${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;await writeFile(temporary,`${JSON.stringify(value,null,2)}\n`,'utf8');await rename(temporary,path)}
 }
