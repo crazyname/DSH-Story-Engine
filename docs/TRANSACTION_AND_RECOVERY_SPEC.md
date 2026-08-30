@@ -42,7 +42,10 @@
 - 每个可能被 retry/recovery 重复调用的 mutating `story_*` operation 都必须有 `operationId`。
 - 同一个原子 mutation 的重试复用同一 `operationId`。
 - 同一 transaction 内两个不同 mutation，即使调用同一个 tool、payload 相似，也必须使用不同 `operationId`。
-- `operationId` 必须在第一次执行该 mutation 前确定并持久化，不能依赖重试时可能变化的临时网络 request ID 或未持久化的 tool-call index。
+- 调用方必须在**第一次 core mutation 调用之前确定**稳定 `operationId`，不能让每次 retry 根据临时网络 request ID 或未持久化 tool-call index 重新生成。
+- 首版 core stable ID 使用 1–128 位 ASCII：首字符必须为字母或数字，其余字符可使用字母、数字、`.`、`_`、`:`、`-`。`transactionId` 若通过 core tool 一并传入，使用同一格式约束。
+- Core Runtime 的职责是接收这个稳定 ID，并在 canonical mutation 成功时把 receipt 与 mutation 原子持久化；core 不需要为了 D1 幂等能力单独先写一份 operation intent。
+- 在完整跨域 transaction 中，coordinator / transaction journal 负责在首次执行该 child step 之前把稳定 step identity / `operationId` 持久化，从而保证进程重启后仍能恢复同一个 ID。这属于 journal/recovery 层，而不是 core receipt 提交本身。
 - 实现可以把 `operationId` 设计成随机稳定 ID，也可以由 `transactionId + 持久 step key` 确定性派生；关键是恢复后能够得到同一个值。
 - `operationId` 的作用域至少包含一个 save/runtime domain；不同存档不能因为字符串巧合互相命中 receipt。
 
@@ -85,7 +88,9 @@ transaction 自身也应保存足够的 input fingerprint，防止同一 `transa
 - operation 完成后的 runtime/state version；
 - 必要时对应的 episode、scene、turn 或 revision 信息。
 
-receipt 必须与其保护的 canonical runtime mutation 原子持久化，不能先改状态、后以另一次非原子写入补 receipt。
+receipt 必须与其保护的 canonical runtime mutation 原子持久化，不能先改状态、后以另一次非原子写入补 receipt。receipt 的 replay result 必须能够稳定序列化；不能依赖 JSON 会丢失的 `undefined` 结果来表示成功。
+
+可选 `transactionId` 出现在 receipt 中只表示关联关系，不等于该 transaction 已经拥有 durable journal 或跨域恢复能力。
 
 ## 4. Canonical commit 原则
 
@@ -107,16 +112,18 @@ receipt 必须与其保护的 canonical runtime mutation 原子持久化，不�
 
 每个 save/runtime 可以使用进程内串行队列保护本地提交临界区，但不得在等待模型、网络或用户选择期间长期占有写锁。
 
-推荐顺序：
+完整 D2 coordinator 的推荐顺序：
 
 1. 在短临界区内持久化 transaction intent；
 2. 释放锁；
 3. 执行模型/网络/选择等待；
 4. 获得新的 hidden `turnId` 后尽快把 turn reference 写回 journal；
-5. 对每个需要 canonical mutation 的步骤，在第一次执行前确定并持久化 `operationId`；
-6. 获得可验证结果后重新进入短临界区；
-7. 重新读取 transaction、operation receipt 与当前版本；
-8. 幂等提交 canonical effect。
+5. 对每个需要 canonical mutation 的步骤，由 coordinator 确定稳定 `operationId`，并在首次 core 调用之前把 child step identity 写入 journal；
+6. 获得可验证结果后调用 Core Runtime，传入稳定 `operationId` 与必要 optimistic version；
+7. Core Runtime 在自己的短临界区重新读取 receipt 与当前版本，并按第 6 节幂等提交；
+8. coordinator 根据 core receipt 继续其余 operation 或 social projection。
+
+只验证 D1 Core Runtime 能力的直接调用可以由测试/调用方显式提供稳定 `operationId`，不要求为了测试 core receipt 先实现 transaction journal。
 
 ## 5. Transaction Journal 状态
 
@@ -140,9 +147,9 @@ journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input 
 
 ## 6. Core Runtime 幂等契约
 
-所有会改变 core runtime canonical state、且可能被 retry/recovery 再次调用的 `story_*` operation，必须具备 operation-level idempotency。
+所有会改变 core runtime canonical state、且可能被 retry/recovery 再次调用的公开 `story_*` operation，必须具备 operation-level idempotency。
 
-在同一 session/runtime 的串行 `mutate()` 临界区中，推荐执行顺序：
+在同一 session/runtime 的串行提交临界区中，执行顺序固定为：
 
 1. 查找 `operationId` 对应 receipt。
 2. 若 receipt 存在且 fingerprint 相同，直接返回原结果；不得增加 state version，不得重复追加事件或再次应用状态变化。
@@ -156,11 +163,35 @@ journal 还应保存恢复所需的最小关联信息，例如 `saveId`、input 
 
 - 相同 choice operation 被同一 `operationId` 重放；
 - 相同 consequence operation 在进程崩溃后重试；
-- core 已提交但调用方没有收到成功响应；
+- core 已提交但调用方没有收到成功响应，即使 retry 携带首次调用时已经 stale 的 `expectedVersion`，matching receipt 仍先返回；
 - 一个 transaction 中第一个 core operation 已提交、第二个尚未执行；
 - social projection 尚未完成而一个或多个 core receipts 已存在。
 
 `expectedVersion` 与 `operationId` 解决不同问题：前者防止 stale writer 覆盖当前状态，后者防止同一原子 mutation 被重复应用。两者必须同时保留。
+
+### 6.1 Runtime receipt 存储与 Schema
+
+D1 的 Runtime state 使用 schema v3，并把 receipts 保存在 `_engine.operationReceipts`。该字段属于引擎保护元数据，普通 `story_commit_state` 不能直接改写。
+
+兼容规则：
+
+- 旧 Runtime schema v2 没有 receipt 字段时，新代码按空 receipt map 向前 normalize；
+- 首次后续 canonical 写入会以当前 schema 持久化状态；
+- 遇到高于当前实现支持的未知 Runtime schema 时必须拒绝读取/写入，不能静默当作旧版本降级；
+- 不要求旧版本代码能够读取未来的新 schema；向后兼容的主要方向是新代码读取受支持的旧存档。
+
+D1 不主动压缩 receipts。保留/compaction 见第 12 节。
+
+### 6.2 Checkpoint、restore 与 receipts
+
+Checkpoint 是 gameplay recovery 工件，不得成为释放已经消费过的 operation identity 的手段。
+
+- 由 canonical scene mutation 自动创建的 pre-scene checkpoint 对同一个 `operationId` 使用稳定 checkpoint identity；同 operation replay 不创建第二份内部 checkpoint。
+- `story_create_checkpoint` 是显式恢复工件创建接口，本身不是 D1 canonical mutation receipt 集合的一员。
+- restore 可以把 gameplay state 回滚到旧 checkpoint，但必须保留当前 Runtime 已经存在的 operation receipts；否则 checkpoint 之后已经执行过的旧 operation 会在 retry 时再次应用。
+- 如果 checkpoint 与当前 Runtime 对同一 `operationId` 保存了两份内容不一致的 receipt，这是冲突 evidence，restore 必须拒绝，不能任选一份静默覆盖。
+- restore 会修改 Runtime state，因此必须和 canonical mutation 使用同一个 per-session 写串行化边界，不能与正在提交的 operation 互相覆盖。
+- restore 后若玩家希望在新时间线上再次执行语义相似的动作，必须产生新的 logical operation identity；旧 operation ID 仍表示历史上已经消费过的那次操作。
 
 ## 7. Social Projection 幂等契约
 
@@ -292,19 +323,23 @@ Projection 不是 core receipt 的替代品；receipt 也不是 social projectio
 3. 同一 `operationId` + 不同 payload/fingerprint 冲突，并且不改变原 operation/receipt 状态。
 4. 同一 `transactionId` 被不同玩家 input fingerprint 复用时冲突。
 5. 一个 transaction 内两个不同 core mutations 使用不同 `operationId`，能够各自提交和重放。
-6. 首次 operation 提交成功后重试不增加 state version。
-7. hidden dispatch 在 turnId 持久化前进入不确定状态时，按实际 DSH 能力进行 correlation/recovery，不盲目宣称 exactly-once。
-8. 同一 transaction 包含多个 hidden retry/continuation turns 时，不重复提交原始玩家输入，只提交最终 canonical result。
-9. core operation commit 后、social commit 前崩溃恢复。
-10. 多 operation transaction 在中间崩溃后只补未完成步骤。
-11. social host save 后、AI acknowledge 前崩溃恢复。
-12. `cancelled` 后晚到 completed result 不提交。
-13. canonical effect 已提交后才收到 cancel 时，不倒改历史并正确进入 reconciliation。
-14. stale expected version 与 idempotent replay 的优先级正确：已有 matching receipt 可以返回原结果；新的 stale operation 仍被拒绝。
-15. 两个 save 的相同/相似 transaction/operation 互不命中 receipt。
-16. fork 后历史 receipt 保持有效，新 transaction/operation 身份独立；非终态 transaction 的 fork 策略有测试。
-17. 进程重启后仍能发现并恢复非终态 journal 记录。
-18. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
+6. 首次 operation 提交成功后重试不增加 state version；matching receipt 的优先级高于首次调用遗留的 stale `expectedVersion`。
+7. 新 operation 遇到 stale expected version 时失败且不产生 receipt。
+8. Runtime v2 state 向前 normalize 到 v3；未知更高 schema 被拒绝。
+9. checkpoint restore 保留当前 receipts、拒绝同 ID 冲突 evidence，并与 canonical mutation 串行。
+10. hidden dispatch 在 turnId 持久化前进入不确定状态时，按实际 DSH 能力进行 correlation/recovery，不盲目宣称 exactly-once。
+11. 同一 transaction 包含多个 hidden retry/continuation turns 时，不重复提交原始玩家输入，只提交最终 canonical result。
+12. core operation commit 后、social commit 前崩溃恢复。
+13. 多 operation transaction 在中间崩溃后只补未完成步骤。
+14. social host save 后、AI acknowledge 前崩溃恢复。
+15. `cancelled` 后晚到 completed result 不提交。
+16. canonical effect 已提交后才收到 cancel 时，不倒改历史并正确进入 reconciliation。
+17. 两个 save 的相同/相似 transaction/operation 互不命中 receipt。
+18. fork 后历史 receipt 保持有效，新 transaction/operation 身份独立；非终态 transaction 的 fork 策略有测试。
+19. 进程重启后仍能发现并恢复非终态 journal 记录。
+20. deterministic build 与 tracked artifact 一致性不因事务实现破坏。
+
+D1 可以先覆盖第 1、2、3、5、6、7、8、9 项的 core-side 子集；涉及 transaction journal、hidden turn 与跨域 restart 的项目属于 D2 及之后的集成验收。不能因为 D1 测试通过就宣称第 4、10–19 项已经完成。
 
 ## 14. 非目标
 

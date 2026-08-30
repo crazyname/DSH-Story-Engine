@@ -14,7 +14,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
-import { dirname, resolve as resolvePath } from 'node:path'
+import { dirname, relative as relativePath, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'lightningcss'
 
@@ -40,6 +40,13 @@ const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
 
 const pkgRoot = dirname(fileURLToPath(import.meta.url))
+
+/** Stable POSIX-like id so CSS output does not depend on the checkout path. */
+function cssModuleId(absolutePath) {
+  const relative = relativePath(pkgRoot, absolutePath).replaceAll('\\', '/')
+  if (!relative || relative === '..' || relative.startsWith('../')) throw new Error(`CSS Module 必须位于客户端包内：${absolutePath}`)
+  return relative
+}
 
 /** Emit one plugin-owned style injector plus the CSS Modules class map. */
 function styleInjectionModule(css, classMap, tagId) {
@@ -93,15 +100,16 @@ const clientConfig = {
         const abs = importer !== undefined
           ? resolvePath(dirname(importer), source)
           : resolvePath(pkgRoot, source)
-        return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+        return CSS_VIRTUAL_PREFIX + cssModuleId(abs) + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId) {
         if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-        const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const stableId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const fileId = resolvePath(pkgRoot, stableId)
         this.addWatchFile(fileId)
         const source = await readFile(fileId)
         const { code, exports: cssExports } = transform({
-          filename: fileId,
+          filename: `/dsh-story-client/${stableId}`,
           code: source,
           cssModules: { pattern: '[hash]_[local]' },
           minify: true,
@@ -114,7 +122,7 @@ const clientConfig = {
         for (const [local, exp] of entries) classMap[local] = exp.name
         // Every CSS Module needs its own tag identity. Reusing one package-wide
         // id lets the first imported module suppress all later style blocks.
-        const styleId = `${ID}/${createHash('sha256').update(fileId).digest('hex').slice(0, 12)}.css`
+        const styleId = `${ID}/${createHash('sha256').update(stableId).digest('hex').slice(0, 12)}.css`
         return styleInjectionModule(code.toString(), classMap, styleId)
       },
       generateBundle(_options, bundle) {

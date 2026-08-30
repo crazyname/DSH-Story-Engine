@@ -2,6 +2,26 @@ export type EpisodeStatus = 'draft' | 'validated' | 'playing' | 'completed' | 's
 export type WorkResult = 'perfect' | 'success' | 'partial' | 'failure' | 'disaster'
 export type PauseState = 'running' | 'paused-for-revision' | 'validating-revision'
 
+export interface OperationIdentity {
+  operationId: string
+  transactionId?: string
+}
+
+export interface OperationReceipt<T = unknown> {
+  operationId: string
+  transactionId?: string
+  operation: string
+  fingerprint: string
+  stateVersion: number
+  committedAt: string
+  result: T
+}
+
+export interface OperationExecution<T = unknown> {
+  receipt: OperationReceipt<T>
+  replayed: boolean
+}
+
 export interface EpisodeScript {
   schemaVersion: 1
   episodeId: string
@@ -40,7 +60,14 @@ export interface EpisodeSummary {
   freeInputs: Array<{ choiceId: string; input: string }>; consequences: string[]; relationshipChanges: string[]; createdAt: string
 }
 export interface RuntimeState {
-  _engine: { schemaVersion: 2; stateVersion: number; packId: string; createdAt: string; updatedAt?: string }
+  _engine: {
+    schemaVersion: 3
+    stateVersion: number
+    packId: string
+    createdAt: string
+    updatedAt?: string
+    operationReceipts: Record<string, OperationReceipt>
+  }
   _pack: { id: string; name: string; version: string; language: string; license: string; player: { controlledCharacters: string[]; aiMayControlPlayer: boolean } }
   sourceCanon: Record<string, unknown>
   authoredScript: { scripts: Record<string, ScriptRecord>; runtimeScriptRoot: string }

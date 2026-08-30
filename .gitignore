@@ -5,8 +5,8 @@ coverage/
 output/
 packs/private/
 presets/story-dispatch-personal-continuation/
-runtime/
-runtime-ui/
-work/
+/runtime/
+/runtime-ui/
+/work/
 *.log
 *.zip

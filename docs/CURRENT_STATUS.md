@@ -10,7 +10,7 @@
 - 项目目录：`D:\DSH-Story-Engine`。
 - Git 基线：`main` 分支上的 `v0.8.0-beta.1` 标签；标签后的已合并改动属于同一 beta 开发线，具体代码基线以当前 `main` 为准。
 
-内容包、剧本和存档 Schema 有独立版本，不与产品版本强制相同：`pack.json`、`episode-script` 和 `ui/story-ui.json` 当前均使用 `schemaVersion: 1`；每个内容包的 `version` 由内容作者独立维护。
+内容包、剧本和存档 Schema 有独立版本，不与产品版本强制相同：`pack.json`、`episode-script` 和 `ui/story-ui.json` 当前均使用 `schemaVersion: 1`；每个内容包的 `version` 由内容作者独立维护。Story Runtime 内部状态 Schema 独立演进；PR #5 / D1 把 Runtime state 从 schema v2 升到 v3 以加入 operation receipts。该分支最终 HEAD 已通过本地自动验证，但在合并前仍不是 main 基线。
 
 ## 已完成能力
 
@@ -31,19 +31,23 @@
 
 ## 当前开发重点
 
-阶段 D 当前重点是把已经验证的 social projection 幂等继续推进到 core runtime 和跨域恢复：
+PR #5 / D1 的 Core Runtime operation-level idempotency 已完成实现和本地自动验证，等待合并。D1 的边界是“调用方提供稳定 operation identity，core 保证原子 mutation 只应用一次”；它不建立顶层 transaction journal，也不负责 hidden DSH turn 恢复。
 
-1. 顶层玩家提交/恢复流程使用稳定 `transactionId`；transaction journal 持久关联已知 hidden turn references、当前 active/pending turn 和最终 canonical-result `turnId`。
-2. 同一 transaction 内每个可重试 core `story_*` canonical mutation 使用独立稳定 `operationId`、request fingerprint 和持久 receipt；一个 transaction 可以包含多个 operations。
-3. 保持 optimistic `expectedVersion` 与 operation-level idempotency 两套保护：前者拒绝 stale writer，后者拒绝重复应用同一原子 mutation。
-4. 建立 durable transaction journal / recovery 协调，使“部分 core operations 已提交但 social 未提交”等跨域中断能够逐步对账恢复，而不是盲目重放整个玩家回合；hidden dispatch 结果不确定时按实际 DSH correlation 能力进入 reconciliation，而不宣称传输层 exactly-once。
-5. 在事务边界稳定后继续季/集/场景/频道联动、工作内轻量结算、越界修订界面和集末总结界面。
+D1 当前实现方向：
 
-正式事务语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
+1. 九个会修改 canonical runtime state 的公开 `story_*` mutation 接受稳定 `operation_id`；可选 `transaction_id` 只作为 receipt 关联信息，不代表 transaction journal 已实现。
+2. 同一 operation 的 request fingerprint、canonical mutation 和持久 receipt 由 core runtime 保证一致；matching receipt 在 optimistic version 检查前返回，因此“core 已提交但成功响应丢失”的 stale-version retry 不重复 effect。
+3. `expectedVersion` 继续保护真正的新 stale writer；同 `operationId` 不同 payload/tool/transaction identity 显式冲突，不污染原 receipt。
+4. Runtime schema v3 把 receipts 存在 `_engine.operationReceipts`；旧 v2 state 向前 normalize，未知更高 schema 拒绝读取。
+5. checkpoint restore 回滚 gameplay state 时保留已经消费的 operation receipts；同 ID receipt 证据冲突时拒绝恢复，且 restore 与 canonical mutation 使用同一 per-session 写队列。
+6. D1 合并后，D2 负责 `transactionId` durable journal、operation step identity 的提前持久化、hidden turn references 和跨域 reconciliation。
+
+正式事务语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`；契约到实现/测试的对应关系见 `TRACEABILITY.md`。
 
 ## 尚未完成
 
-- 阶段 D：`transactionId` journal、hidden turn reference/recovery、core runtime child `operationId`/receipt、部分提交恢复与跨域 reconciliation。
+- 阶段 D / D1：PR #5 的 core operation receipt 实现与本地 Windows 自动验证已完成，等待合并；本轮未执行真实 DSH tool smoke，不把 worktree 验证表述为真实 DSH 集成验收。
+- 阶段 D / D2：`transactionId` journal、hidden turn reference/recovery、child operation step identity 持久化、部分提交恢复与跨域 reconciliation。
 - 阶段 D：季/集/场景与频道的完整自动联动、工作内轻量结算的正式界面、越界修订操作界面、集末总结界面。
 - 阶段 E：无障碍、长历史分页、存档迁移矩阵、主题/头像、发布审计和第三方许可证清单。
 - 1.0 前：V1 兼容承诺、版本/迁移政策、release checklist、公开安装与升级文档和正式发布包。
@@ -51,30 +55,35 @@
 
 ## Dispatch 私人包状态
 
-`packs/private/dispatch-personal-continuation` 已能被内容包目录发现，但目前缺少经过人工核对的 `ui/story-ui.json`，因此状态为“需诊断”，不能从游戏库新建。不得把原创示例包的人物、频道或开场复制给 Dispatch。
+Dispatch 私人内容包已在本地私人环境完成 finalization，当前游戏库状态为 `ready`，可创建新存档。专用 UI 描述、人物/频道映射、历史连续性、结局状态、续作启动入口和导入防退化覆盖层均已完成本地校验；无法可靠确认的字段继续显式保留为未知，而不是由引擎推断。
 
-将它标记为可新建前，必须核对中文英雄名/本名、稳定人物 ID、玩家身份、频道成员、第一至第八集连续性、关系与结局状态、恋爱对象为“无人”、死亡状态，以及通关后的续作起点。
+本地最终化验证已覆盖内容加载、历史选择映射、源文件哈希、重复导入一致性、游戏库 ready 状态和新建存档模拟。私人包版本、最终化覆盖层、验证摘要和商业游戏资料继续只存在于受忽略的私人环境，不进入公开 Git；旧验证历史保留用于审计。
 
-这条私人内容包验证线不属于公开引擎 1.0 的阻塞依赖；公开版本不得包含 `packs/private` 或商业游戏资料。通用目录/Schema 技术底座已经完成，私人资料核对可以与公开引擎开发独立推进。
+“可新建”只表示私人内容包已经通过目录/Schema/连续性和创建存档前置检查，不表示正式玩法链路已经完成。季／集／场景的自动联动、运行时剧情位置推进和动态频道成员调整仍属于公开引擎 Stage D。
+
+这条私人内容包验证线不属于公开引擎 1.0 的阻塞依赖；公开版本不得包含 `packs/private`、商业游戏资料、私人验证摘要或最终化覆盖层。
 
 ## 验证基线
 
-当前已合并并由本地环境验证的最新基线：
+当前**已合并**的公开引擎基线仍是 PR #4 合并后的 main。PR #5 最终 HEAD 的分支验证结果单独列出，合并前不计入 main 基线：
 
 - 核心：7 个测试文件、22 项测试通过；typecheck 与生产 build 通过。
 - Client：13 个测试文件、78 项测试通过；typecheck 与生产 build 通过。
 - v0.7 canon-integrity：`src/serial-integration.test.ts` 10 项通过。
 - Stage C 浏览器故障矩阵：普通聊天回归、游戏库、公开示例存档、五频道、结构化 AI 回合、运行中取消、选择等待、断连、retry 去重、跨存档隔离和并发写冲突通过。
 - Stage D 第一事务切片：story-domain 两项 AI turn 幂等测试、host-store identical replay / stale conflict 测试和真实 crash-window 浏览器验收通过。
-- 重复 Client build 后 tracked artifacts 保持一致；`D:\DeepSeek-Harness` 工作树保持干净。
+- PR #5 / D1 最终 HEAD：核心 9 个测试文件、38 项测试通过；Client 13 个测试文件、78 项测试通过；双方 typecheck/build 通过。新增 operation-idempotency、serial-checkpoint-idempotency、serial-integration 和 plugin 覆盖均通过；本轮未执行真实 DSH tool smoke。
+- Dispatch 私人包 finalization 后的本地回归仍为核心 22/22、Client 78/78、双方 typecheck/build 通过，且 `D:\DeepSeek-Harness` 工作树干净；这些结果证明私人包修复没有破坏当时的已合并公开基线，但**不构成 PR #5 / D1 的新增测试验证**。
+- 重复 Client build 后 tracked artifacts 保持一致。
 
 ## 文档优先级
 
 1. 本文件：当前事实和版本的唯一入口。
 2. `NEXT_DEVELOPMENT_PLAN.md`：当前及后续里程碑和验收顺序。
 3. `SERIAL_GAMEPLAY_SPEC.md`、`TEXT_GAME_SOCIAL_UI_SPEC.md`、`TRANSACTION_AND_RECOVERY_SPEC.md`：正式行为契约。
-4. `DEVELOPMENT.md`：长期架构、版本路线和 Git 规范。
-5. `CONTENT_PACK_V1.md`、Schema、`HOST_API.md`：内容、数据和宿主接口契约。
-6. `archive/`：历史交付、实施、交接和退役记录，只用于审计，不作为当前任务清单或正式行为契约。
+4. `TRACEABILITY.md`：关键契约对应的实现、自动测试和真实验收索引，不取代状态或 Spec。
+5. `DEVELOPMENT.md`：长期架构、版本路线和 Git 规范。
+6. `CONTENT_PACK_V1.md`、Schema、`HOST_API.md`：内容、数据和宿主接口契约。
+7. `archive/`：历史交付、实施、交接和退役记录，只用于审计，不作为当前任务清单或正式行为契约。
 
 Git 分支、提交、安全排除和验证要求见 `DEVELOPMENT.md` 的“Git 工作规范”。
