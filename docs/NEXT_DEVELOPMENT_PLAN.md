@@ -16,13 +16,13 @@ v1.0.0 Stable
 
 私人 Dispatch 内容包属于独立验证线，不是公开引擎 1.0 的前置依赖。公开产品里程碑之间仍按顺序验收：前一公开里程碑未满足完成条件时，不把后一公开里程碑宣称为完成。
 
-Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social commit 幂等与宿主 identical replay——已经完成、合并并通过本地自动测试和真实 crash-window 验收。当前正在开发 D1 / PR #5；在其本地验证和合并前不得宣称 D1 完成。
+Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social commit 幂等与宿主 identical replay——已经完成、合并并通过本地自动测试和真实 crash-window 验收。D1 / PR #5 已完成实现和最终 HEAD 的本地自动验证，当前等待合并；本轮未执行真实 DSH tool smoke。
 
 ## M3：完成阶段 D
 
 目标：把 v0.7 连载后端完整呈现在独立游戏界面中，并使跨隐藏 DSH、social projection 与 core runtime 的 retry/recovery 不重复应用 canonical effect。
 
-### D1：Core Runtime operation-level idempotency（当前 PR #5）
+### D1：Core Runtime operation-level idempotency（PR #5，等待合并）
 
 D1 只解决“一个已经带稳定 identity 的 core canonical mutation 如何安全重放”。D1 不建立顶层 transaction journal，不负责 hidden DSH turn recovery，也不负责浏览器在崩溃后重新推导 operation identity；这些属于 D2。
 

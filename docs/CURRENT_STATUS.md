@@ -10,7 +10,7 @@
 - 项目目录：`D:\DSH-Story-Engine`。
 - Git 基线：`main` 分支上的 `v0.8.0-beta.1` 标签；标签后的已合并改动属于同一 beta 开发线，具体代码基线以当前 `main` 为准。
 
-内容包、剧本和存档 Schema 有独立版本，不与产品版本强制相同：`pack.json`、`episode-script` 和 `ui/story-ui.json` 当前均使用 `schemaVersion: 1`；每个内容包的 `version` 由内容作者独立维护。Story Runtime 内部状态 Schema 独立演进；D1 分支正在把 Runtime state 从 schema v2 升到 v3 以加入 operation receipts，但在 PR #5 完成本地验证与合并前，这仍是开发中变更，不是 main 的已验证基线。
+内容包、剧本和存档 Schema 有独立版本，不与产品版本强制相同：`pack.json`、`episode-script` 和 `ui/story-ui.json` 当前均使用 `schemaVersion: 1`；每个内容包的 `version` 由内容作者独立维护。Story Runtime 内部状态 Schema 独立演进；PR #5 / D1 把 Runtime state 从 schema v2 升到 v3 以加入 operation receipts。该分支最终 HEAD 已通过本地自动验证，但在合并前仍不是 main 基线。
 
 ## 已完成能力
 
@@ -31,7 +31,7 @@
 
 ## 当前开发重点
 
-当前正在开发 PR #5 / D1：Core Runtime operation-level idempotency。D1 的边界是“调用方提供稳定 operation identity，core 保证原子 mutation 只应用一次”；它不建立顶层 transaction journal，也不负责 hidden DSH turn 恢复。
+PR #5 / D1 的 Core Runtime operation-level idempotency 已完成实现和本地自动验证，等待合并。D1 的边界是“调用方提供稳定 operation identity，core 保证原子 mutation 只应用一次”；它不建立顶层 transaction journal，也不负责 hidden DSH turn 恢复。
 
 D1 当前实现方向：
 
@@ -40,13 +40,13 @@ D1 当前实现方向：
 3. `expectedVersion` 继续保护真正的新 stale writer；同 `operationId` 不同 payload/tool/transaction identity 显式冲突，不污染原 receipt。
 4. Runtime schema v3 把 receipts 存在 `_engine.operationReceipts`；旧 v2 state 向前 normalize，未知更高 schema 拒绝读取。
 5. checkpoint restore 回滚 gameplay state 时保留已经消费的 operation receipts；同 ID receipt 证据冲突时拒绝恢复，且 restore 与 canonical mutation 使用同一 per-session 写队列。
-6. D1 完成本地验证后，D2 才负责 `transactionId` durable journal、operation step identity 的提前持久化、hidden turn references 和跨域 reconciliation。
+6. D1 合并后，D2 负责 `transactionId` durable journal、operation step identity 的提前持久化、hidden turn references 和跨域 reconciliation。
 
 正式事务语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`；契约到实现/测试的对应关系见 `TRACEABILITY.md`。
 
 ## 尚未完成
 
-- 阶段 D / D1：PR #5 的 core operation receipt 实现尚未完成本地 Windows typecheck/test/build 与真实 DSH tool smoke，因此不能宣称 D1 已完成。
+- 阶段 D / D1：PR #5 的 core operation receipt 实现与本地 Windows 自动验证已完成，等待合并；本轮未执行真实 DSH tool smoke，不把 worktree 验证表述为真实 DSH 集成验收。
 - 阶段 D / D2：`transactionId` journal、hidden turn reference/recovery、child operation step identity 持久化、部分提交恢复与跨域 reconciliation。
 - 阶段 D：季/集/场景与频道的完整自动联动、工作内轻量结算的正式界面、越界修订操作界面、集末总结界面。
 - 阶段 E：无障碍、长历史分页、存档迁移矩阵、主题/头像、发布审计和第三方许可证清单。
@@ -65,13 +65,14 @@ Dispatch 私人内容包已在本地私人环境完成 finalization，当前游�
 
 ## 验证基线
 
-当前**已合并并由本地环境验证**的公开引擎基线仍是 PR #4 合并后的 main；PR #5 的新增 D1 测试尚未在本地执行，不能计入以下通过数量：
+当前**已合并**的公开引擎基线仍是 PR #4 合并后的 main。PR #5 最终 HEAD 的分支验证结果单独列出，合并前不计入 main 基线：
 
 - 核心：7 个测试文件、22 项测试通过；typecheck 与生产 build 通过。
 - Client：13 个测试文件、78 项测试通过；typecheck 与生产 build 通过。
 - v0.7 canon-integrity：`src/serial-integration.test.ts` 10 项通过。
 - Stage C 浏览器故障矩阵：普通聊天回归、游戏库、公开示例存档、五频道、结构化 AI 回合、运行中取消、选择等待、断连、retry 去重、跨存档隔离和并发写冲突通过。
 - Stage D 第一事务切片：story-domain 两项 AI turn 幂等测试、host-store identical replay / stale conflict 测试和真实 crash-window 浏览器验收通过。
+- PR #5 / D1 最终 HEAD：核心 9 个测试文件、38 项测试通过；Client 13 个测试文件、78 项测试通过；双方 typecheck/build 通过。新增 operation-idempotency、serial-checkpoint-idempotency、serial-integration 和 plugin 覆盖均通过；本轮未执行真实 DSH tool smoke。
 - Dispatch 私人包 finalization 后的本地回归仍为核心 22/22、Client 78/78、双方 typecheck/build 通过，且 `D:\DeepSeek-Harness` 工作树干净；这些结果证明私人包修复没有破坏当时的已合并公开基线，但**不构成 PR #5 / D1 的新增测试验证**。
 - 重复 Client build 后 tracked artifacts 保持一致。
 
