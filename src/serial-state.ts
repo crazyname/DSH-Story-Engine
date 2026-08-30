@@ -102,6 +102,7 @@ export class SerialStateStore {
       await action.validate?.(state)
       await action.prepare?.()
       const result = await action.mutate(state)
+      if (result === undefined) throw new Error(`幂等 operation 必须返回可重放结果：${prepared.operation}`)
       state._engine.stateVersion += 1
       const committedAt = new Date().toISOString()
       state._engine.updatedAt = committedAt
