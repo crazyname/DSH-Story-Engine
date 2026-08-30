@@ -15,7 +15,8 @@ export interface Config{packRoot:string;runtimeRoot:string}
 const objectOutput={schema:{type:'object',additionalProperties:true} as const,render:(_args:unknown,value:unknown)=>[{type:'text' as const,text:JSON.stringify(value,null,2)}]}
 const arrayOutput={schema:{type:'array',items:{type:'object',additionalProperties:true}} as const,render:objectOutput.render}
 function sessionId(exec:{agent?:{session?:{id?:unknown}}}):string{const id=exec.agent?.session?.id;if(!id)throw new Error('Story 工具只能在 Agent 会话中使用');return String(id)}
-const operationParameters={operation_id:{type:'string',required:true},transaction_id:{type:'string'}} as const
+const stableIdDescription='稳定 ID：1–128 位 ASCII；首字符为字母或数字，其余可用字母、数字、点、下划线、冒号或连字符。retry 必须复用原 ID。'
+const operationParameters={operation_id:{type:'string',required:true,description:stableIdDescription},transaction_id:{type:'string',description:stableIdDescription}} as const
 function operationIdentity(args:{operation_id?:unknown;transaction_id?:unknown}):OperationIdentity{
  if(typeof args.operation_id!=='string')throw new Error('operation_id 必须是字符串')
  if(args.transaction_id!==undefined&&typeof args.transaction_id!=='string')throw new Error('transaction_id 必须是字符串')
@@ -27,7 +28,7 @@ function isHighImpact(work:WorkEvent):boolean{return work.result==='disaster'||h
 export async function apply(ctx:Context,config:Config):Promise<void>{
  const pack=await new ContentPackLoader().load(config.packRoot);const content=new ContentIndex(pack.documents);const entities=new EntityIndex(pack.documents);const states=new SerialStateStore(config.runtimeRoot,pack.manifest.id,pack.initialState,{id:pack.manifest.id,name:pack.manifest.name,version:pack.manifest.version,language:pack.manifest.language,license:pack.manifest.license,player:pack.manifest.player})
  const extraPrompt=pack.documents.filter(x=>x.kind==='prompt').map(x=>x.text).join('\n\n');const controlled=pack.manifest.player.controlledCharacters.join('、')
- ctx.systemPrompt.section({name:`story:${pack.manifest.id}:game-master`,order:55,text:`你是互动文字游戏《${pack.manifest.name}》的主持人。玩家控制：${controlled}。${pack.manifest.player.aiMayControlPlayer?'内容包允许你在必要时描写玩家角色。':'绝不替玩家角色决定、说话、行动或描述内心。'}你控制 NPC、世界和行动后果。每轮先读状态；内容包事实先检索；重大选择提供 2–4 个选项并允许自由输入；越界时必须先暂停、修订、校验再继续。工作内只简报普通事件，高影响事件升级为工作外场景。每个会修改 canonical runtime state 的原子工具调用使用独立稳定 operation_id；同一原子写操作的 retry 必须复用原 operation_id，不同写操作不得共用。${extraPrompt?`\n\n${extraPrompt}`:''}`})
+ ctx.systemPrompt.section({name:`story:${pack.manifest.id}:game-master`,order:55,text:`你是互动文字游戏《${pack.manifest.name}》的主持人。玩家控制：${controlled}。${pack.manifest.player.aiMayControlPlayer?'内容包允许你在必要时描写玩家角色。':'绝不替玩家角色决定、说话、行动或描述内心。'}你控制 NPC、世界和行动后果。每轮先读状态；内容包事实先检索；重大选择提供 2–4 个选项并允许自由输入；越界时必须先暂停、修订、校验再继续。工作内只简报普通事件，高影响事件升级为工作外场景。每个会修改 canonical runtime state 的原子工具调用使用独立稳定 operation_id；同一原子写操作的 retry 必须复用原 operation_id，不同写操作不得共用。operation_id 使用 1–128 位 ASCII stable ID，首字符为字母或数字，其余只用字母、数字、._:-。${extraPrompt?`\n\n${extraPrompt}`:''}`})
  const register=(tool:any)=>ctx.tools.register(defineTool(tool))
  register({name:'story_get_pack_info',description:'读取当前内容包信息。',parameters:{},output:objectOutput,async execute(){return pack.manifest}})
  register({name:'story_search_content',description:'检索内容包原文。',parameters:{query:{type:'string',required:true},kind:{type:'string'},limit:{type:'number'}},output:arrayOutput,async execute(a:any){return content.search(a.query,a.limit,a.kind)}})
