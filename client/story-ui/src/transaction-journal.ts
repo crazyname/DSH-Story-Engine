@@ -9,11 +9,15 @@ export type StoryHiddenTurnState='planned'|'dispatched'|'completed'|'failed'|'ca
 
 export interface StoryTransactionInput{channelId:string;text:string}
 export interface StoryHiddenTurnRef{
- requestId:string
+ /** Story Engine stable hidden-turn identity; used by social canonical commit. */
+ turnId:string
+ /** Client-minted DSH prompt requestId/rpcId persisted on the durable user message. */
+ dshRequestId:string
  kind:StoryHiddenTurnKind
  state:StoryHiddenTurnState
  sessionId?:string
- turnId?:string
+ /** Native numeric DSH turn from turn/start and turn/end, known after reconciliation. */
+ dshTurn?:number
 }
 export interface StoryOperationRef{stepKey:string;operationId:string}
 export interface StoryTransactionDiagnostic{code:string;message:string}
@@ -27,7 +31,7 @@ export interface StoryTransactionRecord{
  status:StoryTransactionStatus
  hiddenTurns:StoryHiddenTurnRef[]
  operationRefs:StoryOperationRef[]
- activeRequestId?:string
+ activeTurnId?:string
  canonicalResultTurnId?:string
  diagnostic?:StoryTransactionDiagnostic
  revision:number
@@ -53,15 +57,15 @@ export function validateTransactionRecord(value:unknown):StoryTransactionRecord{
  if(!Number.isInteger(raw.baseProjectionRevision)||Number(raw.baseProjectionRevision)<0)throw new Error('baseProjectionRevision 必须是非负整数')
  const statuses=new Set<StoryTransactionStatus>(['prepared','committed','cancelled','failed','needs-recovery']);if(!statuses.has(raw.status as StoryTransactionStatus))throw new Error('transaction.status 无效')
  if(!Array.isArray(raw.hiddenTurns))throw new Error('hiddenTurns 必须是数组')
- const requestIds=new Set<string>();const turnIds=new Set<string>();const hiddenTurns=raw.hiddenTurns.map((item,index)=>{const entry=object(item,`hiddenTurns[${index}]`);const requestId=stableString(entry.requestId,`hiddenTurns[${index}].requestId`);if(requestIds.has(requestId))throw new Error(`hidden requestId 重复：${requestId}`);requestIds.add(requestId);if(!['initial','retry','continuation'].includes(String(entry.kind)))throw new Error(`hiddenTurns[${index}].kind 无效`);if(!['planned','dispatched','completed','failed','cancelled','uncertain'].includes(String(entry.state)))throw new Error(`hiddenTurns[${index}].state 无效`);const sessionId=entry.sessionId===undefined?undefined:stableString(entry.sessionId,`hiddenTurns[${index}].sessionId`);const turnId=entry.turnId===undefined?undefined:stableString(entry.turnId,`hiddenTurns[${index}].turnId`);if(turnId!==undefined){if(turnIds.has(turnId))throw new Error(`hidden turnId 重复：${turnId}`);turnIds.add(turnId)}return{requestId,kind:entry.kind as StoryHiddenTurnKind,state:entry.state as StoryHiddenTurnState,...(sessionId===undefined?{}:{sessionId}),...(turnId===undefined?{}:{turnId})}})
+ const turnIds=new Set<string>();const requestIds=new Set<string>();const nativeTurns=new Set<string>();const hiddenTurns=raw.hiddenTurns.map((item,index)=>{const entry=object(item,`hiddenTurns[${index}]`);const turnId=stableString(entry.turnId,`hiddenTurns[${index}].turnId`);const dshRequestId=stableString(entry.dshRequestId,`hiddenTurns[${index}].dshRequestId`);if(turnIds.has(turnId))throw new Error(`hidden turnId 重复：${turnId}`);if(requestIds.has(dshRequestId))throw new Error(`hidden dshRequestId 重复：${dshRequestId}`);turnIds.add(turnId);requestIds.add(dshRequestId);if(!['initial','retry','continuation'].includes(String(entry.kind)))throw new Error(`hiddenTurns[${index}].kind 无效`);if(!['planned','dispatched','completed','failed','cancelled','uncertain'].includes(String(entry.state)))throw new Error(`hiddenTurns[${index}].state 无效`);const sessionId=entry.sessionId===undefined?undefined:stableString(entry.sessionId,`hiddenTurns[${index}].sessionId`);let dshTurn:number|undefined;if(entry.dshTurn!==undefined){if(!Number.isSafeInteger(entry.dshTurn)||Number(entry.dshTurn)<0)throw new Error(`hiddenTurns[${index}].dshTurn 必须是非负安全整数`);if(sessionId===undefined)throw new Error(`hiddenTurns[${index}].dshTurn 需要 sessionId`);dshTurn=Number(entry.dshTurn);const nativeKey=`${sessionId}:${dshTurn}`;if(nativeTurns.has(nativeKey))throw new Error(`DSH native turn 重复：${nativeKey}`);nativeTurns.add(nativeKey)}return{turnId,dshRequestId,kind:entry.kind as StoryHiddenTurnKind,state:entry.state as StoryHiddenTurnState,...(sessionId===undefined?{}:{sessionId}),...(dshTurn===undefined?{}:{dshTurn})}})
  if(!Array.isArray(raw.operationRefs))throw new Error('operationRefs 必须是数组')
  const stepKeys=new Set<string>();const operationIds=new Set<string>();const operationRefs=raw.operationRefs.map((item,index)=>{const entry=object(item,`operationRefs[${index}]`);const stepKey=stableString(entry.stepKey,`operationRefs[${index}].stepKey`);const operationId=stableString(entry.operationId,`operationRefs[${index}].operationId`);if(stepKeys.has(stepKey))throw new Error(`operation stepKey 重复：${stepKey}`);if(operationIds.has(operationId))throw new Error(`operationId 重复：${operationId}`);stepKeys.add(stepKey);operationIds.add(operationId);return{stepKey,operationId}})
- const activeRequestId=raw.activeRequestId===undefined?undefined:stableString(raw.activeRequestId,'activeRequestId');if(activeRequestId!==undefined){const active=hiddenTurns.find(turn=>turn.requestId===activeRequestId);if(active===undefined)throw new Error('activeRequestId 未引用已知 hidden turn');if(['completed','failed','cancelled'].includes(active.state))throw new Error('activeRequestId 不能引用终态 hidden turn')}
+ const activeTurnId=raw.activeTurnId===undefined?undefined:stableString(raw.activeTurnId,'activeTurnId');if(activeTurnId!==undefined){const active=hiddenTurns.find(turn=>turn.turnId===activeTurnId);if(active===undefined)throw new Error('activeTurnId 未引用已知 hidden turn');if(['completed','failed','cancelled'].includes(active.state))throw new Error('activeTurnId 不能引用终态 hidden turn')}
  const canonicalResultTurnId=raw.canonicalResultTurnId===undefined?undefined:stableString(raw.canonicalResultTurnId,'canonicalResultTurnId');if(canonicalResultTurnId!==undefined){const canonical=hiddenTurns.find(turn=>turn.turnId===canonicalResultTurnId);if(canonical===undefined)throw new Error('canonicalResultTurnId 未引用已知 hidden turn');if(canonical.state!=='completed')throw new Error('canonicalResultTurnId 必须引用 completed hidden turn')}
  let diagnostic:StoryTransactionDiagnostic|undefined;if(raw.diagnostic!==undefined){const entry=object(raw.diagnostic,'diagnostic');diagnostic={code:text(entry.code,'diagnostic.code'),message:text(entry.message,'diagnostic.message')}}
  if(!Number.isInteger(raw.revision)||Number(raw.revision)<0)throw new Error('transaction.revision 必须是非负整数')
  const createdAt=timestamp(raw.createdAt,'createdAt');const updatedAt=timestamp(raw.updatedAt,'updatedAt')
- return{schemaVersion:1,transactionId,saveId,input:{channelId,text:inputText},inputFingerprint,baseProjectionRevision:Number(raw.baseProjectionRevision),status:raw.status as StoryTransactionStatus,hiddenTurns,operationRefs,...(activeRequestId===undefined?{}:{activeRequestId}),...(canonicalResultTurnId===undefined?{}:{canonicalResultTurnId}),...(diagnostic===undefined?{}:{diagnostic}),revision:Number(raw.revision),createdAt,updatedAt}
+ return{schemaVersion:1,transactionId,saveId,input:{channelId,text:inputText},inputFingerprint,baseProjectionRevision:Number(raw.baseProjectionRevision),status:raw.status as StoryTransactionStatus,hiddenTurns,operationRefs,...(activeTurnId===undefined?{}:{activeTurnId}),...(canonicalResultTurnId===undefined?{}:{canonicalResultTurnId}),...(diagnostic===undefined?{}:{diagnostic}),revision:Number(raw.revision),createdAt,updatedAt}
 }
 
 const TERMINAL_TRANSACTION=new Set<StoryTransactionStatus>(['committed','cancelled','failed'])
@@ -75,7 +79,7 @@ export function assertTransactionUpdate(current:StoryTransactionRecord,next:Stor
  if(TERMINAL_TRANSACTION.has(current.status))conflict(`终态 ${current.status} 不可产生新 revision`)
  if(!TRANSACTION_TRANSITIONS[current.status].has(next.status))conflict(`transaction 状态不能从 ${current.status} 迁移到 ${next.status}`)
  if(next.hiddenTurns.length<current.hiddenTurns.length)conflict('hidden turn evidence 不可删除')
- for(let index=0;index<current.hiddenTurns.length;index+=1){const before=current.hiddenTurns[index]!;const after=next.hiddenTurns[index]!;if(after.requestId!==before.requestId||after.kind!==before.kind)conflict('hidden turn identity 不可修改');if(before.sessionId!==undefined&&after.sessionId!==before.sessionId)conflict('hidden session identity 不可修改');if(before.turnId!==undefined&&after.turnId!==before.turnId)conflict('hidden turnId 不可修改');if(TERMINAL_TURN.has(before.state)){if(after.state!==before.state)conflict(`终态 hidden turn 不可改写：${before.requestId}`)}else if(!TURN_TRANSITIONS[before.state].has(after.state))conflict(`hidden turn ${before.requestId} 不能从 ${before.state} 迁移到 ${after.state}`)}
+ for(let index=0;index<current.hiddenTurns.length;index+=1){const before=current.hiddenTurns[index]!;const after=next.hiddenTurns[index]!;if(after.turnId!==before.turnId||after.dshRequestId!==before.dshRequestId||after.kind!==before.kind)conflict('hidden turn identity 不可修改');if(before.sessionId!==undefined&&after.sessionId!==before.sessionId)conflict('hidden session identity 不可修改');if(before.dshTurn!==undefined&&after.dshTurn!==before.dshTurn)conflict('DSH native turn 不可修改');if(TERMINAL_TURN.has(before.state)){if(after.state!==before.state)conflict(`终态 hidden turn 不可改写：${before.turnId}`)}else if(!TURN_TRANSITIONS[before.state].has(after.state))conflict(`hidden turn ${before.turnId} 不能从 ${before.state} 迁移到 ${after.state}`)}
  if(next.operationRefs.length<current.operationRefs.length)conflict('operation identity evidence 不可删除')
  for(let index=0;index<current.operationRefs.length;index+=1){const before=current.operationRefs[index]!;const after=next.operationRefs[index]!;if(after.stepKey!==before.stepKey||after.operationId!==before.operationId)conflict('operation identity evidence 不可修改')}
  if(current.canonicalResultTurnId!==undefined&&next.canonicalResultTurnId!==current.canonicalResultTurnId)conflict('canonicalResultTurnId 不可修改')
