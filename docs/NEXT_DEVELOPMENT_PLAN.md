@@ -35,12 +35,13 @@ D1 只解决“一个已经带稳定 identity 的 core canonical mutation 如何
 - matching receipt 必须在 `expectedVersion` 检查前返回原结果，不增加 state version、不重复追加事件、不再次应用选择、关系、consequence 或内部场景检查点。
 - 新 operation 没有 matching receipt 时才执行 optimistic version 与领域前置条件检查。
 - receipt 与其保护的 runtime mutation 在同一次 `state.json` 原子持久化提交中写入；D1 不采用“先改 state、再补 receipt”的两次提交。
+- 首次返回的 receipt result 必须先按 JSON 持久化语义规范化，保证重启后的 replay 与首次响应 shape 一致。
 - Runtime state 从 schema v2 向前 normalize 到 v3，在 `_engine.operationReceipts` 保存 receipt；未知更高 Runtime schema 不静默降级。
-- checkpoint restore 可以回滚 gameplay state，但不能释放已经消费过的 operation ID；当前 state 与 checkpoint 如果对同一 ID 给出冲突 receipt，应拒绝恢复。
+- checkpoint restore 可以回滚 gameplay state，但不能释放或发明已经消费过的 operation ID；checkpoint 中的 receipt 必须是当前 receipt 集合的已知一致子集，否则拒绝恢复。
 - `expectedVersion` 继续负责 stale writer 防护，不用 operation idempotency 取代 optimistic locking。
-- `story_create_checkpoint` 是显式恢复工件创建接口，不属于 D1 的 canonical mutation receipt 集合；由 scene mutation 自动创建的 pre-scene checkpoint 必须对同一 operation 幂等。
+- `story_create_checkpoint` 是显式恢复工件创建接口，不属于 D1 的 canonical mutation receipt 集合；由 scene mutation 自动创建的 pre-scene checkpoint 对同一 operation 使用稳定 identity，但在 operation 尚无 receipt 时必须按当前 base state 刷新，不能复用失败尝试留下的旧 snapshot。
 
-验收：顺序/并发重放只应用一次；response-lost 后即使调用方携带旧 `expectedVersion` 也返回原 receipt；同 ID 不同 payload/tool/transaction identity 冲突且不污染原 receipt；版本冲突的新 operation 不留下 receipt；不同 IDs 即使 payload 相同仍作为不同逻辑操作；v2 state 可由新代码读取；未知未来 schema 拒绝；checkpoint restore 保留 receipts 且冲突 evidence 被拒绝；九个 canonical mutation tool contract 要求稳定 `operation_id`。
+验收：顺序/并发重放只应用一次；response-lost 后即使调用方携带旧 `expectedVersion` 也返回原 receipt；同 ID 不同 payload/tool/transaction identity 冲突且不污染原 receipt；版本冲突的新 operation 不留下 receipt；不同 IDs 即使 payload 相同仍作为不同逻辑操作；首次/replay receipt JSON shape 一致；v2 state 可由新代码读取；未知未来 schema 拒绝；checkpoint restore 保留当前 receipts、拒绝未知/冲突 receipt evidence，失败尝试留下的 deterministic checkpoint 可按新 base 刷新；九个 canonical mutation tool contract 要求稳定 `operation_id`。
 
 ### D2：Durable transaction journal 与跨域恢复
 
@@ -156,20 +157,21 @@ RC 前必须定义并评审：
 
 RC 至少执行一次干净安装、旧存档升级、原创示例整集、插件故障隔离和发布包审计。RC 暴露的问题通过独立修复 PR 关闭；全部 release gate 通过后再发布 `v1.0.0`。
 
-## 私人内容包验证线：Dispatch
+## 私人内容包验证线：Dispatch（本地完成）
 
-该工作可以与公开主线并行，不阻塞 Stage D、Stage E 或 v1.0。
+这条独立验证线已经在本地私人环境完成，不阻塞 Stage D、Stage E 或 v1.0，也不进入公开发布物。
 
-目标：让私人 Dispatch 包从“需诊断”变为经过人工核对的可新建内容包，但不修改或重新分发原始商业游戏资源。
+已完成：
 
-- 生成 `ui/story-ui.json`，使用稳定人物 ID 和经私人资料核对的中文英雄名/本名。
-- 定义私聊、群聊、现场、工作、系统频道及成员。
-- 核对第一至第八集过程、玩家选择、人物关系、死亡和具体结局。
-- 未验证字段保持未知，不自动推断。
-- 定义通关后续作起点。
-- 通过 `schemas/story-ui.schema.json`、内容包校验和人工清单。
+- 私人内容包完成专用 UI 描述、稳定人物/频道映射和续作启动入口；
+- 历史连续性、实际选择映射、结局状态和未知字段策略已经本地核对；
+- 建立重复导入不回退最终化结果的私人覆盖层，并通过源文件哈希与重复导入一致性检查；
+- 游戏库状态为 `ready`，新建存档模拟通过；
+- 私人最终化后的公开引擎回归仍通过当时的核心/Client 测试、typecheck 与 build，原版 DSH 工作树保持干净。
 
-验收只针对本地私人环境；任何私人资料、商业游戏文本、提取资源、私人存档或生成索引均不得进入公开 Git。
+后续只做维护性验证：当公开引擎的内容包 Schema、游戏库、导入器或 Stage D 运行链发生变化时，重新执行私人防退化检查。任何私人资料、商业游戏文本、提取资源、私人存档、验证摘要或最终化覆盖层均不得进入公开 Git。
+
+“可新建”不等于完整正式玩法已经完成；季／集／场景自动联动、动态频道成员和其余运行时链路仍按公开 Stage D 计划推进。
 
 ## 每轮开发的统一完成条件
 
