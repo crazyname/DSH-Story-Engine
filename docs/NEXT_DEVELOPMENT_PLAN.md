@@ -16,41 +16,51 @@ v1.0.0 Stable
 
 私人 Dispatch 内容包属于独立验证线，不是公开引擎 1.0 的前置依赖。公开产品里程碑之间仍按顺序验收：前一公开里程碑未满足完成条件时，不把后一公开里程碑宣称为完成。
 
-Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social commit 幂等与宿主 identical replay——已经完成、合并并通过本地自动测试和真实 crash-window 验收。
+Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social commit 幂等与宿主 identical replay——已经完成、合并并通过本地自动测试和真实 crash-window 验收。当前正在开发 D1 / PR #5；在其本地验证和合并前不得宣称 D1 完成。
 
 ## M3：完成阶段 D
 
 目标：把 v0.7 连载后端完整呈现在独立游戏界面中，并使跨隐藏 DSH、social projection 与 core runtime 的 retry/recovery 不重复应用 canonical effect。
 
-### D1：Core Runtime operation-level idempotency
+### D1：Core Runtime operation-level idempotency（当前 PR #5）
 
-- 顶层玩家提交/恢复流程预留稳定 `transactionId`；一个 transaction 可以包含多个 core mutations。
-- 所有可能被 retry/recovery 重复调用、且会修改 core runtime canonical state 的 `story_*` mutation 使用各自独立稳定 `operationId`。
+D1 只解决“一个已经带稳定 identity 的 core canonical mutation 如何安全重放”。D1 不建立顶层 transaction journal，不负责 hidden DSH turn recovery，也不负责浏览器在崩溃后重新推导 operation identity；这些属于 D2。
+
+- 顶层调用可以携带可选 `transactionId` 作为 receipt 关联信息，但 D1 不因为收到该字段就宣称 transaction journal 已存在。
+- 所有可能被 retry/recovery 重复调用、且会修改 core runtime canonical state 的公开 `story_*` mutation 使用各自独立稳定 `operationId`。
+- **调用方必须在第一次 core mutation 调用前确定 `operationId`**；D1 接口接收这个稳定 ID，自动测试中由调用方显式传入。D1 不负责在 mutation 之前单独写 durable operation intent。
 - 同一原子 mutation 的重试复用相同 `operationId`；同一 transaction 内两个不同 mutations 必须使用不同 `operationId`。
-- `operationId` 在首次 mutation 执行前确定并持久化，可以由 `transactionId + 持久 step key` 派生，但不能依赖重试时可能变化的临时 request/tool-call index。
-- 使用 request fingerprint 检测同 operation ID 不同 payload；冲突必须显式失败，并且不得改变已有 journal/receipt 状态。
-- matching receipt 重放直接返回原结果，不增加 state version、不重复追加事件、不再次应用选择、关系或 consequence。
-- receipt 与其保护的 runtime mutation 在同一次持久化提交中写入。
+- D2 coordinator/journal 后续负责在真正的玩家 transaction 中，把 `transactionId + 持久 step identity / operationId` 在执行前落盘，以保证重启后仍能重新得到同一个 ID；不能依赖临时 request/tool-call index。
+- 使用 request fingerprint 检测同 operation ID 不同 tool/payload/transaction identity；冲突必须显式失败，并且不得改变已有 receipt。
+- matching receipt 必须在 `expectedVersion` 检查前返回原结果，不增加 state version、不重复追加事件、不再次应用选择、关系、consequence 或内部场景检查点。
+- 新 operation 没有 matching receipt 时才执行 optimistic version 与领域前置条件检查。
+- receipt 与其保护的 runtime mutation 在同一次 `state.json` 原子持久化提交中写入；D1 不采用“先改 state、再补 receipt”的两次提交。
+- Runtime state 从 schema v2 向前 normalize 到 v3，在 `_engine.operationReceipts` 保存 receipt；未知更高 Runtime schema 不静默降级。
+- checkpoint restore 可以回滚 gameplay state，但不能释放已经消费过的 operation ID；当前 state 与 checkpoint 如果对同一 ID 给出冲突 receipt，应拒绝恢复。
 - `expectedVersion` 继续负责 stale writer 防护，不用 operation idempotency 取代 optimistic locking。
+- `story_create_checkpoint` 是显式恢复工件创建接口，不属于 D1 的 canonical mutation receipt 集合；由 scene mutation 自动创建的 pre-scene checkpoint 必须对同一 operation 幂等。
 
-验收：顺序/并发重放只应用一次；同 ID 不同 payload 冲突且不污染原 receipt；一个 transaction 内多个不同 operations 可分别提交/重放；“core 已提交但调用方未收到成功”恢复时返回 receipt，不重复修改 runtime。
+验收：顺序/并发重放只应用一次；response-lost 后即使调用方携带旧 `expectedVersion` 也返回原 receipt；同 ID 不同 payload/tool/transaction identity 冲突且不污染原 receipt；版本冲突的新 operation 不留下 receipt；不同 IDs 即使 payload 相同仍作为不同逻辑操作；v2 state 可由新代码读取；未知未来 schema 拒绝；checkpoint restore 保留 receipts 且冲突 evidence 被拒绝；九个 canonical mutation tool contract 要求稳定 `operation_id`。
 
 ### D2：Durable transaction journal 与跨域恢复
 
-- 在首次向隐藏 DSH/外部步骤调用前持久化 `transactionId`、input fingerprint 和恢复所需 intent/status。
+D2 在 D1 的“core 已能安全重放”之上解决“谁生成、提前保存、恢复这些 identity，以及多域中断后应该补哪一步”。
+
+- 在首次向隐藏 DSH/外部步骤调用前生成并持久化 `transactionId`、input fingerprint 和恢复所需 intent/status。
+- 对计划执行的 core canonical step，在首次执行前把稳定 step identity / `operationId` 关联进 durable journal；恢复时复用它，而不是让模型或临时网络请求重新发明一个 ID。
 - journal 持久记录一个 transaction 已知的 ordered hidden `turnId` references、当前 active/pending turn，以及实际产生最终 canonical social result 的 `turnId`；选择 continuation 或安全 retry 可以在同一 transaction 下产生新的 hidden turn。
 - hidden dispatch 如果发生“DSH 可能已接受 turn、但客户端尚未拿到或持久化 `turnId`”的不确定窗口，必须按 DSH 实际支持的 idempotency/correlation/history 能力先对账；无法可靠判断时进入 `needs-recovery`，不宣称 transport exactly-once，也不盲目重发玩家输入。
 - journal 记录 child `operationId`/step identities，使多 mutation transaction 在中间崩溃后只补未完成步骤。
 - 不在等待模型、网络或用户选择期间持有 save/runtime 写锁。
 - 支持 `prepared`、`committed`、`cancelled`、`failed`、`needs-recovery` 的最低语义；AI bridge 自身的回合状态保持独立。
-- core canonical effect 存在时，先形成可查询的 core receipt，再投影该 effect 的 social 可见结果。
+- core canonical effect 存在时，先通过 D1 receipt 确认是否已经提交，再投影该 effect 的 social 可见结果。
 - crash/restart 后重新读取 journal、hidden DSH 可查询状态、core receipts/runtime state 与 host projection 进行 reconciliation，不用“最后一个 HTTP 是否成功返回”猜测事实。
 - `cancelled` 只适用于尚无 canonical effect 的 transaction；canonical effect 已落盘后收到取消时不得倒改历史，应完成 recovery/reconciliation。
 - 定义非终态 transaction 与“另存为”的边界；首版可选择非终态期间禁止 fork，而不是复制一个仍依赖旧 hidden context/turn references 的不完整 transaction。
 
 正式行为见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
 
-验收：至少覆盖 intent 后崩溃、hidden dispatch 不确定窗口的 correlation/recovery、同 transaction 多 hidden retry/continuation turns、模型完成后提交前崩溃、单/多 core operation 部分提交、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离、fork 边界和进程重启恢复。
+验收：至少覆盖 intent 后崩溃、operation step identity 落盘后但 core 执行前崩溃、hidden dispatch 不确定窗口的 correlation/recovery、同 transaction 多 hidden retry/continuation turns、模型完成后提交前崩溃、单/多 core operation 部分提交、core commit 后 social 前崩溃、social host save 后 acknowledge 前崩溃、取消后结果晚到、ID collision、跨存档隔离、fork 边界和进程重启恢复。
 
 ### D3：季、集、场景与频道联动
 
@@ -101,7 +111,7 @@ Stage A、B、C 已完成。Stage D 第一事务切片——AI canonical social 
 
 - 长历史分页或等价的增量加载策略。
 - 大存档性能基线和回归测试。
-- save/projection/runtime Schema 迁移矩阵。
+- save/projection/runtime Schema 迁移矩阵；D1 的 Runtime v2→v3 只是第一条具体迁移规则，不取代 Stage E 的完整矩阵。
 - 损坏或未知版本存档以只读诊断打开，不自动覆盖。
 - transaction journal / receipt 的保留和未来 compaction 边界。
 
@@ -164,7 +174,7 @@ RC 至少执行一次干净安装、旧存档升级、原创示例整集、插�
 ## 每轮开发的统一完成条件
 
 1. 修改实现与相应测试；纯文档 PR 则验证内部链接、术语和事实一致性。
-2. 同步 `CURRENT_STATUS.md` 和相关正式契约，但不要把短期进度复制到长期 Spec。
+2. 同步 `CURRENT_STATUS.md`、`TRACEABILITY.md` 和相关正式契约，但不要把短期进度复制到长期 Spec。
 3. 运行与改动范围相匹配的核心/客户端类型检查、测试和生产构建；纯文档 PR 不要求无意义地重跑完整 build，除非文档变更涉及生成流程或版本号。
 4. 涉及界面或真实恢复路径时执行真实浏览器验收，并记录断言结果。
 5. 确认 `D:\DeepSeek-Harness` 工作树干净；不得修改原版 DSH 业务源码。
