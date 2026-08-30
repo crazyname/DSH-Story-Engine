@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { operationFingerprint, prepareOperation } from './operation-idempotency.js'
+import { normalizeOperationReceipts, operationFingerprint, prepareOperation } from './operation-idempotency.js'
 
 describe('operation idempotency primitives',()=>{
   it('uses canonical object ordering for stable fingerprints',()=>{
@@ -17,5 +17,16 @@ describe('operation idempotency primitives',()=>{
   it('rejects unstable ids instead of silently normalizing them',()=>{
     expect(()=>prepareOperation('story_commit_state',{operationId:' bad id '},{changes:{a:1}})).toThrow('operationId 无效')
     expect(()=>prepareOperation('story_commit_state',{operationId:'valid-op',transactionId:'bad transaction'},{changes:{a:1}})).toThrow('transactionId 无效')
+  })
+  it('rejects stored receipts that omit their replay result',()=>{
+    expect(()=>normalizeOperationReceipts({
+      'op-broken-001':{
+        operationId:'op-broken-001',
+        operation:'story_commit_state',
+        fingerprint:'a'.repeat(64),
+        stateVersion:1,
+        committedAt:'2026-08-30T00:00:00.000Z',
+      },
+    })).toThrow('operationReceipts 损坏')
   })
 })
