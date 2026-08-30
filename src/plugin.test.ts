@@ -4,10 +4,10 @@ import { apply, inject, name } from './plugin.js'
 
 describe('DSH plugin', () => {
   it('registers the generic tools and requires operation ids on canonical mutations', async () => {
-    const tools: Array<{ name: string; parameters?: Record<string, { required?: boolean }> }> = []
+    const tools: Array<{ name: string; parameters?: { properties?: Record<string, { type?: string }>; required?: string[] } }> = []
     const sections: string[] = []
     const context = {
-      tools: { register(tool: { name: string; parameters?: Record<string, { required?: boolean }> }) { tools.push(tool) } },
+      tools: { register(tool: { name: string; parameters?: { properties?: Record<string, { type?: string }>; required?: string[] } }) { tools.push(tool) } },
       systemPrompt: { section(section: { name: string }) { sections.push(section.name) } },
       userQuestions: { async ask() { return { answers: [] } } },
     }
@@ -31,8 +31,9 @@ describe('DSH plugin', () => {
     ]
     for (const mutation of canonicalMutations) {
       const tool = tools.find(item => item.name === mutation)
-      expect(tool?.parameters?.operation_id?.required, mutation).toBe(true)
+      expect(tool?.parameters?.properties?.operation_id?.type, mutation).toBe('string')
+      expect(tool?.parameters?.required, mutation).toContain('operation_id')
     }
-    expect(tools.find(item => item.name === 'story_create_checkpoint')?.parameters?.operation_id).toBeUndefined()
+    expect(tools.find(item => item.name === 'story_create_checkpoint')?.parameters?.properties?.operation_id).toBeUndefined()
   })
 })

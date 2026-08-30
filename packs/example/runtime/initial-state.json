@@ -1,0 +1,7 @@
+{
+  "campaign": { "scene": "opening", "turn": 0 },
+  "world": { "location": "主灯塔", "threats": ["提前到来的雾潮"] },
+  "relationships": { "he-zhou": { "trust": 50 } },
+  "flags": {},
+  "history": []
+}
