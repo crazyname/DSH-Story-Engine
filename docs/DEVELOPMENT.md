@@ -273,6 +273,8 @@ Standalone Runtime 不因为“减少依赖”本身启动。投入实现前至�
 - 本机生成的私人 Preset，例如 `presets/story-dispatch-personal-continuation/`。
 - API Key、访问令牌、Cookie、账号配置和任何其他凭据。
 
+私人内容包如包含人工核对后的连续性、结局或 UI，最终化文件必须存放在同样被忽略的本地 overlay 中，并由导入脚本逐文件校验哈希后应用。不得只手工修改最终输出目录，否则下一次重建可能丢失已核对结果；overlay、清单和本机验收报告同样不得提交。公开文档只描述这套通用维护规则，不记录某台开发机的私人包是否 ready 或其中的商业内容统计。
+
 ### 8.4 提交前验证
 
 代码、Schema、构建配置或 tracked artifact 发生变化时，默认完整验证为：

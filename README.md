@@ -8,7 +8,7 @@
 
 Stage D 已完成第一事务切片：AI canonical social result 使用真实 hidden DSH `turnId` 幂等提交，宿主允许 identical same-revision projection replay，同时保留 stale-write 冲突保护。当前继续推进 core runtime operation-level idempotency、durable transaction journal 和跨域 recovery。
 
-私人 Dispatch 续作包已作为本地私人内容包被引擎发现，原始游戏内容、只读存档快照和解析审计位于 `packs/private/dispatch-personal-continuation`，默认不会进入 Git。它目前缺少经过人工核对的 `ui/story-ui.json`，游戏库会显示“需诊断”并禁止新建；这不等于已经可以安装游玩，也不阻塞公开引擎 1.0 路线。
+私人 Dispatch 验证线只存在于被忽略的本地目录；商业游戏内容、存档、最终化 overlay 和具体校验结果不会进入公开仓库。公开 README 不对某台开发机上的私人包就绪状态作产品承诺，该验证线也不阻塞公开引擎 1.0 路线。
 
 当前唯一状态基线、版本含义和文档阅读顺序见 `docs/CURRENT_STATUS.md`；后续任务、优先级和验收标准见 `docs/NEXT_DEVELOPMENT_PLAN.md`。
 

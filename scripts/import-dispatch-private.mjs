@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { copyFile, cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve } from 'node:path'
 
 const projectRoot = resolve(import.meta.dirname, '..')
 const defaults = {
@@ -9,14 +9,15 @@ const defaults = {
   out: join(projectRoot, 'packs/private/dispatch-personal-continuation'),
 }
 
-function argument(name) {
+function argument(name, fallback = defaults[name]) {
   const index = process.argv.indexOf(`--${name}`)
-  return resolve(index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : defaults[name])
+  return resolve(index >= 0 && process.argv[index + 1] ? process.argv[index + 1] : fallback)
 }
 
 const assetRoot = argument('asset')
 const workRoot = argument('work')
 const outputRoot = argument('out')
+const overlayRoot = argument('overlay', join(workRoot, 'finalized-pack-overlay'))
 const stagingRoot = `${outputRoot}.building`
 
 const pretty = value => `${JSON.stringify(value, null, 2)}\n`
@@ -26,6 +27,14 @@ async function json(path) { return JSON.parse(await readFile(path, 'utf8')) }
 async function sha256(path) { return createHash('sha256').update(await readFile(path)).digest('hex') }
 async function writeJson(path, value) { await mkdir(resolve(path, '..'), { recursive: true }); await writeFile(path, pretty(value), 'utf8') }
 async function writeJsonl(path, value) { await mkdir(resolve(path, '..'), { recursive: true }); await writeFile(path, jsonl(value), 'utf8') }
+
+function privateOverlayPath(root, value) {
+  if (typeof value !== 'string' || !value || isAbsolute(value)) throw new Error(`私人覆盖层路径无效：${value}`)
+  const target = resolve(root, value)
+  const local = relative(root, target)
+  if (!local || isAbsolute(local) || local.split(/[\\/]/u).includes('..')) throw new Error(`私人覆盖层路径无效：${value}`)
+  return target
+}
 
 async function files(root) {
   const result = []
@@ -232,7 +241,57 @@ const migrationReport = {
 await writeJson(join(stagingRoot, 'audit/migration-report.json'), migrationReport)
 if (migrationReport.status !== 'verified') throw new Error('迁移校验失败，请检查 audit/migration-report.json')
 
+// The base import is deliberately conservative. The ignored private overlay is
+// the durable, hash-checked home for manually verified route/ending/UI work so
+// a later rebuild cannot silently regress the pack to its pre-audit state.
+const overlayManifest = await json(join(overlayRoot, 'overlay-manifest.json')).catch(error => {
+  if (error?.code === 'ENOENT') return undefined
+  throw error
+})
+let finalizedPack = await json(join(stagingRoot, 'pack.json'))
+if (overlayManifest !== undefined) {
+  if (overlayManifest.schemaVersion !== 1 || typeof overlayManifest.name !== 'string' || !overlayManifest.name || typeof overlayManifest.packVersion !== 'string' || !overlayManifest.packVersion || !Array.isArray(overlayManifest.files) || !overlayManifest.files.length) throw new Error('私人最终化覆盖层清单无效')
+  if (!/^[a-f0-9]{64}$/u.test(String(overlayManifest.sourceSaveSha256).toLowerCase()) || String(overlayManifest.sourceSaveSha256).toLowerCase() !== continuity.source.sha256.toLowerCase()) throw new Error('私人最终化覆盖层不属于当前存档')
+  const overlayTargets = new Set()
+  for (const row of overlayManifest.files) {
+    if (row === null || typeof row !== 'object' || Array.isArray(row) || typeof row.path !== 'string' || !/^[a-f0-9]{64}$/u.test(String(row.sha256).toLowerCase())) throw new Error('私人最终化覆盖层文件记录无效')
+    const source = privateOverlayPath(overlayRoot, row.path)
+    const target = privateOverlayPath(stagingRoot, row.path)
+    if (overlayTargets.has(target)) throw new Error(`私人最终化覆盖层路径重复：${row.path}`)
+    overlayTargets.add(target)
+    const sourceHash = await sha256(source)
+    if (sourceHash !== String(row.sha256).toLowerCase()) throw new Error(`私人最终化覆盖层哈希不匹配：${row.path}`)
+    await mkdir(resolve(target, '..'), { recursive: true })
+    await copyFile(source, target)
+    if (await sha256(target) !== sourceHash) throw new Error(`私人最终化覆盖层复制校验失败：${row.path}`)
+  }
+
+  finalizedPack = await json(join(stagingRoot, 'pack.json'))
+  const finalizedContinuity = await json(join(stagingRoot, 'continuity/continuity-save.json'))
+  const finalizedCoverage = await json(join(stagingRoot, 'audit/episodes-1-8-coverage.json'))
+  const finalizedUi = await json(join(stagingRoot, 'ui/story-ui.json'))
+  const finalChecks = {
+    pack_version_matches_overlay: finalizedPack.version === overlayManifest.packVersion,
+    complete_choice_mapping: finalizedContinuity.import_mode === 'verified-save-with-complete-choice-mapping',
+    episode_coverage_present: Array.isArray(finalizedCoverage.by_episode) && finalizedCoverage.by_episode.length > 0,
+    all_actual_choices_have_official_bilingual_text: Number.isInteger(finalizedCoverage.counts?.actual_choices_total) && finalizedCoverage.counts.actual_choices_total > 0 && finalizedCoverage.counts.actual_choices_with_official_bilingual_text === finalizedCoverage.counts.actual_choices_total,
+    ui_descriptor_present: finalizedUi.schemaVersion === 1 && Array.isArray(finalizedUi.participants) && finalizedUi.participants.length > 0 && Array.isArray(finalizedUi.channels) && finalizedUi.channels.length > 0,
+  }
+  if (!Object.values(finalChecks).every(Boolean)) throw new Error(`私人最终化覆盖层验收失败：${JSON.stringify(finalChecks)}`)
+  migrationReport.finalization = { overlay: overlayManifest.name, pack_version: finalizedPack.version, checks: finalChecks }
+  migrationReport.limitations = [
+    '存档不是逐句字幕播放日志；实际路线与完整官方文本分别保存，不伪造逐句播放时间。',
+    '解析器对未声明的 Struct(None) 给出警告；原始 .sav、完整解析 JSON 与警告日志均已保留用于复核。',
+  ]
+  await writeJson(join(stagingRoot, 'audit/migration-report.json'), migrationReport)
+  await writeJson(join(stagingRoot, 'audit/rebuild-finalization-report.json'), {
+    status: 'PASS', generated_at: new Date().toISOString(), overlay: overlayManifest.name,
+    pack_version: finalizedPack.version, source_save_sha256: continuity.source.sha256,
+    copied_files: overlayManifest.files.length, checks: finalChecks,
+  })
+}
+
 await rm(outputRoot, { recursive: true, force: true })
 await mkdir(resolve(outputRoot, '..'), { recursive: true })
 await import('node:fs/promises').then(({ rename }) => rename(stagingRoot, outputRoot))
-console.log(pretty({ outputRoot, status: migrationReport.status, counts: actualCounts, saveVariables: saveVariables.length, scenes: scenes.length, parserWarnings: parserWarnings.length }))
+console.log(pretty({ outputRoot, status: migrationReport.status, packVersion: finalizedPack.version, ...(overlayManifest === undefined ? {} : { overlay: overlayManifest.name }), counts: actualCounts, saveVariables: saveVariables.length, scenes: scenes.length, parserWarnings: parserWarnings.length }))
