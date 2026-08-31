@@ -140,7 +140,7 @@ transaction.revision == expectedRevision + 1
 
 D2 foundation 只提供能够保存这些 evidence 的 Store/API。如何调用 DSH、如何把 `rpcId` 对应到数字 turn、如何从 `needs-recovery` 收敛，属于 coordinator/reconciliation 层。
 
-浏览器侧 `HostTransactionJournal` 对 `load/list/save` 返回值再次做 record validation，并核对返回的 `saveId` / `transactionId` 与请求 path identity；save 还必须确认返回 revision/input fingerprint 与本次提交一致。错误路由、跨存档响应或 stale save acknowledgement 不会被当作恢复证据接受。
+浏览器侧 `HostTransactionJournal` 对 `load/list/save` 返回值再次做 record validation，并核对返回的 `saveId` / `transactionId` 与请求 path identity；list 还会拒绝重复 `transactionId`。PUT 成功响应必须返回与本次提交**完整 canonical record 完全一致**的 transaction（不仅是相同 revision 或 fingerprint）；任何同 identity/revision 但 status、hidden/operation evidence、diagnostic、timestamp 等内容不同的 acknowledgement 都 fail-closed，不会被接受为持久化确认。
 
 ## 内容包目录
 
