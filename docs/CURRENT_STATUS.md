@@ -31,20 +31,20 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 
 当前分支已经实现的 D2 foundation：
 
-1. `StoryTransactionRecord` 与 schema v1：保存 `transactionId`、玩家 input fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
-2. transaction 状态最低语义：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态。
-3. hidden turn 状态单向推进：`planned`、`dispatched`、`uncertain` 可向结果态推进；`completed/failed/cancelled` 不可倒写；新增 hidden turn 必须从 `planned` 开始，`planned` 不能预填 native `dshTurn`。
+1. `StoryTransactionRecord` 与 schema v1：保存 `transactionId`、规范化玩家 input + fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
+2. transaction 状态最低语义：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态，且终态 record 本身不能含 active/nonterminal hidden evidence。
+3. hidden turn evidence 单向推进：新增 turn 必须从 `planned` 开始；`planned/uncertain` 不能携带 native `dshTurn`；一旦 `dispatched` 已确认 dispatch/turn 存在就不能降级回 `uncertain`；`completed/failed/cancelled` 不可倒写。
 4. hidden identity 明确拆成三层：
-   - Story Engine `turnId`：稳定逻辑 hidden-turn identity，也是 social canonical commit key；
-   - `dshRequestId`：发 prompt 前持久化的 DSH request correlation identity；
+   - Story Engine `turnId`：稳定逻辑 hidden-turn identity，也是 social canonical commit key，并遵守 Story UI stable-ID 格式；
+   - `dshRequestId`：发 prompt 前持久化的 DSH request correlation identity，独立于 Story/social ID；
    - `dshTurn`：从 DSH durable history 对账得到的原生数字 turn。
-5. `StoryTransactionStore`：按 save/transaction 隔离、进程内串行、原子 temp+rename、optimistic revision、identical replay、collision conflict、损坏记录 fail-closed；新建 journal 只能是 revision 0 的 `prepared` 空证据 intent，持久化时会重算 input fingerprint。
-6. transaction input `channelId` 使用现有 Story UI stable-ID 契约；Story `turnId`、`dshRequestId` 与 native `(sessionId,dshTurn)` 在同一 transaction 中执行唯一性/引用约束。
+5. `StoryTransactionStore`：按 save/transaction 隔离、进程内串行、原子 temp+rename、optimistic revision、identical replay、collision conflict、损坏/语义非法记录 fail-closed；新建 journal 只能是 revision 0 的 `prepared` 空证据 intent，持久化和读取时会重算 input fingerprint。
+6. transaction input `channelId` 使用现有 Story UI stable-ID 契约；Story `turnId`、`dshRequestId` 与 native `(sessionId,dshTurn)` 在同一 transaction 中执行格式/唯一性/引用约束；`activeTurnId` 与 `canonicalResultTurnId` 只允许引用合法 lifecycle 状态。
 7. Windows-safe journal 文件名：transactionId 使用有界 base64url 编码，不直接暴露 `:` 或设备保留名，也不会因最大长度 ID 超出单文件名限制。
-8. Host transaction API 与浏览器 persistence primitive 已加入；transaction journal 不提供删除路径，恢复证据当前只增不删。
-9. 已新增 contract/store/client bridge/Host API 自动测试源码，覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、损坏 journal、Windows 文件名、Host GET/list/PUT、同源写、400/409 与浏览器 bridge load/save/list。
+8. Host transaction API 与浏览器 persistence primitive 已加入；transaction journal 不提供删除路径，恢复证据当前只增不删。browser bridge 会拒绝跨 save/transaction path identity 的响应以及不匹配的 save acknowledgement。
+9. 已新增 contract/store/client bridge/Host API 自动测试源码，覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写、以及 browser bridge load/save/list/response identity。
 
-这些内容目前仍是**分支实现**，尚未运行项目级 Client typecheck/test/build，也尚未生成并核对最新 tracked `client/story-ui/lib/index.js` 构建产物，因此不能表述为已验证完成。
+这些内容目前仍是**分支实现**，尚未运行项目级 Client typecheck/test/build。tracked `client/story-ui/lib/index.js`、`lib/client.js`、`lib/client.js.map` 当前 blob 仍与 `main` 相同；由于 Host `src/index.ts` 已变化，至少 `lib/index.js` 确认尚未由真实 bundler 同步，因此不能表述为已验证完成。
 
 ## D2 尚未完成
 
@@ -76,7 +76,7 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 - D1 本轮未执行真实 DSH mutating-tool smoke，因此不把上述自动验证描述为真实 DSH 集成验收。
 - 更早的 Stage C / social idempotency 浏览器故障矩阵与 host-save-before-acknowledge crash-window 已通过。
 
-当前 D2 foundation 分支：**尚未完成本地项目级验证**。新增测试文件存在不等于测试已经运行通过。
+当前 D2 foundation 分支：**尚未完成本地项目级验证**。新增测试文件存在不等于测试已经运行通过；tracked build artifact 也尚未同步。
 
 ## 文档优先级
 
