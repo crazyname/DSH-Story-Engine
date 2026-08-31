@@ -28,6 +28,8 @@
   ],
   "scripts": {
     "build": "cd . && D:/DeepSeek-Harness/node_modules/.bin/tsdown",
+    "build:node": "cd . && D:/DeepSeek-Harness/node_modules/.bin/tsdown --filter dsh-story-client/node",
+    "build:client": "cd . && D:/DeepSeek-Harness/node_modules/.bin/tsdown --filter dsh-story-client/client",
     "typecheck": "D:/DeepSeek-Harness/node_modules/.bin/tsc -p tsconfig.json --noEmit",
     "test": "D:/DeepSeek-Harness/node_modules/.bin/vitest run test"
   },
