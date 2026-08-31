@@ -37,7 +37,7 @@ D1 不建立顶层 transaction journal，也不负责 hidden DSH recovery；这�
 
 D2 分成小而可验证的交付片段，不用一个巨型 PR 同时改 journal、AI bridge、core coordinator 和 UI。
 
-#### D2a：Transaction journal foundation — 当前分支
+#### D2a：Transaction journal foundation — 已完成验证，待合并
 
 分支：`codex/stage-d-transaction-journal-foundation`。
 
@@ -55,9 +55,9 @@ D2 分成小而可验证的交付片段，不用一个巨型 PR 同时改 journa
 - Host journal store：按 save/transaction 隔离、原子写、进程内串行、optimistic revision、identical replay、collision conflict、corrupt journal fail-closed。
 - Windows-safe journal filenames：有界 base64url，不直接使用 transactionId 作为文件名。
 - Host journal API + browser persistence primitive。
-- 自动测试源码覆盖 identity collision、状态机、并发 revision、跨存档、Windows 路径和损坏 journal。
+- 自动测试覆盖 identity collision、状态机、并发 revision、跨存档、Windows 路径和损坏 journal。
 
-D2a 完成条件：Client typecheck/test/build 通过；tracked `client/story-ui/lib/*` 与源码构建一致；Host API/Spec/traceability 无状态漂移；branch diff 只包含 D2a foundation，不提前宣称 submit/recover 已经事务化。
+D2a 完成条件已经满足：Client typecheck 通过；17 个测试文件 / 108 项测试通过；`build:node` 与 `build:client` 通过；tracked `client/story-ui/lib/*` 已由真实 bundler 同步并在重复构建后保持干净；Host API/Spec/traceability 已同步。以上是 D2a foundation 的自动验证，不代表真实 DSH correlation、浏览器 crash recovery 或 D2 整体完成。
 
 #### D2b：Player transaction coordinator
 
