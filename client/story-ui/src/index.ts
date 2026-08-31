@@ -64,9 +64,10 @@ export function apply(ctx:Context,config:Config={}):void{
   ctx.effect(()=>ctx.webServer.register({kind:'prefix',path:TRANSACTION_BASE.slice(0,-1),async handler(req,res){
     try{
       const url=new URL(req.url??'/','http://localhost')
-      const rest=url.pathname.slice(TRANSACTION_BASE.length)
-      const parts=rest.split('/').filter(Boolean).map(part=>decodeURIComponent(part))
-      if(parts.length<1||parts.length>2){json(res,400,{error:'transaction 路径无效'});return}
+      if(!url.pathname.startsWith(TRANSACTION_BASE)){json(res,400,{error:'transaction 路径无效'});return}
+      const encodedParts=url.pathname.slice(TRANSACTION_BASE.length).split('/')
+      if(encodedParts.length<1||encodedParts.length>2||encodedParts.some(part=>part==='')){json(res,400,{error:'transaction 路径无效'});return}
+      const parts=encodedParts.map(part=>decodeURIComponent(part))
       const saveId=parts[0]!;assertSaveId(saveId)
       if(parts.length===1){if(req.method!=='GET'){res.setHeader('allow','GET');json(res,405,{error:'方法不允许'});return}json(res,200,{transactions:await transactions.list(saveId)});return}
       const transactionId=parts[1]!;assertTransactionId(transactionId)
