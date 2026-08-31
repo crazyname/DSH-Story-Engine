@@ -9,7 +9,7 @@
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码。
 - 项目目录：`D:\DSH-Story-Engine`。
 - 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency。
-- 当前开发分支：`codex/stage-d-transaction-journal-foundation`，实现 D2 transaction journal foundation；分支代码尚未完成本地 Windows 验证，因此不计入已合并基线。
+- 当前开发分支：`codex/stage-d-transaction-journal-foundation`，实现 D2a transaction journal foundation；代码、测试和 tracked build artifact 已完成本地 Windows 自动验证，等待最终合并决定，因此尚不计入已合并基线。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -29,7 +29,7 @@
 
 D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。
 
-当前分支已经实现的 D2 foundation：
+当前分支已经实现并完成自动验证的 D2a foundation：
 
 1. `StoryTransactionRecord` 与 schema v1：保存 `transactionId`、规范化玩家 input + fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
 2. transaction 状态最低语义：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态，且终态 record 本身不能含 active/nonterminal hidden evidence。
@@ -42,9 +42,10 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 6. transaction input `channelId` 使用现有 Story UI stable-ID 契约；Story `turnId`、`dshRequestId` 与 native `(sessionId,dshTurn)` 在同一 transaction 中执行格式/唯一性/引用约束；`activeTurnId` 与 `canonicalResultTurnId` 只允许引用合法 lifecycle 状态。
 7. Windows-safe journal 文件名：transactionId 使用有界 base64url 编码，不直接暴露 `:` 或设备保留名，也不会因最大长度 ID 超出单文件名限制。
 8. Host transaction API 与浏览器 persistence primitive 已加入；transaction journal 不提供删除路径，恢复证据当前只增不删。browser bridge 会拒绝跨 save/transaction path identity 的响应以及不匹配的 save acknowledgement。
-9. 已新增 contract/store/client bridge/Host API 自动测试源码，覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写、以及 browser bridge load/save/list/response identity。
+9. contract/store/client bridge/Host API 自动测试覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写，以及 browser bridge load/save/list/response identity。
+10. Client tracked artifacts 已由真实 bundler 同步：`lib/index.js` 随 Node/Host entry 变化更新，`lib/client.js` 与 `lib/client.js.map` 保持不变；重复构建后 worktree 保持干净。
 
-这些内容目前仍是**分支实现**，尚未运行项目级 Client typecheck/test/build。tracked `client/story-ui/lib/index.js`、`lib/client.js`、`lib/client.js.map` 当前 blob 仍与 `main` 相同；由于 Host `src/index.ts` 已变化，至少 `lib/index.js` 确认尚未由真实 bundler 同步，因此不能表述为已验证完成。
+D2a 目前只完成 durable journal/store/API/browser persistence primitive，不表示玩家 submit/retry/recover 已经事务化，也不表示 hidden DSH correlation、跨域 reconciliation 或 D2 整体完成。
 
 ## D2 尚未完成
 
@@ -76,7 +77,19 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 - D1 本轮未执行真实 DSH mutating-tool smoke，因此不把上述自动验证描述为真实 DSH 集成验收。
 - 更早的 Stage C / social idempotency 浏览器故障矩阵与 host-save-before-acknowledge crash-window 已通过。
 
-当前 D2 foundation 分支：**尚未完成本地项目级验证**。新增测试文件存在不等于测试已经运行通过；tracked build artifact 也尚未同步。
+D2a / PR #6 本地 Windows 最终自动验证（代码与 artifact HEAD `c822c287e5c0ef72fa37f75ab8629c9b67e09396`）：
+
+- Client `npm run typecheck`：通过。
+- Client `npm test`：17 个测试文件、108 项测试全部通过。
+- Client `npm run build:node`：通过。
+- Client `npm run build:client`：通过。
+- `git diff --check`：通过。
+- 真实 bundler 更新 `client/story-ui/lib/index.js`；`lib/client.js` 与 `lib/client.js.map` 无变化。
+- 重复构建后 tracked artifacts 保持干净。
+- 验证 worktree、原主项目未提交文件和 `D:\DeepSeek-Harness` 保持隔离；临时 `node_modules` junction 已删除。
+- 本轮没有执行真实 DSH hidden-turn correlation、浏览器 crash/recovery 或 D2b coordinator 验收，因此这些能力仍不得宣称完成。
+
+本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 
 ## 文档优先级
 
