@@ -170,6 +170,64 @@ v1.0 不只是功能完成，还意味着 V1 公共契约被冻结并有明确�
 
 正式 RC/Stable 路线以 `NEXT_DEVELOPMENT_PLAN.md` 为准；在 Stage E 文档工作中建立 `COMPATIBILITY.md` 和 `RELEASE_CHECKLIST.md`，并在进入 1.0 RC 前完成评审。
 
+#### 1.0 的 DSH 认证与升级政策
+
+Story Engine 1.0 固定并认证一个明确的 DSH Runtime 基线，不自动跟随 DSH 最新版本。当前认证候选为：
+
+```text
+DeepSeek Harness version: 0.1.1-rc.2
+Git tag: dsh-v0.1.1-rc.2
+Git commit: b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
+```
+
+“固定”必须成为可验证的工程约束，而不只是开发者当前恰好没有执行 `git pull`：
+
+- Stage E 建立机器可读的 certified-runtime manifest，记录 runtime 名称、version、tag、commit 和 compatibility profile。
+- 构建、测试和发布检查验证实际 DSH commit、package version、必需包和能力；不匹配时 fail-closed，并给出清晰诊断。
+- 公开构建流程不得把 `D:\DeepSeek-Harness` 这类单机绝对路径当作产品契约；本地开发可以使用该目录，但公开配置必须通过受控依赖解析或显式的 DSH root 配置进入。
+- DSH 发布新版时，不直接更新主开发线。升级在独立 compatibility branch 中完成，并重新运行 typecheck、自动测试、Client build、Host/Runtime 集成测试和适用的真实浏览器故障矩阵。
+- 只有兼容性证据完整、迁移影响已记录时，才更新 certified baseline；Story Engine 可以长期停留在已认证版本。
+- 严重安全漏洞、数据损坏或运行阻塞可以触发紧急兼容分支，但仍不得跳过验证后直接追随上游最新版。
+
+当前 `D:\DeepSeek-Harness` 是官方仓库的本地 clone，只作为依赖与运行环境；Story Engine 代码、补丁和发布物不得写入或提交到该仓库。
+
+#### Runtime Ports and Adapters 战略
+
+DSH 在 1.0 中仍是认证运行后端，但它不应定义 Story Engine 的核心产品契约。长期架构采用 Ports and Adapters / anti-corruption layer：
+
+```text
+Story Engine
+├── Gameplay Runtime
+├── Transaction Engine
+├── Save / Projection
+├── Content Pack
+├── Social UI
+├── Authoring
+└── Host / AI Runtime Ports
+    ├── DSH Adapter
+    └── Standalone Adapter（未来）
+```
+
+`played_canon`、episode/scene、operation receipt、transaction journal、`StorySaveProjection`、内容包和三层真相继续由 Story Engine 定义。以下 DSH-specific 能力逐步收缩到 adapter 边界：
+
+- Cordis Context 与插件 bootstrap；
+- `@deepseek-ai/dsh-*` tool registration；
+- hidden session 创建、turn dispatch、取消和 history 读取；
+- DSH RPC、request correlation 与 native numeric turn；
+- Host WebServer 路由和持久化桥接；
+- Client plugin 注入、模块加载和界面挂载。
+
+迁移采用渐进方式，不在 1.0 前进行大爆炸式重写：
+
+1. Stage E 先盘点全部 DSH-specific imports、RPC、Host 和 Client 挂载点，并定义最小稳定 ports。
+2. 1.x 每次迁移一个边界到 `adapters/dsh`，保持 V1 内容包、存档、Host API、剧情和事务契约不变。
+3. Port 使用 Story Engine 自己的类型；DSH 类型不得泄漏进 gameplay、canon、transaction、content-pack 等领域层。
+4. 抽象必须保留真实语义，不能把 streaming、`AbortSignal`、waiting-choice、late result、uncertain dispatch、correlation、idempotency 和 recovery 压缩成简单字符串调用。
+5. 不为尚未出现的后端提前制造宽泛接口；优先围住已经确认会受 DSH 变化影响的危险边界。
+6. DSH Adapter 与未来 Standalone Adapter 必须共享同一套 runtime conformance tests，覆盖正常回合、取消、选择等待、断连、retry、跨存档隔离、crash/restart、tool idempotency 和 canonical result 唯一性。
+
+在 adapter 收缩完成前，Story Engine 仍应明确描述为使用认证 DSH Runtime 的产品；目录重命名或把 import 移动到 `adapters/` 本身不等于已经脱离 DSH。
+
 ### Post-1.0 方向（非承诺路线）
 
 以下内容是方向性 backlog，不属于 V1 compatibility promise，也不构成已排期功能。具体是否进入 1.x、后续 major version 或被放弃，应在 v1.0 发布后的真实使用、维护成本和兼容性约束下重新评估。
@@ -178,9 +236,12 @@ v1.0 不只是功能完成，还意味着 V1 公共契约被冻结并有明确�
 - **Authoring ecosystem**：更强的内容包制作工具、剧本可视化编辑与校验、lint、测试工具和作者 SDK。
 - **Runtime capabilities**：后台异步剧情事件、更复杂的 simulation module、更强的长期历史管理、checkpoint/receipt compaction 和诊断工具。
 - **Portability / Sync**：更完善的导入导出、可选云同步与多设备连续性。
-- **Possible 2.0 territory**：需要 breaking change 的 Runtime/API/Schema 重构、多人联机、移动端原生运行，以及任何无法在 V1 兼容承诺内安全演进的架构变化。
+- **Runtime portability**：1.x 逐步把 DSH-specific code 收缩到 `adapters/dsh`，并在 conformance suite 保护下探索最小 Standalone Runtime。
+- **Possible 2.0 territory**：Standalone Runtime 成熟后成为默认、DSH 降为可选兼容后端；需要 breaking change 的 Runtime/API/Schema 重构、多人联机、移动端原生运行，以及任何无法在 V1 兼容承诺内安全演进的架构变化。
 
 2.0 不由“功能看起来很大”自动触发；只有当 V1 公共契约无法保持向后兼容时，才进入新的 major-version 设计与迁移评审。
+
+Standalone Runtime 不因为“减少依赖”本身启动。投入实现前至少需要同时观察到：DSH API 变化持续消耗维护时间；DSH 约束妨碍 Story Engine 产品设计；项目需要上游不适合承载的 runtime 能力；已有真实用户足以承担长期运行时维护成本；Story Engine 自己的 transaction/session/tool contracts 已稳定。未满足这些条件时，继续使用认证 DSH 比重写 agent loop、tool execution、streaming、provider routing 和 context management 更可靠。
 
 ## 7. 开源策略
 

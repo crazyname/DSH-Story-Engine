@@ -37,9 +37,9 @@ D1 不建立顶层 transaction journal，也不负责 hidden DSH recovery；这�
 
 D2 分成小而可验证的交付片段，不用一个巨型 PR 同时改 journal、AI bridge、core coordinator 和 UI。
 
-#### D2a：Transaction journal foundation — 已完成验证，待合并
+#### D2a：Transaction journal foundation — 已完成并合并
 
-分支：`codex/stage-d-transaction-journal-foundation`。
+已由 PR #6 合并到 `main`；历史开发分支为 `codex/stage-d-transaction-journal-foundation`。
 
 目标：先把 durable identity/evidence 层做正确，再把现有玩家 submit/recover 流程接上去。
 
@@ -61,7 +61,7 @@ D2a 完成条件已经满足：Client typecheck 通过；17 个测试文件 / 10
 
 #### D2b：Player transaction coordinator
 
-D2a 合并后进入。
+D2a 合并后已进入本阶段。
 
 目标：真正把现有 `StoryGameShell` submit/retry/recover 链接入 durable transaction journal。
 
@@ -125,6 +125,9 @@ D2a 合并后进入。
 - 路径、Host API、同源写、输入校验、安全/隐私/许可证审计。
 - 正式安装、升级、卸载、故障排查和内容作者文档。
 - 建立 `COMPATIBILITY.md` 与 `RELEASE_CHECKLIST.md`。
+- 建立机器可读的 certified DSH runtime manifest，并在构建/发布检查中验证 version、tag、commit、必需包和能力；1.0 认证候选固定为 DSH `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
+- 清除公开构建流程对 `D:\DeepSeek-Harness` 单机绝对路径的产品级假设，改为受控依赖解析或显式 DSH root 配置。
+- 完成 DSH-specific import、Cordis、session/turn、RPC、Host WebServer 和 Client mount inventory；定义最小 Host / AI Runtime ports 与 adapter conformance test 基础，不在 1.0 前进行大规模运行时重写。
 
 ## M5：1.0 RC / Stable
 
@@ -138,3 +141,10 @@ RC 前冻结并评审：
 - 1.x 向后兼容边界与需要 major version 的变更。
 
 RC 必须至少经过一次干净安装、旧存档升级、原创示例整集、插件故障隔离和发布包审计。Stable 只在 RC 阻塞问题清零后发布。
+
+## 1.x / 2.0 Runtime 方向
+
+- 1.x 在不破坏 V1 contracts 的前提下，逐步把 DSH-specific code 收缩到 `adapters/dsh`；每次只迁移一个已验证边界。
+- DSH 新版本只在独立 compatibility branch 验证，通过完整自动与适用真实环境矩阵后才更新 certified baseline；主开发线不自动追随上游。
+- 1.x 后期可以实现默认关闭的 experimental Standalone Runtime，并与 DSH Adapter 共用正常回合、取消、waiting-choice、断连、retry、recovery、tool idempotency 和 canonical result conformance tests。
+- 只有 Standalone Runtime 的功能、恢复、安全和维护能力成熟，而且需要的变化无法继续维持 V1 兼容时，才在 2.0 评审中考虑让它成为默认、DSH 成为可选 backend。

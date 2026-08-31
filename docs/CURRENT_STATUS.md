@@ -6,10 +6,10 @@
 - 核心包 `dsh-story-engine`：`0.8.0-beta.1`。
 - 客户端包 `dsh-story-client`：`0.8.0-beta.1`。
 - 当前阶段：v0.8 阶段 A、B、C 已完成；Stage D 开发中；Stage E 未开始。
-- DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码。
+- DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
-- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency。
-- 当前开发分支：`codex/stage-d-transaction-journal-foundation`，实现 D2a transaction journal foundation；代码、测试和 tracked build artifact 已完成本地 Windows 自动验证，等待最终合并决定，因此尚不计入已合并基线。
+- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency 和 PR #6 / D2a transaction journal foundation。
+- 当前开发重点：D2b player transaction coordinator；D2a 已计入已合并基线。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -65,8 +65,8 @@ D2a 目前只完成 durable journal/store/API/browser persistence primitive，�
 - D3：season / episode / scene 与频道、projection 的权威联动。
 - D4：工作内轻量玩法、工作外详细场景、越界修订、集末总结正式 UI。
 - D5：原创示例包整集端到端验收。
-- Stage E：无障碍、长历史、迁移矩阵、游戏库发布体验、安全/许可证和公开发布文档。
-- 1.0 RC：冻结 V1 compatibility、migration、Host API 和公开 `story_*` contract。
+- Stage E：无障碍、长历史、迁移矩阵、游戏库发布体验、安全/许可证、公开发布文档，以及 certified DSH manifest / compatibility guard 和 DSH-specific boundary inventory。
+- 1.0 RC：冻结 V1 compatibility、migration、Host API、公开 `story_*` contract 和认证 DSH runtime baseline；不要求在 1.0 前完成 Standalone Runtime。
 
 ## 验证基线
 
