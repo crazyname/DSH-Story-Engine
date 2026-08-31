@@ -4,10 +4,13 @@ import type{}from'@deepseek-ai/dsh-host-webserver'
 import{StoryProjectionStore,type SaveSummary}from'./host-store.ts'
 import{StoryRuntimeStore}from'./runtime-store.ts'
 import{StoryCatalogStore}from'./catalog-store.ts'
+import{StoryTransactionStore}from'./transaction-store.ts'
+import{assertSaveId,assertTransactionId}from'./transaction-journal.ts'
 
 export const inject=['webServer']
 export interface Config{runtimeRoot?:string;storyRuntimeRoot?:string;packsRoot?:string}
 const SAVE_BASE='/story-engine/api/saves/'
+const TRANSACTION_BASE='/story-engine/api/transactions/'
 const RUNTIME_CLONE='/story-engine/api/runtime/clone'
 const CATALOG='/story-engine/api/catalog'
 
@@ -19,9 +22,12 @@ async function body(req:IncomingMessage):Promise<unknown>{
 function json(res:ServerResponse,status:number,value:unknown):void{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(value))}
 function sameOrigin(req:IncomingMessage):boolean{const origin=req.headers.origin;return origin===undefined||origin===`http://${req.headers.host}`||origin===`https://${req.headers.host}`}
 function message(error:unknown):string{return error instanceof Error?error.message:String(error)}
+function statusFor(error:unknown):number{return message(error).includes('冲突')?409:400}
 
 export function apply(ctx:Context,config:Config={}):void{
-  const saves=new StoryProjectionStore(config.runtimeRoot??'D:/DSH-Story-Engine/runtime-ui')
+  const runtimeRoot=config.runtimeRoot??'D:/DSH-Story-Engine/runtime-ui'
+  const saves=new StoryProjectionStore(runtimeRoot)
+  const transactions=new StoryTransactionStore(runtimeRoot)
   const runtime=new StoryRuntimeStore(config.storyRuntimeRoot??'D:/DSH-Story-Engine/runtime')
   const catalog=new StoryCatalogStore(config.packsRoot??'D:/DSH-Story-Engine/packs')
 
@@ -52,8 +58,29 @@ export function apply(ctx:Context,config:Config={}):void{
         json(res,200,{removed:true});return
       }
       res.setHeader('allow','GET, PUT, DELETE');json(res,405,{error:'方法不允许'})
-    }catch(error){const detail=message(error);json(res,detail.includes('版本冲突')?409:400,{error:detail})}
+    }catch(error){json(res,statusFor(error),{error:message(error)})}
   }}),'story-ui: projection API')
+
+  ctx.effect(()=>ctx.webServer.register({kind:'prefix',path:TRANSACTION_BASE.slice(0,-1),async handler(req,res){
+    try{
+      const url=new URL(req.url??'/','http://localhost')
+      if(!url.pathname.startsWith(TRANSACTION_BASE)){json(res,400,{error:'transaction 路径无效'});return}
+      const encodedParts=url.pathname.slice(TRANSACTION_BASE.length).split('/')
+      if(encodedParts.length<1||encodedParts.length>2||encodedParts.some(part=>part==='')){json(res,400,{error:'transaction 路径无效'});return}
+      const parts=encodedParts.map(part=>decodeURIComponent(part))
+      const saveId=parts[0]!;assertSaveId(saveId)
+      if(parts.length===1){if(req.method!=='GET'){res.setHeader('allow','GET');json(res,405,{error:'方法不允许'});return}json(res,200,{transactions:await transactions.list(saveId)});return}
+      const transactionId=parts[1]!;assertTransactionId(transactionId)
+      if(req.method==='GET'){const value=await transactions.read(saveId,transactionId);if(value===undefined){res.writeHead(204,{'cache-control':'no-store'});res.end();return}json(res,200,value);return}
+      if(req.method==='PUT'){
+        if(!sameOrigin(req)){json(res,403,{error:'拒绝跨站写入'});return}
+        const payload=await body(req)as{expectedRevision?:unknown;transaction?:unknown}
+        if(!Number.isInteger(payload.expectedRevision)||payload.transaction===undefined){json(res,400,{error:'请求格式无效'});return}
+        json(res,200,await transactions.write(saveId,transactionId,Number(payload.expectedRevision),payload.transaction));return
+      }
+      res.setHeader('allow','GET, PUT');json(res,405,{error:'方法不允许'})
+    }catch(error){json(res,statusFor(error),{error:message(error)})}
+  }}),'story-ui: transaction journal API')
 
   ctx.effect(()=>ctx.webServer.register({kind:'exact',path:RUNTIME_CLONE,async handler(req,res){
     try{
