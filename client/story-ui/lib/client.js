@@ -1085,7 +1085,7 @@ window.__ModuleLoader__.load({
 		* @param props - injected exit callback plus the bound `useGameMode` hook.
 		* @returns the full-frame game shell, or null while game mode is inactive.
 		*/
-		function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }) {
+		function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, assertAiSaveQuiescent, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }) {
 			const active = useGameMode((mode) => mode);
 			const storage = (0, react.useMemo)(() => createLocalProjectionStorage(window.localStorage), []);
 			const hostStorage = (0, react.useMemo)(() => new HostProjectionStorage(), []);
@@ -1192,10 +1192,10 @@ window.__ModuleLoader__.load({
 			const commitAiResult = (saveId, channelId, result, turnId, fallback) => {
 				const next = appendAiMessages(storage.load(saveId) ?? fallback, channelId, result.messages, /* @__PURE__ */ new Date(), turnId);
 				storage.save(next);
-				hostStorage.save(next).then(() => {
-					if (turnId !== void 0) acknowledgeAiTurn(saveId, turnId);
+				hostStorage.save(next).then(async () => {
+					if (turnId !== void 0) await acknowledgeAiTurn(saveId, turnId);
 					setSaveSyncError(saveId, void 0);
-				}, (error) => {
+				}).catch((error) => {
 					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				});
 				setProjection((current) => current.saveId === saveId ? next : current);
@@ -1251,6 +1251,7 @@ window.__ModuleLoader__.load({
 			const syncError = saveErrorFor(syncErrors, projection.saveId);
 			const turn = aiTurn(projection.saveId);
 			const generating = generatingSaves.has(projection.saveId) || turn?.state === "queued" || turn?.state === "running" || turn?.state === "waiting-choice";
+			const submitBlocked = generating || turn !== null;
 			(0, react.useEffect)(() => {
 				if (!generating) return;
 				const timer = window.setInterval(() => {
@@ -1262,15 +1263,25 @@ window.__ModuleLoader__.load({
 			}, [generating, projection.saveId]);
 			const submit = () => {
 				const text = draft.trim();
-				if (text === "" || generating) return;
-				const submitted = appendPlayerMessage(projection, selected.id, text);
+				if (text === "" || submitBlocked) return;
+				const beforeSubmit = projection;
+				const submitted = appendPlayerMessage(beforeSubmit, selected.id, text);
 				const saveId = submitted.saveId;
-				persist(submitted);
+				storage.save(submitted);
 				setProjection(submitted);
 				setGeneratingSaves((current) => new Set(current).add(saveId));
 				sendToAI(submitted, selected.id, text).then((result) => {
 					commitAiResult(saveId, selected.id, result, result.turnId, submitted);
 				}, (error) => {
+					if (aiTurn(saveId) === null) {
+						storage.save(beforeSubmit);
+						setProjection((current) => current.saveId === saveId ? beforeSubmit : current);
+						setView((state) => ({
+							...state,
+							selectedChannelId: beforeSubmit.selectedChannelId,
+							drafts: beforeSubmit.drafts
+						}));
+					}
 					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
@@ -1379,6 +1390,8 @@ window.__ModuleLoader__.load({
 			const saveAsGame = (saveId) => {
 				(async () => {
 					try {
+						if (aiTurn(saveId) !== null) throw new Error("当前存档仍有未收口 AI 回合，完成恢复/重试后才能另存为");
+						await assertAiSaveQuiescent(saveId);
 						const source = await hostStorage.load(saveId);
 						const fallback = storage.load(saveId);
 						const base = source ?? fallback;
@@ -1408,6 +1421,8 @@ window.__ModuleLoader__.load({
 				if (!window.confirm(`确定删除存档「${saveId}」吗？此操作不可撤销。`)) return;
 				(async () => {
 					try {
+						if (aiTurn(saveId) !== null) throw new Error("当前存档仍有未收口 AI 回合，完成事务对账后才能删除");
+						await assertAiSaveQuiescent(saveId);
 						await cancelAiTurn(saveId);
 						await hostStorage.remove(saveId);
 						await releaseAiSave(saveId, saves.find((save) => save.saveId === saveId)?.packId);
@@ -1540,6 +1555,7 @@ window.__ModuleLoader__.load({
 											type: "button",
 											className: channel.id === selected.id ? StoryGameShell_module_css_default.channelItemActive : StoryGameShell_module_css_default.channelItem,
 											"aria-current": channel.id === selected.id ? "true" : void 0,
+											disabled: submitBlocked,
 											onClick: () => {
 												setView((state) => selectChannel(state, channel.id));
 												setProjection((previous) => {
@@ -1615,6 +1631,7 @@ window.__ModuleLoader__.load({
 												value: draft,
 												placeholder: "输入对白；可使用 (行动) 或 (系统)",
 												"aria-label": `在 ${selected.title} 中输入`,
+												disabled: submitBlocked,
 												onChange: (event) => {
 													const text = event.target.value;
 													setView((state) => setDraft(state, selected.id, text));
@@ -1635,16 +1652,24 @@ window.__ModuleLoader__.load({
 												type: "button",
 												className: StoryGameShell_module_css_default.sendButton,
 												onClick: submit,
-												disabled: generating,
-												children: generating ? "生成中…" : "发送"
+												disabled: submitBlocked,
+												children: generating ? "生成中…" : turn?.state === "cancelled" ? "待 D2c 对账" : turn !== null ? "待恢复" : "发送"
 											}),
-											generating ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											generating || turn?.state === "uncertain" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 												type: "button",
 												className: StoryGameShell_module_css_default.cancelButton,
 												onClick: cancelTurn,
 												children: "取消"
 											}) : null,
-											turn !== null && (turn.state === "failed" || turn.state === "cancelled") ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											turn !== null && (turn.state === "uncertain" || turn.state === "completed") ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+												type: "button",
+												className: StoryGameShell_module_css_default.retryButton,
+												onClick: () => {
+													recoverPending(projection);
+												},
+												children: "恢复"
+											}) : null,
+											turn?.state === "failed" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 												type: "button",
 												className: StoryGameShell_module_css_default.retryButton,
 												onClick: retryTurn,
@@ -1783,13 +1808,49 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region src/client/ai-bridge.ts
-		function assistantText(events, afterSeq) {
-			const blocks = events.map((x) => x.event).filter((e) => e?.type === "assistant/message" && Number(e.seq) > afterSeq).at(-1)?.data?.message?.content;
+		function eventTurn(event) {
+			const value = Number(event?.data?.turn);
+			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+		}
+		function eventSeq(event) {
+			const value = Number(event?.seq);
+			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+		}
+		function nativeTurnForRequest(events, afterSeq, requestId) {
+			const ordered = events.map((entry) => entry.event).filter((event) => eventSeq(event) !== void 0 && Number(event.seq) > afterSeq).sort((left, right) => Number(left.seq) - Number(right.seq));
+			const turns = /* @__PURE__ */ new Set();
+			let activeTurn;
+			for (const event of ordered) {
+				if (event?.type === "turn/start") {
+					activeTurn = eventTurn(event);
+					continue;
+				}
+				if (event?.type !== "user/message") continue;
+				const source = event?.data?.source;
+				if (source?.kind !== "user" || source.rpcId !== requestId) continue;
+				if (activeTurn !== void 0) turns.add(activeTurn);
+			}
+			if (turns.size > 1) throw new Error(`DSH request correlation 匹配多个 native turn：${requestId}`);
+			return turns.values().next().value;
+		}
+		function hasNativeTurnStart(events, afterSeq, dshTurn) {
+			return events.some((entry) => entry.event?.type === "turn/start" && Number(entry.event.seq) > afterSeq && eventTurn(entry.event) === dshTurn);
+		}
+		function assistantText(events, afterSeq, dshTurn) {
+			const data = events.map((x) => x.event).filter((e) => e?.type === "assistant/message" && Number(e.seq) > afterSeq && (dshTurn === void 0 || eventTurn(e) === dshTurn)).at(-1)?.data;
+			const blocks = data?.message?.content ?? data?.content;
 			if (!Array.isArray(blocks)) return void 0;
 			return blocks.filter((b) => b?.type === "text" && typeof b.text === "string").map((b) => b.text).join("\n").trim() || void 0;
 		}
-		function turnEnded(events, afterSeq) {
-			return events.some((x) => x.event?.type === "turn/end" && Number(x.event.seq) > afterSeq);
+		function turnEnded(events, afterSeq, dshTurn) {
+			return events.some((x) => {
+				const event = x.event;
+				return event?.type === "turn/end" && Number(event.seq) > afterSeq && (dshTurn === void 0 || eventTurn(event) === dshTurn);
+			});
+		}
+		function responseRpcId(value) {
+			const raw = value.rpcId;
+			return typeof raw === "string" && raw.trim() !== "" ? raw : void 0;
 		}
 		function parseMessages(raw, projection, channelId) {
 			const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/u)?.[1] ?? raw;
@@ -1896,10 +1957,11 @@ window.__ModuleLoader__.load({
 						this.writeTurn(saveId, migrated);
 						return migrated;
 					}
-					if (value.version !== 1 || typeof value.id !== "string" || typeof value.sessionId !== "string" || !Number.isFinite(value.baseline) || typeof value.channelId !== "string" || typeof value.prompt !== "string" || typeof value.state !== "string" || ![
+					if (value.version !== 1 || typeof value.id !== "string" || typeof value.sessionId !== "string" || !Number.isFinite(value.baseline) || typeof value.channelId !== "string" || typeof value.prompt !== "string" || typeof value.state !== "string" || value.dshRequestId !== void 0 && typeof value.dshRequestId !== "string" || value.dshTurn !== void 0 && (!Number.isSafeInteger(value.dshTurn) || value.dshTurn < 0) || ![
 						"queued",
 						"running",
 						"waiting-choice",
+						"uncertain",
 						"completed",
 						"failed",
 						"cancelled"
@@ -1991,8 +2053,9 @@ window.__ModuleLoader__.load({
 				if (turn !== null && [
 					"queued",
 					"running",
-					"waiting-choice"
-				].includes(turn.state)) throw new Error("删除前必须先取消仍在运行的 AI 回合");
+					"waiting-choice",
+					"uncertain"
+				].includes(turn.state)) throw new Error("删除前必须先取消仍在运行或结果不确定的 AI 回合");
 				if (sessionId === null) return void 0;
 				const diagnostic = {
 					saveId,
@@ -2014,7 +2077,8 @@ window.__ModuleLoader__.load({
 				if (turn === null || ![
 					"queued",
 					"running",
-					"waiting-choice"
+					"waiting-choice",
+					"uncertain"
 				].includes(turn.state)) return;
 				try {
 					unwrap(await this.api.sessions.cancel({ sessionId: turn.sessionId }), "取消 AI 回合");
@@ -2025,15 +2089,49 @@ window.__ModuleLoader__.load({
 					});
 				} catch (error) {
 					this.change(saveId, turn, {
-						state: "failed",
-						error: `取消失败：${error instanceof Error ? error.message : String(error)}`
+						state: "uncertain",
+						error: `取消结果不确定：${error instanceof Error ? error.message : String(error)}`
 					});
 					throw error;
 				}
 			}
 			markWaitingChoice(saveId, sessionId) {
 				const turn = this.readTurn(saveId);
-				if (turn !== null && turn.sessionId === sessionId && ["queued", "running"].includes(turn.state)) this.change(saveId, turn, { state: "waiting-choice" });
+				if (turn !== null && turn.sessionId === sessionId && [
+					"queued",
+					"running",
+					"uncertain"
+				].includes(turn.state)) this.change(saveId, turn, { state: "waiting-choice" });
+			}
+			async correlatedHistory(turn, tail) {
+				const requestId = turn.dshRequestId;
+				if (requestId === void 0) return {
+					events: tail.events,
+					...turn.dshTurn === void 0 ? {} : { dshTurn: turn.dshTurn }
+				};
+				let page = tail;
+				let events = [...tail.events];
+				let dshTurn = turn.dshTurn ?? nativeTurnForRequest(events, turn.baseline, requestId);
+				for (let pages = 0; pages < 64; pages += 1) {
+					if (dshTurn !== void 0 && hasNativeTurnStart(events, turn.baseline, dshTurn)) return {
+						events,
+						dshTurn
+					};
+					const seqs = page.events.map((entry) => eventSeq(entry.event)).filter((seq) => seq !== void 0);
+					const first = seqs.length === 0 ? void 0 : Math.min(...seqs);
+					if (first === void 0 || first <= turn.baseline + 1 || page.hasMore !== true) return {
+						events,
+						...dshTurn === void 0 ? {} : { dshTurn }
+					};
+					page = unwrap(await this.api.sessions.history({
+						sessionId: turn.sessionId,
+						beforeSeq: first,
+						maxMessages: 20
+					}), "读取回复关联历史");
+					events = [...page.events, ...events];
+					if (dshTurn === void 0) dshTurn = nativeTurnForRequest(events, turn.baseline, requestId);
+				}
+				throw new Error(`DSH request correlation 历史回溯超过安全页数：${requestId}`);
 			}
 			async wait(projection, initial) {
 				let turn = initial;
@@ -2047,13 +2145,20 @@ window.__ModuleLoader__.load({
 							maxMessages: 20
 						}), "读取回复");
 						turn = this.ensureNotCancelled(projection.saveId, turn);
-						const raw = assistantText(history.events, turn.baseline);
-						if (raw !== void 0 && turnEnded(history.events, turn.baseline)) {
+						const correlated = await this.correlatedHistory(turn, history);
+						let dshTurn = correlated.dshTurn;
+						if (dshTurn !== void 0 && turn.dshTurn === void 0) turn = this.change(projection.saveId, turn, { dshTurn });
+						else if (dshTurn === void 0) dshTurn = turn.dshTurn;
+						const correlationPending = turn.dshRequestId !== void 0 && dshTurn === void 0;
+						const raw = correlationPending ? void 0 : assistantText(correlated.events, turn.baseline, dshTurn);
+						const ended = correlationPending ? false : turnEnded(correlated.events, turn.baseline, dshTurn);
+						if (raw !== void 0 && ended) {
 							let result;
 							try {
 								result = {
 									raw,
-									messages: parseMessages(raw, projection, turn.channelId)
+									messages: parseMessages(raw, projection, turn.channelId),
+									...dshTurn === void 0 ? {} : { dshTurn }
 								};
 							} catch (error) {
 								this.change(projection.saveId, turn, {
@@ -2080,7 +2185,7 @@ window.__ModuleLoader__.load({
 								messages: parseMessages(raw, projection, turn.channelId)
 							});
 						} catch {}
-						if (raw === void 0 && turnEnded(history.events, turn.baseline)) {
+						if (raw === void 0 && ended) {
 							const error = "AI 回合已结束，但没有产生结构化回复";
 							this.change(projection.saveId, turn, {
 								state: "failed",
@@ -2094,15 +2199,15 @@ window.__ModuleLoader__.load({
 						if (turn.state === "cancelled") throw new Error("AI 回合已取消");
 						if (error instanceof Error && (error.message === "AI 回合已结束，但没有产生结构化消息" || error.message === "AI 回合已结束，但没有产生结构化回复" || error.message.includes("无法解析的结构化消息"))) throw error;
 						this.change(projection.saveId, turn, {
-							state: "failed",
-							error: `读取 AI 回合失败：${error instanceof Error ? error.message : String(error)}`
+							state: "uncertain",
+							error: `读取 AI 回合结果不确定：${error instanceof Error ? error.message : String(error)}`
 						});
 						throw error;
 					}
 				}
-				const error = "AI 回合仍在运行；下次打开存档会自动继续等待";
+				const error = "AI 回合仍在运行；下次打开存档会继续从 history 恢复";
 				this.change(projection.saveId, turn, {
-					state: "failed",
+					state: "uncertain",
 					error
 				});
 				throw new Error(error);
@@ -2129,6 +2234,41 @@ window.__ModuleLoader__.load({
 				if (turn.state === "cancelled" || turn.state === "failed") return null;
 				return this.wait(projection, turn);
 			}
+			async recoverFromEvidence(projection, evidence) {
+				if (!projection.channels.some((channel) => channel.id === evidence.channelId)) throw new Error(`journal recovery channel 不存在：${evidence.channelId}`);
+				const currentSession = this.currentSessionId(projection.saveId);
+				if (currentSession !== null && currentSession !== evidence.sessionId) throw new Error(`journal recovery session 冲突：${currentSession} != ${evidence.sessionId}`);
+				if (currentSession === null) this.remember(projection.saveId, evidence.sessionId);
+				const existing = this.readTurn(projection.saveId);
+				if (existing !== null) {
+					if (existing.id !== evidence.turnId || existing.sessionId !== evidence.sessionId || existing.channelId !== evidence.channelId) throw new Error("本地 pending turn 与 journal recovery identity 冲突");
+					if (existing.dshRequestId !== void 0 && existing.dshRequestId !== evidence.dshRequestId) throw new Error("本地 pending turn 与 journal DSH request identity 冲突");
+					const merged = existing.dshRequestId === void 0 || existing.dshTurn === void 0 && evidence.dshTurn !== void 0 ? this.change(projection.saveId, existing, {
+						dshRequestId: evidence.dshRequestId,
+						...existing.dshTurn === void 0 && evidence.dshTurn !== void 0 ? { dshTurn: evidence.dshTurn } : {}
+					}) : existing;
+					const recovered = merged.state === "completed" ? merged.result === void 0 ? null : {
+						channelId: merged.channelId,
+						result: merged.result,
+						turnId: merged.id
+					} : await this.recover(projection);
+					if (recovered === null) throw new Error(`journal hidden turn ${evidence.turnId} 无法从本地状态恢复`);
+					return recovered;
+				}
+				const rebuilt = {
+					version: 1,
+					id: evidence.turnId,
+					sessionId: evidence.sessionId,
+					baseline: -1,
+					channelId: evidence.channelId,
+					prompt: "journal-recovery",
+					state: "uncertain",
+					dshRequestId: evidence.dshRequestId,
+					...evidence.dshTurn === void 0 ? {} : { dshTurn: evidence.dshTurn }
+				};
+				this.writeTurn(projection.saveId, rebuilt);
+				return this.wait(projection, rebuilt);
+			}
 			promptFor(projection, channelId, playerInput) {
 				const channel = projection.channels.find((c) => c.id === channelId);
 				if (channel === void 0) throw new Error("频道不存在");
@@ -2139,16 +2279,22 @@ window.__ModuleLoader__.load({
 				if (channel === void 0) throw new Error("频道不存在");
 				return `继续刚才未完成的文字游戏回合。不要再次转述或提交玩家输入、选择或已提交的剧情消息。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。只在通过必要的 story_* 工具后输出新的结构化 JSON 回复。`;
 			}
-			async start(projection, channelId, prompt) {
+			async start(projection, channelId, prompt, hooks = {}) {
 				const sessionId = await this.session(projection.saveId, projection.agentPreset ?? `story-${projection.packId}`);
 				const before = unwrap(await this.api.sessions.history({
 					sessionId,
 					maxMessages: 20
 				}), "读取会话");
 				const baseline = Math.max(-1, ...before.events.map((x) => Number(x.event?.seq ?? -1)));
+				const evidence = {
+					turnId: hooks.turnId ?? crypto.randomUUID(),
+					sessionId,
+					baseline
+				};
+				await hooks.beforeDispatch?.(evidence);
 				let turn = {
 					version: 1,
-					id: crypto.randomUUID(),
+					id: evidence.turnId,
 					sessionId,
 					baseline,
 					channelId,
@@ -2157,8 +2303,9 @@ window.__ModuleLoader__.load({
 				};
 				this.previews.delete(projection.saveId);
 				this.writeTurn(projection.saveId, turn);
+				let acceptedEvidence = evidence;
 				try {
-					unwrap(await this.api.sessions.prompt({
+					const response = await this.api.sessions.prompt({
 						sessionId,
 						mode: "queue",
 						content: [{
@@ -2166,40 +2313,67 @@ window.__ModuleLoader__.load({
 							text: prompt
 						}],
 						clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-					}), "发送");
-					turn = this.change(projection.saveId, turn, { state: "running" });
-					return await this.wait(projection, turn);
+					});
+					unwrap(response, "发送");
+					const dshRequestId = responseRpcId(response);
+					if (dshRequestId !== void 0) acceptedEvidence = {
+						...evidence,
+						dshRequestId
+					};
 				} catch (error) {
 					const latest = this.readTurn(projection.saveId);
 					if (latest?.id === turn.id && ![
 						"completed",
 						"cancelled",
 						"failed"
-					].includes(latest.state)) this.change(projection.saveId, latest, {
-						state: "failed",
-						error: `发送 AI 回合失败：${error instanceof Error ? error.message : String(error)}`
+					].includes(latest.state)) turn = this.change(projection.saveId, latest, {
+						state: "uncertain",
+						error: `发送结果不确定：${error instanceof Error ? error.message : String(error)}`
 					});
+					await hooks.afterUncertain?.(evidence, error);
 					throw error;
 				}
+				turn = this.change(projection.saveId, turn, {
+					state: "running",
+					error: void 0,
+					...acceptedEvidence.dshRequestId === void 0 ? {} : { dshRequestId: acceptedEvidence.dshRequestId }
+				});
+				try {
+					await hooks.afterAccepted?.(acceptedEvidence);
+				} catch (error) {
+					const latest = this.readTurn(projection.saveId);
+					if (latest?.id === turn.id && ![
+						"completed",
+						"cancelled",
+						"failed"
+					].includes(latest.state)) turn = this.change(projection.saveId, latest, {
+						state: "uncertain",
+						error: `AI 回合已接受，但事务记录结果不确定：${error instanceof Error ? error.message : String(error)}`
+					});
+					await hooks.afterUncertain?.(acceptedEvidence, error);
+					throw error;
+				}
+				return this.wait(projection, turn);
 			}
-			async send(projection, channelId, playerInput) {
+			async send(projection, channelId, playerInput, hooks = {}) {
 				const prior = this.readTurn(projection.saveId);
 				if (prior !== null && [
 					"queued",
 					"running",
 					"waiting-choice",
+					"uncertain",
 					"completed"
 				].includes(prior.state)) throw new Error("当前存档已有待处理 AI 回合；请等待、恢复或取消后再发送");
-				const completed = await this.start(projection, channelId, this.promptFor(projection, channelId, playerInput));
+				const completed = await this.start(projection, channelId, this.promptFor(projection, channelId, playerInput), hooks);
 				return {
 					...completed.result,
 					turnId: completed.turnId
 				};
 			}
-			async retry(projection) {
+			async retry(projection, hooks = {}) {
 				const prior = this.readTurn(projection.saveId);
 				if (prior === null || !["failed", "cancelled"].includes(prior.state) || prior.prompt === "") throw new Error("当前 AI 回合不可安全重试");
-				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId));
+				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId), hooks);
 				return {
 					...completed.result,
 					turnId: completed.turnId
@@ -2315,6 +2489,825 @@ window.__ModuleLoader__.load({
 				}
 			};
 		}
+		const TRANSACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
+		const SAVE_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/u;
+		const STORY_UI_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
+		const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/u;
+		function object(value, label) {
+			if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 必须是对象`);
+			return value;
+		}
+		function text(value, label) {
+			if (typeof value !== "string" || value.length === 0) throw new Error(`${label} 必须是非空字符串`);
+			return value;
+		}
+		function timestamp(value, label) {
+			const raw = text(value, label);
+			if (Number.isNaN(Date.parse(raw))) throw new Error(`${label} 必须是 ISO 日期时间`);
+			return raw;
+		}
+		function assertTransactionId(value, label = "transactionId") {
+			if (!TRANSACTION_ID_PATTERN.test(value)) throw new Error(`${label} 无效`);
+		}
+		function assertSaveId(value, label = "saveId") {
+			if (!SAVE_ID_PATTERN.test(value)) throw new Error(`${label} 无效`);
+		}
+		function assertStoryUiId(value, label = "Story UI id") {
+			if (!STORY_UI_ID_PATTERN.test(value)) throw new Error(`${label} 无效`);
+		}
+		function assertFingerprint(value) {
+			if (!FINGERPRINT_PATTERN.test(value)) throw new Error("inputFingerprint 无效");
+		}
+		function stableString(value, label) {
+			const raw = text(value, label);
+			assertTransactionId(raw, label);
+			return raw;
+		}
+		function storyUiId(value, label) {
+			const raw = text(value, label);
+			assertStoryUiId(raw, label);
+			return raw;
+		}
+		function validateTransactionRecord(value) {
+			const raw = object(value, "transaction");
+			if (raw.schemaVersion !== 1) throw new Error("transaction.schemaVersion 必须为 1");
+			const transactionId = stableString(raw.transactionId, "transactionId");
+			const saveId = text(raw.saveId, "saveId");
+			assertSaveId(saveId);
+			const inputRaw = object(raw.input, "input");
+			const channelId = storyUiId(inputRaw.channelId, "input.channelId");
+			const inputText = text(inputRaw.text, "input.text");
+			if (inputText.trim() !== inputText) throw new Error("input.text 必须是已规范化的非空字符串");
+			const inputFingerprint = text(raw.inputFingerprint, "inputFingerprint");
+			assertFingerprint(inputFingerprint);
+			if (!Number.isInteger(raw.baseProjectionRevision) || Number(raw.baseProjectionRevision) < 0) throw new Error("baseProjectionRevision 必须是非负整数");
+			if (!new Set([
+				"prepared",
+				"committed",
+				"cancelled",
+				"failed",
+				"needs-recovery"
+			]).has(raw.status)) throw new Error("transaction.status 无效");
+			const status = raw.status;
+			if (!Array.isArray(raw.hiddenTurns)) throw new Error("hiddenTurns 必须是数组");
+			const turnIds = /* @__PURE__ */ new Set();
+			const requestIds = /* @__PURE__ */ new Set();
+			const nativeTurns = /* @__PURE__ */ new Set();
+			const hiddenTurns = raw.hiddenTurns.map((item, index) => {
+				const entry = object(item, `hiddenTurns[${index}]`);
+				const turnId = storyUiId(entry.turnId, `hiddenTurns[${index}].turnId`);
+				const dshRequestId = entry.dshRequestId === void 0 ? void 0 : stableString(entry.dshRequestId, `hiddenTurns[${index}].dshRequestId`);
+				if (turnIds.has(turnId)) throw new Error(`hidden turnId 重复：${turnId}`);
+				turnIds.add(turnId);
+				if (dshRequestId !== void 0) {
+					if (requestIds.has(dshRequestId)) throw new Error(`hidden dshRequestId 重复：${dshRequestId}`);
+					requestIds.add(dshRequestId);
+				}
+				if (![
+					"initial",
+					"retry",
+					"continuation"
+				].includes(String(entry.kind))) throw new Error(`hiddenTurns[${index}].kind 无效`);
+				if (![
+					"planned",
+					"dispatched",
+					"completed",
+					"failed",
+					"cancelled",
+					"uncertain"
+				].includes(String(entry.state))) throw new Error(`hiddenTurns[${index}].state 无效`);
+				const state = entry.state;
+				const sessionId = entry.sessionId === void 0 ? void 0 : stableString(entry.sessionId, `hiddenTurns[${index}].sessionId`);
+				let dshTurn;
+				if (entry.dshTurn !== void 0) {
+					if (!Number.isSafeInteger(entry.dshTurn) || Number(entry.dshTurn) < 0) throw new Error(`hiddenTurns[${index}].dshTurn 必须是非负安全整数`);
+					if (sessionId === void 0) throw new Error(`hiddenTurns[${index}].dshTurn 需要 sessionId`);
+					if (state === "planned" || state === "uncertain") throw new Error(`hiddenTurns[${index}].${state} 状态不能携带 dshTurn`);
+					dshTurn = Number(entry.dshTurn);
+					const nativeKey = `${sessionId}:${dshTurn}`;
+					if (nativeTurns.has(nativeKey)) throw new Error(`DSH native turn 重复：${nativeKey}`);
+					nativeTurns.add(nativeKey);
+				}
+				return {
+					turnId,
+					...dshRequestId === void 0 ? {} : { dshRequestId },
+					kind: entry.kind,
+					state,
+					...sessionId === void 0 ? {} : { sessionId },
+					...dshTurn === void 0 ? {} : { dshTurn }
+				};
+			});
+			if (!Array.isArray(raw.operationRefs)) throw new Error("operationRefs 必须是数组");
+			const stepKeys = /* @__PURE__ */ new Set();
+			const operationIds = /* @__PURE__ */ new Set();
+			const operationRefs = raw.operationRefs.map((item, index) => {
+				const entry = object(item, `operationRefs[${index}]`);
+				const stepKey = stableString(entry.stepKey, `operationRefs[${index}].stepKey`);
+				const operationId = stableString(entry.operationId, `operationRefs[${index}].operationId`);
+				if (stepKeys.has(stepKey)) throw new Error(`operation stepKey 重复：${stepKey}`);
+				if (operationIds.has(operationId)) throw new Error(`operationId 重复：${operationId}`);
+				stepKeys.add(stepKey);
+				operationIds.add(operationId);
+				return {
+					stepKey,
+					operationId
+				};
+			});
+			const activeTurnId = raw.activeTurnId === void 0 ? void 0 : storyUiId(raw.activeTurnId, "activeTurnId");
+			if (activeTurnId !== void 0) {
+				const active = hiddenTurns.find((turn) => turn.turnId === activeTurnId);
+				if (active === void 0) throw new Error("activeTurnId 未引用已知 hidden turn");
+				if ([
+					"completed",
+					"failed",
+					"cancelled"
+				].includes(active.state)) throw new Error("activeTurnId 不能引用终态 hidden turn");
+			}
+			const canonicalResultTurnId = raw.canonicalResultTurnId === void 0 ? void 0 : storyUiId(raw.canonicalResultTurnId, "canonicalResultTurnId");
+			if (canonicalResultTurnId !== void 0) {
+				const canonical = hiddenTurns.find((turn) => turn.turnId === canonicalResultTurnId);
+				if (canonical === void 0) throw new Error("canonicalResultTurnId 未引用已知 hidden turn");
+				if (canonical.state !== "completed") throw new Error("canonicalResultTurnId 必须引用 completed hidden turn");
+			}
+			if ([
+				"committed",
+				"cancelled",
+				"failed"
+			].includes(status)) {
+				if (activeTurnId !== void 0) throw new Error(`终态 ${status} 不能保留 activeTurnId`);
+				const pending = hiddenTurns.find((turn) => ![
+					"completed",
+					"failed",
+					"cancelled"
+				].includes(turn.state));
+				if (pending !== void 0) throw new Error(`终态 ${status} 不能包含非终态 hidden turn：${pending.turnId}`);
+			}
+			let diagnostic;
+			if (raw.diagnostic !== void 0) {
+				const entry = object(raw.diagnostic, "diagnostic");
+				diagnostic = {
+					code: text(entry.code, "diagnostic.code"),
+					message: text(entry.message, "diagnostic.message")
+				};
+			}
+			if (!Number.isInteger(raw.revision) || Number(raw.revision) < 0) throw new Error("transaction.revision 必须是非负整数");
+			const createdAt = timestamp(raw.createdAt, "createdAt");
+			const updatedAt = timestamp(raw.updatedAt, "updatedAt");
+			return {
+				schemaVersion: 1,
+				transactionId,
+				saveId,
+				input: {
+					channelId,
+					text: inputText
+				},
+				inputFingerprint,
+				baseProjectionRevision: Number(raw.baseProjectionRevision),
+				status,
+				hiddenTurns,
+				operationRefs,
+				...activeTurnId === void 0 ? {} : { activeTurnId },
+				...canonicalResultTurnId === void 0 ? {} : { canonicalResultTurnId },
+				...diagnostic === void 0 ? {} : { diagnostic },
+				revision: Number(raw.revision),
+				createdAt,
+				updatedAt
+			};
+		}
+		const TERMINAL_TRANSACTION = new Set([
+			"committed",
+			"cancelled",
+			"failed"
+		]);
+		const TRANSACTION_TRANSITIONS = {
+			prepared: new Set([
+				"prepared",
+				"committed",
+				"cancelled",
+				"failed",
+				"needs-recovery"
+			]),
+			committed: /* @__PURE__ */ new Set(),
+			cancelled: /* @__PURE__ */ new Set(),
+			failed: /* @__PURE__ */ new Set(),
+			"needs-recovery": new Set([
+				"needs-recovery",
+				"committed",
+				"failed"
+			])
+		};
+		const TERMINAL_TURN = new Set([
+			"completed",
+			"failed",
+			"cancelled"
+		]);
+		const TURN_TRANSITIONS = {
+			planned: new Set([
+				"planned",
+				"dispatched",
+				"failed",
+				"cancelled",
+				"uncertain"
+			]),
+			dispatched: new Set([
+				"dispatched",
+				"completed",
+				"failed",
+				"cancelled"
+			]),
+			completed: /* @__PURE__ */ new Set(),
+			failed: /* @__PURE__ */ new Set(),
+			cancelled: /* @__PURE__ */ new Set(),
+			uncertain: new Set([
+				"uncertain",
+				"dispatched",
+				"completed",
+				"failed",
+				"cancelled"
+			])
+		};
+		function conflict(message) {
+			throw new Error(`transaction 幂等冲突：${message}`);
+		}
+		function assertTransactionUpdate(current, next) {
+			if (next.transactionId !== current.transactionId || next.saveId !== current.saveId) conflict("identity 不可修改");
+			if (next.inputFingerprint !== current.inputFingerprint || next.input.channelId !== current.input.channelId || next.input.text !== current.input.text || next.baseProjectionRevision !== current.baseProjectionRevision || next.createdAt !== current.createdAt) conflict("input identity 不可修改");
+			if (TERMINAL_TRANSACTION.has(current.status)) conflict(`终态 ${current.status} 不可产生新 revision`);
+			if (!TRANSACTION_TRANSITIONS[current.status].has(next.status)) conflict(`transaction 状态不能从 ${current.status} 迁移到 ${next.status}`);
+			if (next.hiddenTurns.length < current.hiddenTurns.length) conflict("hidden turn evidence 不可删除");
+			for (let index = 0; index < current.hiddenTurns.length; index += 1) {
+				const before = current.hiddenTurns[index];
+				const after = next.hiddenTurns[index];
+				if (after.turnId !== before.turnId || after.kind !== before.kind) conflict("hidden turn identity 不可修改");
+				if (before.dshRequestId !== void 0 && after.dshRequestId !== before.dshRequestId) conflict("DSH request identity 不可修改");
+				if (before.sessionId !== void 0 && after.sessionId !== before.sessionId) conflict("hidden session identity 不可修改");
+				if (before.dshTurn !== void 0 && after.dshTurn !== before.dshTurn) conflict("DSH native turn 不可修改");
+				if (TERMINAL_TURN.has(before.state)) {
+					if (after.state !== before.state) conflict(`终态 hidden turn 不可改写：${before.turnId}`);
+				} else if (!TURN_TRANSITIONS[before.state].has(after.state)) conflict(`hidden turn ${before.turnId} 不能从 ${before.state} 迁移到 ${after.state}`);
+			}
+			for (let index = current.hiddenTurns.length; index < next.hiddenTurns.length; index += 1) {
+				const added = next.hiddenTurns[index];
+				if (added.state !== "planned") conflict(`新增 hidden turn 必须从 planned 开始：${added.turnId}`);
+				if (added.dshTurn !== void 0) conflict(`新增 hidden turn 不能预填 DSH native turn：${added.turnId}`);
+			}
+			if (next.operationRefs.length < current.operationRefs.length) conflict("operation identity evidence 不可删除");
+			for (let index = 0; index < current.operationRefs.length; index += 1) {
+				const before = current.operationRefs[index];
+				const after = next.operationRefs[index];
+				if (after.stepKey !== before.stepKey || after.operationId !== before.operationId) conflict("operation identity evidence 不可修改");
+			}
+			if (current.canonicalResultTurnId !== void 0 && next.canonicalResultTurnId !== current.canonicalResultTurnId) conflict("canonicalResultTurnId 不可修改");
+			if (TERMINAL_TRANSACTION.has(next.status)) {
+				if (next.activeTurnId !== void 0) conflict(`终态 ${next.status} 不能保留 activeTurnId`);
+				const pending = next.hiddenTurns.find((turn) => !TERMINAL_TURN.has(turn.state));
+				if (pending !== void 0) conflict(`终态 ${next.status} 不能包含非终态 hidden turn：${pending.turnId}`);
+			}
+		}
+		async function fingerprintTransactionInput(saveId, channelId, inputText) {
+			assertSaveId(saveId);
+			assertStoryUiId(channelId, "input.channelId");
+			const canonical = JSON.stringify({
+				saveId,
+				channelId,
+				inputText
+			});
+			const bytes = new TextEncoder().encode(canonical);
+			const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+			return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+		}
+		async function createPreparedTransaction(input) {
+			const transactionId = input.transactionId ?? `tx-${globalThis.crypto.randomUUID()}`;
+			assertTransactionId(transactionId);
+			assertSaveId(input.saveId);
+			const channelId = storyUiId(input.channelId, "input.channelId");
+			const content = input.text.trim();
+			if (content === "") throw new Error("玩家输入不能为空");
+			if (!Number.isInteger(input.baseProjectionRevision) || input.baseProjectionRevision < 0) throw new Error("baseProjectionRevision 必须是非负整数");
+			const now = (input.now ?? /* @__PURE__ */ new Date()).toISOString();
+			return {
+				schemaVersion: 1,
+				transactionId,
+				saveId: input.saveId,
+				input: {
+					channelId,
+					text: content
+				},
+				inputFingerprint: await fingerprintTransactionInput(input.saveId, channelId, content),
+				baseProjectionRevision: input.baseProjectionRevision,
+				status: "prepared",
+				hiddenTurns: [],
+				operationRefs: [],
+				revision: 0,
+				createdAt: now,
+				updatedAt: now
+			};
+		}
+		function reviseTransaction(record, patch, now = /* @__PURE__ */ new Date()) {
+			const next = validateTransactionRecord({
+				...record,
+				...patch,
+				revision: record.revision + 1,
+				updatedAt: now.toISOString()
+			});
+			assertTransactionUpdate(record, next);
+			return next;
+		}
+		//#endregion
+		//#region src/client/host-transactions.ts
+		const TERMINAL = new Set([
+			"committed",
+			"cancelled",
+			"failed"
+		]);
+		var HostTransactionJournal = class {
+			fetcher;
+			tails = /* @__PURE__ */ new Map();
+			constructor(fetcher = (input, init) => fetch(input, init)) {
+				this.fetcher = fetcher;
+			}
+			key(saveId, transactionId) {
+				return `${saveId}:${transactionId}`;
+			}
+			base(saveId) {
+				assertSaveId(saveId);
+				return `/story-engine/api/transactions/${encodeURIComponent(saveId)}`;
+			}
+			endpoint(saveId, transactionId) {
+				assertTransactionId(transactionId);
+				return `${this.base(saveId)}/${encodeURIComponent(transactionId)}`;
+			}
+			identity(record, saveId, transactionId) {
+				if (record.saveId !== saveId || transactionId !== void 0 && record.transactionId !== transactionId) throw new Error("transaction journal 响应身份不匹配");
+				return record;
+			}
+			serial(saveId, transactionId, work) {
+				const key = this.key(saveId, transactionId);
+				const previous = this.tails.get(key) ?? Promise.resolve();
+				let release;
+				const gate = new Promise((resolve) => {
+					release = resolve;
+				});
+				const queued = previous.then(() => gate);
+				this.tails.set(key, queued);
+				return previous.then(work).finally(() => {
+					release();
+					if (this.tails.get(key) === queued) this.tails.delete(key);
+				});
+			}
+			async list(saveId) {
+				const response = await this.fetcher(this.base(saveId), { headers: { accept: "application/json" } });
+				if (!response.ok) throw new Error(`读取 transaction journal 失败：${response.status}`);
+				const body = await response.json();
+				if (!Array.isArray(body.transactions)) throw new Error("transaction journal 列表格式无效");
+				const seen = /* @__PURE__ */ new Set();
+				return body.transactions.map((value) => {
+					const record = this.identity(validateTransactionRecord(value), saveId);
+					if (seen.has(record.transactionId)) throw new Error(`transaction journal 列表包含重复 transactionId：${record.transactionId}`);
+					seen.add(record.transactionId);
+					return record;
+				});
+			}
+			async listOpen(saveId) {
+				return (await this.list(saveId)).filter((record) => !TERMINAL.has(record.status));
+			}
+			async load(saveId, transactionId) {
+				const response = await this.fetcher(this.endpoint(saveId, transactionId), { headers: { accept: "application/json" } });
+				if (response.status === 204 || response.status === 404) return void 0;
+				if (!response.ok) throw new Error(`读取 transaction 失败：${response.status}`);
+				return this.identity(validateTransactionRecord(await response.json()), saveId, transactionId);
+			}
+			async save(record, bootstrap = false) {
+				const submitted = validateTransactionRecord(record);
+				return this.serial(submitted.saveId, submitted.transactionId, async () => {
+					const response = await this.fetcher(this.endpoint(submitted.saveId, submitted.transactionId), {
+						method: "PUT",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({
+							expectedRevision: bootstrap ? -1 : submitted.revision - 1,
+							transaction: submitted
+						})
+					});
+					if (response.status === 409) {
+						const detail = await response.json().catch(() => ({}));
+						throw new Error(detail.error ?? "transaction journal 发生幂等或版本冲突，请重新读取后恢复");
+					}
+					if (!response.ok) {
+						const detail = await response.json().catch(() => ({}));
+						throw new Error(detail.error ?? `保存 transaction 失败：${response.status}`);
+					}
+					const saved = this.identity(validateTransactionRecord(await response.json()), submitted.saveId, submitted.transactionId);
+					if (JSON.stringify(saved) !== JSON.stringify(submitted)) throw new Error("transaction journal 保存响应与提交内容不匹配");
+					return saved;
+				});
+			}
+			async prepare(input) {
+				const record = await createPreparedTransaction(input);
+				return this.save(record, true);
+			}
+		};
+		//#endregion
+		//#region src/client/player-transaction-coordinator.ts
+		function detail(error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		function hiddenTerminal(state) {
+			return state === "completed" || state === "failed" || state === "cancelled";
+		}
+		/**
+		* Browser coordinator for the social-only part of a player transaction.
+		* DSH rc.2 persists its carrier rpcId into durable message source metadata,
+		* but its public client mints that id internally and only echoes it after the
+		* response. Ambiguous dispatch therefore still degrades to recovery instead
+		* of pretending the caller had a pre-dispatch exactly-once identity.
+		*/
+		var PlayerTransactionCoordinator = class {
+			journal;
+			projections;
+			ai;
+			constructor(journal, projections, ai) {
+				this.journal = journal;
+				this.projections = projections;
+				this.ai = ai;
+			}
+			async open(saveId) {
+				const records = await this.journal.listOpen(saveId);
+				if (records.length > 1) throw new Error(`存档存在多个未完成 transaction，必须先恢复：${records.map((record) => record.transactionId).join(", ")}`);
+				return records[0];
+			}
+			findHidden(record, turnId) {
+				const index = record.hiddenTurns.findIndex((turn) => turn.turnId === turnId);
+				if (index < 0) throw new Error(`transaction 未记录 hidden turn：${turnId}`);
+				return {
+					index,
+					turn: record.hiddenTurns[index]
+				};
+			}
+			replaceHidden(record, index, turn) {
+				return record.hiddenTurns.map((entry, current) => current === index ? turn : entry);
+			}
+			async save(state, patch) {
+				state.record = await this.journal.save(reviseTransaction(state.record, patch));
+			}
+			persistedCanonical(record, projection) {
+				const turnId = record.canonicalResultTurnId;
+				if (turnId === void 0) return void 0;
+				const { turn } = this.findHidden(record, turnId);
+				if (turn.state !== "completed") throw new Error(`canonical hidden turn 尚未完成：${turnId}`);
+				return projection.messages.some((message) => message.turnId === turnId && message.canonStatus === "committed") ? turnId : void 0;
+			}
+			playerInputMatches(record, projection) {
+				const raw = record.input.text;
+				const kind = raw.startsWith("(系统)") ? "system" : raw.startsWith("(行动)") ? "action" : "dialogue";
+				const content = raw.replace(/^\((系统|行动)\)\s*/u, "");
+				const player = projection.participants.find((p) => p.role === "player");
+				const senderId = kind === "system" ? projection.participants.find((p) => p.role === "system")?.id ?? player?.id : player?.id;
+				const last = projection.messages.at(-1);
+				return senderId !== void 0 && last !== void 0 && last.channelId === record.input.channelId && last.senderId === senderId && last.kind === kind && last.content === content && last.turnId === `turn-${record.baseProjectionRevision + 1}` && last.canonStatus === (kind === "system" ? "proposed" : "committed");
+			}
+			async ensurePlayerProjection(record, projection) {
+				if (projection.revision === record.baseProjectionRevision) {
+					const restored = appendPlayerMessage(projection, record.input.channelId, record.input.text);
+					await this.projections.save(restored);
+					return restored;
+				}
+				if (projection.revision === record.baseProjectionRevision + 1 && this.playerInputMatches(record, projection)) {
+					await this.projections.save(projection);
+					return projection;
+				}
+				throw new Error(`transaction ${record.transactionId} 的玩家 projection 无法安全恢复：revision ${projection.revision}, base ${record.baseProjectionRevision}`);
+			}
+			async failBeforeDispatch(state, error) {
+				if (state.record.status !== "prepared" || state.record.hiddenTurns.length !== 0) return;
+				try {
+					await this.save(state, {
+						status: "failed",
+						diagnostic: {
+							code: "pre-dispatch-failed",
+							message: detail(error)
+						}
+					});
+				} catch {}
+			}
+			async needsRecovery(state, turnId, error, code = "hidden-dispatch-uncertain", evidence) {
+				if (state.record.status === "committed" || state.record.status === "cancelled" || state.record.status === "failed") return;
+				let hiddenTurns = state.record.hiddenTurns;
+				const found = hiddenTurns.findIndex((turn) => turn.turnId === turnId);
+				if (found >= 0) {
+					const current = hiddenTurns[found];
+					let next = current;
+					if (evidence?.dshRequestId !== void 0 && current.dshRequestId === void 0) next = {
+						...next,
+						dshRequestId: evidence.dshRequestId
+					};
+					if (current.state === "planned") next = {
+						...next,
+						state: "uncertain"
+					};
+					if (next !== current) hiddenTurns = this.replaceHidden(state.record, found, next);
+				}
+				const diagnostic = {
+					code,
+					message: detail(error)
+				};
+				if (state.record.status === "needs-recovery" && hiddenTurns === state.record.hiddenTurns && state.record.diagnostic?.code === diagnostic.code && state.record.diagnostic.message === diagnostic.message) return;
+				try {
+					await this.save(state, {
+						status: "needs-recovery",
+						hiddenTurns,
+						diagnostic
+					});
+				} catch {}
+			}
+			async recordFailedHidden(state, turnId, error, local) {
+				if (local === null || local.id !== turnId || local.state !== "failed") return false;
+				if (state.record.activeTurnId !== void 0 && state.record.activeTurnId !== turnId) return false;
+				const { index, turn } = this.findHidden(state.record, turnId);
+				if (turn.state === "failed") return true;
+				if (hiddenTerminal(turn.state)) return false;
+				if (turn.dshRequestId !== void 0 && local.dshRequestId !== void 0 && turn.dshRequestId !== local.dshRequestId) return false;
+				if (turn.dshTurn !== void 0 && local.dshTurn !== void 0 && turn.dshTurn !== local.dshTurn) return false;
+				const failed = {
+					...turn,
+					state: "failed",
+					...turn.dshRequestId === void 0 && local.dshRequestId !== void 0 ? { dshRequestId: local.dshRequestId } : {},
+					...turn.dshTurn === void 0 && local.dshTurn !== void 0 ? { dshTurn: local.dshTurn } : {}
+				};
+				try {
+					await this.save(state, {
+						status: "needs-recovery",
+						hiddenTurns: this.replaceHidden(state.record, index, failed),
+						activeTurnId: void 0,
+						diagnostic: {
+							code: "hidden-failed",
+							message: detail(error)
+						}
+					});
+					return true;
+				} catch {
+					return false;
+				}
+			}
+			hooks(state, turnId, kind) {
+				return {
+					turnId,
+					beforeDispatch: async (evidence) => {
+						const hidden = {
+							turnId: evidence.turnId,
+							kind,
+							state: "planned",
+							sessionId: evidence.sessionId
+						};
+						await this.save(state, {
+							hiddenTurns: [...state.record.hiddenTurns, hidden],
+							activeTurnId: evidence.turnId
+						});
+					},
+					afterAccepted: async (evidence) => {
+						const { index, turn } = this.findHidden(state.record, evidence.turnId);
+						await this.save(state, { hiddenTurns: this.replaceHidden(state.record, index, {
+							...turn,
+							state: "dispatched",
+							sessionId: evidence.sessionId,
+							...evidence.dshRequestId === void 0 ? {} : { dshRequestId: evidence.dshRequestId }
+						}) });
+					},
+					afterUncertain: async (evidence, error) => {
+						await this.needsRecovery(state, evidence.turnId, error, "hidden-dispatch-uncertain", evidence);
+					}
+				};
+			}
+			async complete(state, turnId, dshTurn) {
+				let found = this.findHidden(state.record, turnId);
+				if (found.turn.state === "planned") {
+					await this.save(state, { hiddenTurns: this.replaceHidden(state.record, found.index, {
+						...found.turn,
+						state: "dispatched"
+					}) });
+					found = this.findHidden(state.record, turnId);
+				}
+				if (found.turn.state === "completed") {
+					if (state.record.canonicalResultTurnId !== void 0 && state.record.canonicalResultTurnId !== turnId) throw new Error(`transaction canonical result 冲突：${state.record.canonicalResultTurnId}`);
+					if (dshTurn !== void 0) {
+						if (found.turn.dshTurn !== void 0 && found.turn.dshTurn !== dshTurn) throw new Error(`hidden turn ${turnId} 的 DSH native turn 冲突：${found.turn.dshTurn} != ${dshTurn}`);
+						if (found.turn.dshTurn === void 0) await this.save(state, { hiddenTurns: this.replaceHidden(state.record, found.index, {
+							...found.turn,
+							dshTurn
+						}) });
+					}
+					return;
+				}
+				if (found.turn.state !== "dispatched" && found.turn.state !== "uncertain") throw new Error(`hidden turn ${turnId} 不能作为 canonical result：${found.turn.state}`);
+				await this.save(state, {
+					hiddenTurns: this.replaceHidden(state.record, found.index, {
+						...found.turn,
+						state: "completed",
+						...dshTurn === void 0 ? {} : { dshTurn }
+					}),
+					activeTurnId: void 0,
+					canonicalResultTurnId: turnId,
+					diagnostic: void 0
+				});
+			}
+			async dispatch(state, projection, channelId, input, kind) {
+				const turnId = `turn-${crypto.randomUUID()}`;
+				try {
+					const result = kind === "retry" ? await this.ai.retry(projection, this.hooks(state, turnId, kind)) : await this.ai.send(projection, channelId, input, this.hooks(state, turnId, kind));
+					if (result.turnId !== turnId) throw new Error(`AI hidden turn identity 不匹配：expected ${turnId}, got ${result.turnId ?? "missing"}`);
+					await this.complete(state, turnId, result.dshTurn);
+					return result;
+				} catch (error) {
+					if (state.record.hiddenTurns.some((turn) => turn.turnId === turnId)) {
+						const local = this.ai.turn(projection.saveId);
+						if (!await this.recordFailedHidden(state, turnId, error, local)) {
+							const evidence = local?.id === turnId ? {
+								turnId,
+								sessionId: local.sessionId,
+								baseline: local.baseline,
+								...local.dshRequestId === void 0 ? {} : { dshRequestId: local.dshRequestId }
+							} : void 0;
+							const current = this.findHidden(state.record, turnId).turn;
+							await this.needsRecovery(state, turnId, error, current.state === "dispatched" ? "hidden-recovery-failed" : "hidden-dispatch-uncertain", evidence);
+						}
+					} else await this.failBeforeDispatch(state, error);
+					throw error;
+				}
+			}
+			async recoverAi(projection, state) {
+				if (this.ai.turn(projection.saveId) !== null) return this.ai.recover(projection);
+				const targetId = state.record.activeTurnId ?? state.record.canonicalResultTurnId;
+				if (targetId === void 0) return this.ai.recover(projection);
+				const { turn } = this.findHidden(state.record, targetId);
+				if (turn.sessionId === void 0 || turn.dshRequestId === void 0) return this.ai.recover(projection);
+				return this.ai.recoverFromEvidence(projection, {
+					turnId: turn.turnId,
+					sessionId: turn.sessionId,
+					channelId: state.record.input.channelId,
+					dshRequestId: turn.dshRequestId,
+					...turn.dshTurn === void 0 ? {} : { dshTurn: turn.dshTurn }
+				});
+			}
+			async send(projection, channelId, input) {
+				if (projection.revision < 1) throw new Error("玩家提交后的 projection revision 无效");
+				const existing = await this.open(projection.saveId);
+				if (existing !== void 0) throw new Error(`当前存档存在未完成 transaction：${existing.transactionId}；请先恢复，不会重复发送玩家输入`);
+				const state = { record: await this.journal.prepare({
+					saveId: projection.saveId,
+					channelId,
+					text: input,
+					baseProjectionRevision: projection.revision - 1
+				}) };
+				try {
+					await this.projections.save(projection);
+				} catch (error) {
+					await this.failBeforeDispatch(state, error);
+					throw error;
+				}
+				return this.dispatch(state, projection, channelId, input, "initial");
+			}
+			async recover(projection) {
+				const record = await this.open(projection.saveId);
+				if (record === void 0) return this.ai.recover(projection);
+				const state = { record };
+				const persistedCanonical = this.persistedCanonical(record, projection);
+				if (persistedCanonical !== void 0) {
+					await this.projections.save(projection);
+					this.ai.acknowledge(projection.saveId, persistedCanonical);
+					await this.save(state, {
+						status: "committed",
+						activeTurnId: void 0,
+						diagnostic: void 0
+					});
+					return null;
+				}
+				if (record.hiddenTurns.length === 0) {
+					if (record.status !== "prepared") throw new Error(`transaction ${record.transactionId} 缺少 hidden evidence，状态为 ${record.status}`);
+					const restored = await this.ensurePlayerProjection(record, projection);
+					const result = await this.dispatch(state, restored, record.input.channelId, record.input.text, "initial");
+					return {
+						channelId: record.input.channelId,
+						result,
+						turnId: result.turnId
+					};
+				}
+				let recovered;
+				try {
+					recovered = await this.recoverAi(projection, state);
+				} catch (error) {
+					const active = state.record.activeTurnId;
+					if (active !== void 0 && !hiddenTerminal(this.findHidden(state.record, active).turn.state)) {
+						const local = this.ai.turn(projection.saveId);
+						if (!await this.recordFailedHidden(state, active, error, local)) await this.needsRecovery(state, active, error, "hidden-recovery-failed");
+					}
+					throw error;
+				}
+				if (recovered === null) {
+					const local = this.ai.turn(projection.saveId);
+					const active = state.record.activeTurnId;
+					if (active !== void 0 && !hiddenTerminal(this.findHidden(state.record, active).turn.state)) {
+						if (!await this.recordFailedHidden(state, active, new Error(local?.error ?? `hidden turn 未产生可提交结果：${local?.state ?? "missing"}`), local)) await this.needsRecovery(state, active, /* @__PURE__ */ new Error(local === null ? "本地 pending hidden turn 与可重建 durable correlation evidence 均缺失；禁止盲目重发" : `hidden turn 未产生可提交结果：${local.state}`), "hidden-recovery-required", local?.id === active ? {
+							turnId: active,
+							sessionId: local.sessionId,
+							baseline: local.baseline,
+							...local.dshRequestId === void 0 ? {} : { dshRequestId: local.dshRequestId }
+						} : void 0);
+					}
+					return null;
+				}
+				if (!state.record.hiddenTurns.some((turn) => turn.turnId === recovered.turnId)) {
+					await this.needsRecovery(state, state.record.activeTurnId ?? state.record.hiddenTurns.at(-1).turnId, /* @__PURE__ */ new Error(`恢复得到未知 hidden turn：${recovered.turnId}`), "hidden-identity-mismatch");
+					throw new Error(`恢复得到的 AI turn 不属于当前 transaction：${recovered.turnId}`);
+				}
+				await this.complete(state, recovered.turnId, recovered.result.dshTurn);
+				return recovered;
+			}
+			async retry(projection) {
+				const existing = await this.open(projection.saveId);
+				if (existing === void 0) return this.ai.retry(projection);
+				const state = { record: existing };
+				if (existing.canonicalResultTurnId !== void 0) throw new Error(`transaction ${existing.transactionId} 已有 canonical hidden turn ${existing.canonicalResultTurnId}；必须先完成 projection reconciliation`);
+				const local = this.ai.turn(projection.saveId);
+				if (local === null) throw new Error(`transaction ${existing.transactionId} 缺少本地 failed hidden turn；必须先恢复，禁止盲目 retry`);
+				if (local.state === "cancelled") throw new Error(`transaction ${existing.transactionId} 的 hidden turn 已取消；D2c 完成 core-effect reconciliation 前不允许 retry`);
+				if (local.state !== "failed") throw new Error(`transaction ${existing.transactionId} 的 hidden turn 状态为 ${local.state}；只有明确 failed 才允许同 transaction retry`);
+				if (existing.activeTurnId !== void 0 && existing.activeTurnId !== local.id) throw new Error(`transaction active hidden turn 与本地 failed turn 不匹配：${existing.activeTurnId} != ${local.id}`);
+				const otherPending = existing.hiddenTurns.find((turn) => !hiddenTerminal(turn.state) && turn.turnId !== local.id);
+				if (otherPending !== void 0) throw new Error(`transaction 仍有其它非终态 hidden turn：${otherPending.turnId}`);
+				let found = this.findHidden(state.record, local.id);
+				if (found.turn.state === "completed" || found.turn.state === "cancelled") throw new Error(`hidden turn ${local.id} 已是 ${found.turn.state}，不能作为 retry 来源`);
+				if (found.turn.state !== "failed") {
+					if (found.turn.dshRequestId !== void 0 && local.dshRequestId !== void 0 && found.turn.dshRequestId !== local.dshRequestId) throw new Error(`hidden turn ${local.id} 的 DSH request identity 冲突`);
+					if (found.turn.dshTurn !== void 0 && local.dshTurn !== void 0 && found.turn.dshTurn !== local.dshTurn) throw new Error(`hidden turn ${local.id} 的 DSH native turn 冲突`);
+					const failed = {
+						...found.turn,
+						state: "failed",
+						...found.turn.dshRequestId === void 0 && local.dshRequestId !== void 0 ? { dshRequestId: local.dshRequestId } : {},
+						...found.turn.dshTurn === void 0 && local.dshTurn !== void 0 ? { dshTurn: local.dshTurn } : {}
+					};
+					await this.save(state, {
+						status: "needs-recovery",
+						hiddenTurns: this.replaceHidden(state.record, found.index, failed),
+						activeTurnId: void 0,
+						diagnostic: {
+							code: "hidden-failed-retryable",
+							message: local.error ?? "前一 hidden turn 已明确失败，可在同一 transaction 内 retry"
+						}
+					});
+					found = this.findHidden(state.record, local.id);
+				}
+				if (found.turn.state !== "failed") throw new Error(`hidden turn ${local.id} 未能收敛到 failed`);
+				return this.dispatch(state, projection, state.record.input.channelId, state.record.input.text, "retry");
+			}
+			async cancel(saveId) {
+				await this.ai.cancel(saveId);
+				const record = await this.open(saveId);
+				if (record === void 0) return;
+				const state = { record };
+				const active = record.activeTurnId;
+				if (active === void 0) {
+					if (record.hiddenTurns.length === 0 && record.status === "prepared") await this.save(state, {
+						status: "cancelled",
+						diagnostic: void 0
+					});
+					return;
+				}
+				const { index, turn } = this.findHidden(record, active);
+				if (hiddenTerminal(turn.state)) return;
+				await this.save(state, {
+					status: "needs-recovery",
+					hiddenTurns: this.replaceHidden(state.record, index, {
+						...turn,
+						state: "cancelled"
+					}),
+					activeTurnId: void 0,
+					diagnostic: {
+						code: "cancelled-after-hidden-dispatch",
+						message: "隐藏回合已取消，但 D2c 尚未核对可能已经发生的 core canonical effect"
+					}
+				});
+			}
+			async assertQuiescent(saveId) {
+				const record = await this.open(saveId);
+				if (record !== void 0) throw new Error(`存档存在未完成 transaction：${record.transactionId}；请先恢复或完成对账`);
+			}
+			async acknowledge(saveId, turnId) {
+				const record = await this.open(saveId);
+				if (record !== void 0) {
+					if (record.canonicalResultTurnId !== turnId) throw new Error(`open transaction ${record.transactionId} 尚未记录 canonical hidden turn ${turnId}；保留 pending turn 供恢复`);
+					const state = { record };
+					const { turn } = this.findHidden(record, turnId);
+					if (turn.state !== "completed") throw new Error(`canonical hidden turn 尚未完成：${turnId}`);
+					this.ai.acknowledge(saveId, turnId);
+					await this.save(state, {
+						status: "committed",
+						activeTurnId: void 0,
+						diagnostic: void 0
+					});
+					return;
+				}
+				this.ai.acknowledge(saveId, turnId);
+			}
+		};
 		//#endregion
 		//#region src/client/index.ts
 		/** Required services: the slot registry (declaration lifetimes + registration). */
@@ -2327,6 +3320,36 @@ window.__ModuleLoader__.load({
 			const controller = createGameModeController();
 			const connection = ctx.get("connection");
 			const ai = new StoryAiBridge(connection.api, window.localStorage);
+			const hostProjections = new HostProjectionStorage();
+			const localProjections = createLocalProjectionStorage(window.localStorage);
+			const playerTransactions = new PlayerTransactionCoordinator(new HostTransactionJournal(), hostProjections, ai);
+			const journalLocks = /* @__PURE__ */ new Map();
+			const syncRecoveryState = async (saveId, channelId) => {
+				const authoritative = await hostProjections.load(saveId).catch(() => void 0);
+				if (authoritative !== void 0) localProjections.save(authoritative);
+				try {
+					await playerTransactions.assertQuiescent(saveId);
+					journalLocks.delete(saveId);
+				} catch {
+					if (ai.turn(saveId) === null) journalLocks.set(saveId, channelId ?? authoritative?.selectedChannelId ?? "journal-recovery");
+				}
+			};
+			const visibleTurn = (saveId) => {
+				const current = ai.turn(saveId);
+				if (current !== null) return current;
+				const channelId = journalLocks.get(saveId);
+				if (channelId === void 0) return null;
+				return {
+					version: 1,
+					id: `journal-lock-${saveId}`,
+					sessionId: "journal-recovery",
+					baseline: -1,
+					channelId,
+					prompt: "journal-recovery-lock",
+					state: "uncertain",
+					error: "Host transaction journal 尚未收口；请恢复或完成对账后继续"
+				};
+			};
 			const choices = createStoryChoiceBridge(connection.api, (saveId) => ai.currentSessionId(saveId));
 			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
 				name: "sidebar.footer.action",
@@ -2341,12 +3364,42 @@ window.__ModuleLoader__.load({
 				id: "story-game-shell",
 				inject: () => ({
 					exitGame: controller.exit,
-					sendToAI: (projection, channelId, input) => ai.send(projection, channelId, input),
-					recoverAiTurn: (projection) => ai.recover(projection),
-					cancelAiTurn: (saveId) => ai.cancel(saveId),
-					retryAiTurn: (projection) => ai.retry(projection),
-					acknowledgeAiTurn: (saveId, turnId) => ai.acknowledge(saveId, turnId),
-					aiTurn: (saveId) => ai.turn(saveId),
+					sendToAI: async (projection, channelId, input) => {
+						try {
+							return await playerTransactions.send(projection, channelId, input);
+						} catch (error) {
+							await syncRecoveryState(projection.saveId, channelId);
+							throw error;
+						}
+					},
+					recoverAiTurn: async (projection) => {
+						try {
+							return await playerTransactions.recover(projection);
+						} finally {
+							await syncRecoveryState(projection.saveId, projection.selectedChannelId);
+						}
+					},
+					cancelAiTurn: async (saveId) => {
+						try {
+							await playerTransactions.cancel(saveId);
+						} finally {
+							await syncRecoveryState(saveId);
+						}
+					},
+					retryAiTurn: async (projection) => {
+						try {
+							return await playerTransactions.retry(projection);
+						} catch (error) {
+							await syncRecoveryState(projection.saveId, projection.selectedChannelId);
+							throw error;
+						}
+					},
+					acknowledgeAiTurn: async (saveId, turnId) => {
+						await playerTransactions.acknowledge(saveId, turnId);
+						await syncRecoveryState(saveId);
+					},
+					assertAiSaveQuiescent: (saveId) => playerTransactions.assertQuiescent(saveId),
+					aiTurn: visibleTurn,
 					markWaitingChoice: (saveId, sessionId) => ai.markWaitingChoice(saveId, sessionId),
 					forkAiSession: (sourceSaveId, targetSaveId, packId) => ai.forkSave(sourceSaveId, targetSaveId, packId),
 					releaseAiSave: (saveId, packId) => ai.releaseSave(saveId, packId),

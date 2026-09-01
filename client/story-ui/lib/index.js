@@ -478,11 +478,13 @@ function validateTransactionRecord(value) {
 	const hiddenTurns = raw.hiddenTurns.map((item, index) => {
 		const entry = object(item, `hiddenTurns[${index}]`);
 		const turnId = storyUiId(entry.turnId, `hiddenTurns[${index}].turnId`);
-		const dshRequestId = stableString(entry.dshRequestId, `hiddenTurns[${index}].dshRequestId`);
+		const dshRequestId = entry.dshRequestId === void 0 ? void 0 : stableString(entry.dshRequestId, `hiddenTurns[${index}].dshRequestId`);
 		if (turnIds.has(turnId)) throw new Error(`hidden turnId 重复：${turnId}`);
-		if (requestIds.has(dshRequestId)) throw new Error(`hidden dshRequestId 重复：${dshRequestId}`);
 		turnIds.add(turnId);
-		requestIds.add(dshRequestId);
+		if (dshRequestId !== void 0) {
+			if (requestIds.has(dshRequestId)) throw new Error(`hidden dshRequestId 重复：${dshRequestId}`);
+			requestIds.add(dshRequestId);
+		}
 		if (![
 			"initial",
 			"retry",
@@ -510,7 +512,7 @@ function validateTransactionRecord(value) {
 		}
 		return {
 			turnId,
-			dshRequestId,
+			...dshRequestId === void 0 ? {} : { dshRequestId },
 			kind: entry.kind,
 			state,
 			...sessionId === void 0 ? {} : { sessionId },
@@ -665,7 +667,8 @@ function assertTransactionUpdate(current, next) {
 	for (let index = 0; index < current.hiddenTurns.length; index += 1) {
 		const before = current.hiddenTurns[index];
 		const after = next.hiddenTurns[index];
-		if (after.turnId !== before.turnId || after.dshRequestId !== before.dshRequestId || after.kind !== before.kind) conflict("hidden turn identity 不可修改");
+		if (after.turnId !== before.turnId || after.kind !== before.kind) conflict("hidden turn identity 不可修改");
+		if (before.dshRequestId !== void 0 && after.dshRequestId !== before.dshRequestId) conflict("DSH request identity 不可修改");
 		if (before.sessionId !== void 0 && after.sessionId !== before.sessionId) conflict("hidden session identity 不可修改");
 		if (before.dshTurn !== void 0 && after.dshTurn !== before.dshTurn) conflict("DSH native turn 不可修改");
 		if (TERMINAL_TURN.has(before.state)) {
