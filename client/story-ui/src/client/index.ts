@@ -21,11 +21,12 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import { createGameModeController } from './mode.ts'
 import { StoryGameAction } from './StoryGameAction.tsx'
 import { StoryGameShell } from './StoryGameShell.tsx'
-import { StoryAiBridge } from './ai-bridge.ts'
+import { StoryAiBridge, type AiTurn } from './ai-bridge.ts'
 import { createStoryChoiceBridge, type StoryChoiceBridge, type StoryClientApi } from './choice-bridge.ts'
 import { HostProjectionStorage } from './host-persistence.ts'
 import { HostTransactionJournal } from './host-transactions.ts'
 import { PlayerTransactionCoordinator } from './player-transaction-coordinator.ts'
+import { createLocalProjectionStorage } from './persistence.ts'
 import type { StorySaveProjection } from './story-domain.ts'
 
 /** Required services: the slot registry (declaration lifetimes + registration). */
@@ -39,7 +40,22 @@ export function apply(ctx: ClientContext): void {
   const controller = createGameModeController()
   const connection=ctx.get('connection') as unknown as {api:StoryClientApi}
   const ai=new StoryAiBridge(connection.api,window.localStorage)
-  const playerTransactions=new PlayerTransactionCoordinator(new HostTransactionJournal(),new HostProjectionStorage(),ai)
+  const hostProjections=new HostProjectionStorage()
+  const localProjections=createLocalProjectionStorage(window.localStorage)
+  const playerTransactions=new PlayerTransactionCoordinator(new HostTransactionJournal(),hostProjections,ai)
+  const journalLocks=new Map<string,string>()
+  const syncRecoveryState=async(saveId:string,channelId?:string):Promise<void>=>{
+    const authoritative=await hostProjections.load(saveId).catch(()=>undefined)
+    if(authoritative!==undefined)localProjections.save(authoritative)
+    try{await playerTransactions.assertQuiescent(saveId);journalLocks.delete(saveId)}catch{if(ai.turn(saveId)===null)journalLocks.set(saveId,channelId??authoritative?.selectedChannelId??'journal-recovery')}
+  }
+  const visibleTurn=(saveId:string):AiTurn|null=>{
+    const current=ai.turn(saveId)
+    if(current!==null)return current
+    const channelId=journalLocks.get(saveId)
+    if(channelId===undefined)return null
+    return{version:1,id:`journal-lock-${saveId}`,sessionId:'journal-recovery',baseline:-1,channelId,prompt:'journal-recovery-lock',state:'uncertain',error:'Host transaction journal 尚未收口；请恢复或完成对账后继续'}
+  }
   // One choice bridge per plugin lifetime. It only surfaces questions whose
   // session belongs to the currently active save (per-save hidden sessions),
   // so a replayed card from another game never leaks into this one.
@@ -64,13 +80,13 @@ export function apply(ctx: ClientContext): void {
         id: 'story-game-shell',
         inject: () => ({
           exitGame: controller.exit,
-          sendToAI:(projection:StorySaveProjection,channelId:string,input:string)=>playerTransactions.send(projection,channelId,input),
-          recoverAiTurn:(projection:StorySaveProjection)=>playerTransactions.recover(projection),
-          cancelAiTurn:(saveId:string)=>playerTransactions.cancel(saveId),
-          retryAiTurn:(projection:StorySaveProjection)=>playerTransactions.retry(projection),
-          acknowledgeAiTurn:(saveId:string,turnId:string)=>playerTransactions.acknowledge(saveId,turnId),
+          sendToAI:async(projection:StorySaveProjection,channelId:string,input:string)=>{try{return await playerTransactions.send(projection,channelId,input)}catch(error){await syncRecoveryState(projection.saveId,channelId);throw error}},
+          recoverAiTurn:async(projection:StorySaveProjection)=>{try{return await playerTransactions.recover(projection)}finally{await syncRecoveryState(projection.saveId,projection.selectedChannelId)}},
+          cancelAiTurn:async(saveId:string)=>{try{await playerTransactions.cancel(saveId)}finally{await syncRecoveryState(saveId)}},
+          retryAiTurn:async(projection:StorySaveProjection)=>{try{return await playerTransactions.retry(projection)}catch(error){await syncRecoveryState(projection.saveId,projection.selectedChannelId);throw error}},
+          acknowledgeAiTurn:async(saveId:string,turnId:string)=>{await playerTransactions.acknowledge(saveId,turnId);await syncRecoveryState(saveId)},
           assertAiSaveQuiescent:(saveId:string)=>playerTransactions.assertQuiescent(saveId),
-          aiTurn:(saveId:string)=>ai.turn(saveId),
+          aiTurn:visibleTurn,
           markWaitingChoice:(saveId:string,sessionId:string)=>ai.markWaitingChoice(saveId,sessionId),
           forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>ai.forkSave(sourceSaveId,targetSaveId,packId),
           releaseAiSave:(saveId:string,packId?:string)=>ai.releaseSave(saveId,packId),
