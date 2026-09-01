@@ -14,7 +14,7 @@ M5：1.0 Release Candidate
 v1.0.0 Stable
 ```
 
-Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5 Core Runtime operation-level idempotency 已合并；当前开发进入 D2。
+Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5、D2a / PR #6 和 D2b / PR #9 已合并；当前开发进入 D2c。
 
 ## M3：Stage D
 
@@ -59,9 +59,9 @@ D2 分成小而可验证的交付片段，不用一个巨型 PR 同时改 journa
 
 D2a 完成条件已经满足：Client typecheck 通过；17 个测试文件 / 108 项测试通过；`build:node` 与 `build:client` 通过；tracked `client/story-ui/lib/*` 已由真实 bundler 同步并在重复构建后保持干净；Host API/Spec/traceability 已同步。以上是 D2a foundation 的自动验证，不代表真实 DSH correlation、浏览器 crash recovery 或 D2 整体完成。
 
-#### D2b：Player transaction coordinator
+#### D2b：Player transaction coordinator — 已完成并合并
 
-D2a 合并后已进入本阶段。
+已由 PR #9 合并到 `main`；最终修复与 tracked artifact HEAD 为 `9865cd9e42c1568091054e66a8f7547464f6dd7d`。
 
 目标：真正把现有 `StoryGameShell` submit/retry/recover 链接入 durable transaction journal。
 
@@ -75,7 +75,7 @@ D2a 合并后已进入本阶段。
 6. `cancelled` 只用于尚无 canonical effect 的 transaction；late result 不能复活终态。
 7. 页面刷新/进程恢复必须从 Host journal 重新发现非终态 transaction，而不是只相信浏览器内存状态。
 
-当前 D2b 分支已经实现：submit 前 durable prepare、accepted rpcId 一次性绑定、rpcId→native turn durable history 对账与分页回溯、failed hidden turn 的同 transaction retry、canonical projection→ack→journal commit 顺序，以及在 browser pending 丢失但 journal 有 `sessionId + dshRequestId` 时从 Host journal evidence 重建 recovery turn。仍未完成或未认证的边界包括 continuation 的完整矩阵、cancel/core-effect reconciliation（属于 D2c）以及真实 Windows + certified DSH/browser crash-window 验收；在这些完成前不得宣称 D2b/D2 整体完成。
+D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按认证 rc.2 `user/message.source.rpcId` 进行 rpcId→native turn durable history 对账与跨页回溯、failed hidden turn 的同 transaction retry、canonical projection→ack→journal commit 顺序，以及 browser pending 丢失但 journal 保留 `sessionId + dshRequestId` 时的 recovery turn 重建。合并前根项目 9 个测试文件/38 项测试、Client 27 个测试文件/140 项测试及两端 typecheck/build 全部通过，tracked lib 重复构建一致。continuation、cancel/core-effect reconciliation 属于 D2c；restart、partial commit 及真实 certified DSH/browser crash-window 完整矩阵在 D2d 统一验收。
 
 #### D2c：Core step journal + cross-domain reconciliation
 

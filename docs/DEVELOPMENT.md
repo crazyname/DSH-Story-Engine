@@ -263,6 +263,7 @@ Standalone Runtime 不因为“减少依赖”本身启动。投入实现前至�
 - 使用 Conventional Commits 前缀：`feat:`、`fix:`、`docs:`、`test:`、`refactor:`、`chore:`。
 - 文本文件遵循仓库 `.gitattributes` 的 LF 规则，不把整文件换行变化混入功能提交。
 - 一个提交只完成一个可说明、可验证的目标；实现、对应测试和必要文档应放在同一提交中。
+- 功能、修复或阶段交付 PR 必须同时更新受影响的 `CURRENT_STATUS.md`、`NEXT_DEVELOPMENT_PLAN.md`、`TRACEABILITY.md` 以及必要的 README/Spec/Host API；已知必要的文档收口不得推迟到代码合并后再开独立 PR。任务本身是文档治理、规范设计、历史纠错或不依赖代码变更的说明改进时，仍可使用独立文档 PR。
 - 提交前检查 `git diff --cached` 和 `git status --ignored`，确认没有私人资料、密钥、存档或测试输出。
 - 不使用 `git reset --hard`、强制覆盖或清除用户未提交改动；发现不属于当前任务的改动时保留并单独报告。
 
