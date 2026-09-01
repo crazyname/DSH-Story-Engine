@@ -12,8 +12,8 @@ describe('journal-backed hidden recovery rebuild',()=>{
   const values=new Map<string,string>()
   const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"从 journal 恢复。"}]}'
   const history=vi.fn(async()=>ok({events:[
-   {event:{type:'turn/start',seq:10,data:{turn:8,trigger:{kind:'message',source:{kind:'user',rpcId:'rpc-journal'}}}}},
-   {event:{type:'user/message',seq:11,data:{turn:8,source:{kind:'user',rpcId:'rpc-journal'}}}},
+   {event:{type:'turn/start',seq:10,data:{turn:8}}},
+   {event:{type:'user/message',seq:11,data:{source:{kind:'user',rpcId:'rpc-journal'}}}},
    {event:{type:'assistant/message',seq:12,data:{turn:8,content:[{type:'text',text:raw}]}}},
    {event:{type:'turn/end',seq:13,data:{turn:8}}},
   ],hasMore:false}))
@@ -40,6 +40,8 @@ describe('journal-backed hidden recovery rebuild',()=>{
   expect(send).not.toHaveBeenCalled()
   expect(recoverFromEvidence).toHaveBeenCalledWith(projection,{turnId:'turn-journal',sessionId:'session-journal',channelId:projection.selectedChannelId,dshRequestId:'rpc-journal'})
   expect(recovered?.turnId).toBe('turn-journal')
-  expect(record).toMatchObject({status:'needs-recovery',canonicalResultTurnId:'turn-journal',activeTurnId:undefined,diagnostic:undefined,hiddenTurns:[{turnId:'turn-journal',state:'completed',dshRequestId:'rpc-journal',dshTurn:8}]})
+  expect(record).toMatchObject({status:'needs-recovery',canonicalResultTurnId:'turn-journal',hiddenTurns:[{turnId:'turn-journal',state:'completed',dshRequestId:'rpc-journal',dshTurn:8}]})
+  expect(record.activeTurnId).toBeUndefined()
+  expect(record.diagnostic).toBeUndefined()
  })
 })
