@@ -23,6 +23,9 @@ import { StoryGameAction } from './StoryGameAction.tsx'
 import { StoryGameShell } from './StoryGameShell.tsx'
 import { StoryAiBridge } from './ai-bridge.ts'
 import { createStoryChoiceBridge, type StoryChoiceBridge, type StoryClientApi } from './choice-bridge.ts'
+import { HostProjectionStorage } from './host-persistence.ts'
+import { HostTransactionJournal } from './host-transactions.ts'
+import { PlayerTransactionCoordinator } from './player-transaction-coordinator.ts'
 import type { StorySaveProjection } from './story-domain.ts'
 
 /** Required services: the slot registry (declaration lifetimes + registration). */
@@ -36,6 +39,7 @@ export function apply(ctx: ClientContext): void {
   const controller = createGameModeController()
   const connection=ctx.get('connection') as unknown as {api:StoryClientApi}
   const ai=new StoryAiBridge(connection.api,window.localStorage)
+  const playerTransactions=new PlayerTransactionCoordinator(new HostTransactionJournal(),new HostProjectionStorage(),ai)
   // One choice bridge per plugin lifetime. It only surfaces questions whose
   // session belongs to the currently active save (per-save hidden sessions),
   // so a replayed card from another game never leaks into this one.
@@ -60,11 +64,11 @@ export function apply(ctx: ClientContext): void {
         id: 'story-game-shell',
         inject: () => ({
           exitGame: controller.exit,
-          sendToAI:(projection:StorySaveProjection,channelId:string,input:string)=>ai.send(projection,channelId,input),
-          recoverAiTurn:(projection:StorySaveProjection)=>ai.recover(projection),
-          cancelAiTurn:(saveId:string)=>ai.cancel(saveId),
-          retryAiTurn:(projection:StorySaveProjection)=>ai.retry(projection),
-          acknowledgeAiTurn:(saveId:string,turnId:string)=>ai.acknowledge(saveId,turnId),
+          sendToAI:(projection:StorySaveProjection,channelId:string,input:string)=>playerTransactions.send(projection,channelId,input),
+          recoverAiTurn:(projection:StorySaveProjection)=>playerTransactions.recover(projection),
+          cancelAiTurn:(saveId:string)=>playerTransactions.cancel(saveId),
+          retryAiTurn:(projection:StorySaveProjection)=>playerTransactions.retry(projection),
+          acknowledgeAiTurn:(saveId:string,turnId:string)=>{void playerTransactions.acknowledge(saveId,turnId).catch(error=>console.error('Story transaction acknowledge failed',error))},
           aiTurn:(saveId:string)=>ai.turn(saveId),
           markWaitingChoice:(saveId:string,sessionId:string)=>ai.markWaitingChoice(saveId,sessionId),
           forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>ai.forkSave(sourceSaveId,targetSaveId,packId),
