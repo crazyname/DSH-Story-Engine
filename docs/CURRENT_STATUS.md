@@ -8,8 +8,8 @@
 - 当前阶段：v0.8 阶段 A、B、C 已完成；Stage D 开发中；Stage E 未开始。
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
-- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency 和 PR #6 / D2a transaction journal foundation。
-- 当前开发重点：D2b player transaction coordinator；D2a 已计入已合并基线。
+- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator，以及 PR #11 / D2b pre-dispatch recovery hotfix。
+- 当前开发重点：D2c core step journal + cross-domain reconciliation。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -24,19 +24,20 @@
 - 每份存档使用独立隐藏 DSH session；选择卡、取消、retry、刷新恢复和跨存档隔离已具备。
 - AI canonical social messages 按稳定 Story Engine `turnId` 幂等提交；宿主保存成功后才 acknowledge pending completed turn。
 - PR #5 / D1 已合并：九个会修改 canonical runtime state 的公开 mutation 接受稳定 `operation_id`；matching receipt 在 optimistic version 检查前 replay；同 ID 不同 fingerprint 显式冲突；receipt 与 mutation 原子落盘；checkpoint restore 保留已消费 receipt evidence。
+- PR #9 / D2b 与 PR #11 hotfix 已合并：玩家 submit/retry/recover 接入 Host transaction journal；submit 前保存 `prepared` intent 和 Story Engine hidden `turnId`；accepted response 后绑定 `dshRequestId`；按 rc.2 真实 `user/message.source.rpcId` 与数字 turn 进行分页对账；retry 不重复玩家输入，Host projection 保存后再 acknowledge/journal commit。Host 玩家 projection 可能已落盘、但 hidden evidence 尚未产生的前置失败会保持 `needs-recovery`，浏览器 projection 回滚后仍可按同一 transaction 恢复且不重复玩家输入。
 
-## 当前开发重点：Stage D / D2
+## 当前开发重点：Stage D / D2c
 
 D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。
 
-当前分支已经实现并完成自动验证的 D2a foundation：
+已合并基线包含 D2a foundation：
 
 1. `StoryTransactionRecord` 与 schema v1：保存 `transactionId`、规范化玩家 input + fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
 2. transaction 状态最低语义：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态，且终态 record 本身不能含 active/nonterminal hidden evidence。
 3. hidden turn evidence 单向推进：新增 turn 必须从 `planned` 开始；`planned/uncertain` 不能携带 native `dshTurn`；一旦 `dispatched` 已确认 dispatch/turn 存在就不能降级回 `uncertain`；`completed/failed/cancelled` 不可倒写。
 4. hidden identity 明确拆成三层：
    - Story Engine `turnId`：稳定逻辑 hidden-turn identity，也是 social canonical commit key，并遵守 Story UI stable-ID 格式；
-   - `dshRequestId`：发 prompt 前持久化的 DSH request correlation identity，独立于 Story/social ID；
+   - `dshRequestId`：认证 rc.2 在 accepted response 后可取得并一次性绑定的 DSH request correlation identity，独立于 Story/social ID；
    - `dshTurn`：从 DSH durable history 对账得到的原生数字 turn。
 5. `StoryTransactionStore`：按 save/transaction 隔离、进程内串行、原子 temp+rename、optimistic revision、identical replay、collision conflict、损坏/语义非法记录 fail-closed；新建 journal 只能是 revision 0 的 `prepared` 空证据 intent，持久化和读取时会重算 input fingerprint。
 6. transaction input `channelId` 使用现有 Story UI stable-ID 契约；Story `turnId`、`dshRequestId` 与 native `(sessionId,dshTurn)` 在同一 transaction 中执行格式/唯一性/引用约束；`activeTurnId` 与 `canonicalResultTurnId` 只允许引用合法 lifecycle 状态。
@@ -45,13 +46,10 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 9. contract/store/client bridge/Host API 自动测试覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写，以及 browser bridge load/save/list/response identity。
 10. Client tracked artifacts 已由真实 bundler 同步：`lib/index.js` 随 Node/Host entry 变化更新，`lib/client.js` 与 `lib/client.js.map` 保持不变；重复构建后 worktree 保持干净。
 
-D2a 目前只完成 durable journal/store/API/browser persistence primitive，不表示玩家 submit/retry/recover 已经事务化，也不表示 hidden DSH correlation、跨域 reconciliation 或 D2 整体完成。
+D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH history correlation。D2 整体仍未完成：core operation receipts 尚未接入顶层 coordinator，cancel 后 canonical-effect reconciliation、fork/restart 产品策略及完整真实浏览器故障矩阵仍待 D2c/D2d。
 
 ## D2 尚未完成
 
-- 把 journal 正式接入 `StoryGameShell` 的玩家 submit / retry / recover 流程：必须先持久化 intent，再进行 hidden DSH dispatch。
-- 在第一次 hidden prompt 前持久化可复用 `dshRequestId`，并用 DSH `user/message.source.rpcId` 与数字 `turn` history 进行 correlation/reconciliation。
-- 不确定 hidden dispatch 的 `needs-recovery` 收敛逻辑。
 - child core step identity / `operationId` 在第一次 core mutation 前的 journal 持久化与多 operation 部分恢复。
 - core receipt → social projection 的跨域恢复协调器。
 - canonical effect 已发生后的 cancel/reconciliation 语义落地。
@@ -87,7 +85,23 @@ D2a / PR #6 本地 Windows 最终自动验证（代码与 artifact HEAD `c822c28
 - 真实 bundler 更新 `client/story-ui/lib/index.js`；`lib/client.js` 与 `lib/client.js.map` 无变化。
 - 重复构建后 tracked artifacts 保持干净。
 - 验证 worktree、原主项目未提交文件和 `D:\DeepSeek-Harness` 保持隔离；临时 `node_modules` junction 已删除。
-- 本轮没有执行真实 DSH hidden-turn correlation、浏览器 crash/recovery 或 D2b coordinator 验收，因此这些能力仍不得宣称完成。
+- D2a 该轮当时未执行 D2b coordinator 或真实 DSH/browser 验收；后续 D2b 自动证据见下，真实故障矩阵仍待 D2d。
+
+D2b / PR #9 合并前最终自动验证（修复/artifact HEAD `9865cd9e42c1568091054e66a8f7547464f6dd7d`）：
+
+- 根项目 typecheck/build 通过；9 个测试文件、38 项测试全部通过。
+- Client typecheck/build 通过；27 个测试文件、140 项测试全部通过。
+- `turn/start` 只携带数字 turn、`user/message.source.rpcId` 携带 request identity 的认证 rc.2 事件形态已纳入回归，包含 start/message 跨页拆分。
+- tracked `client/story-ui/lib/client.js`、`client.js.map`、`index.js` 已由真实构建同步，重复构建 hash 一致且工作树干净。
+- 本轮未执行真实 certified DSH/browser crash-window 故障矩阵；该验收仍属于 D2d，不得由自动测试代替宣称通过。
+
+D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f97925591d1a22aac2c448057b6ee2`）：
+
+- 根项目 typecheck/build 通过；9 个测试文件、38 项测试全部通过。
+- Client typecheck/build 通过；28 个测试文件、142 项测试全部通过。
+- 自动故障注入覆盖 hidden session bootstrap 与 `beforeDispatch` journal 写入失败；恢复后只派发一次并且不重复玩家输入。
+- tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
+- 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
 
 本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 
