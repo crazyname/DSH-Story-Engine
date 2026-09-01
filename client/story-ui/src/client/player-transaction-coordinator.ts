@@ -56,5 +56,7 @@ export class PlayerTransactionCoordinator{
 
  async cancel(saveId:string):Promise<void>{await this.ai.cancel(saveId);const record=await this.open(saveId);if(record===undefined)return;const state:MutableTransaction={record};const active=record.activeTurnId;if(active===undefined){if(record.hiddenTurns.length===0&&record.status==='prepared')await this.save(state,{status:'cancelled',diagnostic:undefined});return}const{index,turn}=this.findHidden(record,active);if(hiddenTerminal(turn.state))return;await this.save(state,{status:'needs-recovery',hiddenTurns:this.replaceHidden(state.record,index,{...turn,state:'cancelled'}),activeTurnId:undefined,diagnostic:{code:'cancelled-after-hidden-dispatch',message:'隐藏回合已取消，但 D2c 尚未核对可能已经发生的 core canonical effect'}})}
 
+ async assertQuiescent(saveId:string):Promise<void>{const record=await this.open(saveId);if(record!==undefined)throw new Error(`存档存在未完成 transaction：${record.transactionId}；请先恢复或完成对账`)}
+
  async acknowledge(saveId:string,turnId:string):Promise<void>{const record=await this.open(saveId);if(record!==undefined){if(record.canonicalResultTurnId!==turnId)throw new Error(`open transaction ${record.transactionId} 尚未记录 canonical hidden turn ${turnId}；保留 pending turn 供恢复`);const state:MutableTransaction={record};const{turn}=this.findHidden(record,turnId);if(turn.state!=='completed')throw new Error(`canonical hidden turn 尚未完成：${turnId}`);this.ai.acknowledge(saveId,turnId);await this.save(state,{status:'committed',activeTurnId:undefined,diagnostic:undefined});return}this.ai.acknowledge(saveId,turnId)}
 }

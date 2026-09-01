@@ -35,6 +35,7 @@ export interface StoryGameShellInjected {
   cancelAiTurn:(saveId:string)=>Promise<void>
   retryAiTurn:(projection:StorySaveProjection)=>Promise<AiBridgeResult>
   acknowledgeAiTurn:(saveId:string,turnId:string)=>Promise<void>
+  assertAiSaveQuiescent:(saveId:string)=>Promise<void>
   aiTurn:(saveId:string)=>AiTurn|null
   markWaitingChoice:(saveId:string,sessionId:string)=>void
   forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>Promise<string|null>
@@ -56,7 +57,7 @@ const NARROW_BREAKPOINT = 900
  * @param props - injected exit callback plus the bound `useGameMode` hook.
  * @returns the full-frame game shell, or null while game mode is inactive.
  */
-export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }: StoryGameShellProps) {
+export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn, retryAiTurn, acknowledgeAiTurn, assertAiSaveQuiescent, aiTurn, markWaitingChoice, forkAiSession, releaseAiSave, choices, useGameMode }: StoryGameShellProps) {
   const active = useGameMode(mode => mode)
   const storage = useMemo(() => createLocalProjectionStorage(window.localStorage), [])
   const hostStorage = useMemo(() => new HostProjectionStorage(), [])
@@ -204,14 +205,18 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const submit = (): void => {
     const text = draft.trim()
     if (text === ''||submitBlocked) return
-    const submitted=appendPlayerMessage(projection,selected.id,text)
+    const beforeSubmit=projection
+    const submitted=appendPlayerMessage(beforeSubmit,selected.id,text)
     const saveId=submitted.saveId
     storage.save(submitted)
     setProjection(submitted)
     setGeneratingSaves(current=>new Set(current).add(saveId))
     void sendToAI(submitted,selected.id,text).then(result=>{
       commitAiResult(saveId,selected.id,result,result.turnId,submitted)
-    },error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))}).finally(()=>{
+    },error=>{
+      if(aiTurn(saveId)===null){storage.save(beforeSubmit);setProjection(current=>current.saveId===saveId?beforeSubmit:current);setView(state=>({...state,selectedChannelId:beforeSubmit.selectedChannelId,drafts:beforeSubmit.drafts}))}
+      setSaveSyncError(saveId,error instanceof Error?error.message:String(error))
+    }).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})
     })
   }
@@ -284,6 +289,8 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const saveAsGame = (saveId: string): void => {
     void (async () => {
       try {
+        if(aiTurn(saveId)!==null)throw new Error('当前存档仍有未收口 AI 回合，完成恢复/重试后才能另存为')
+        await assertAiSaveQuiescent(saveId)
         const source = await hostStorage.load(saveId)
         const fallback = storage.load(saveId)
         const base = source ?? fallback
@@ -311,6 +318,8 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     if (!window.confirm(`确定删除存档「${saveId}」吗？此操作不可撤销。`)) return
     void (async () => {
       try {
+        if(aiTurn(saveId)!==null)throw new Error('当前存档仍有未收口 AI 回合，完成事务对账后才能删除')
+        await assertAiSaveQuiescent(saveId)
         await cancelAiTurn(saveId)
         await hostStorage.remove(saveId)
         await releaseAiSave(saveId,saves.find(save=>save.saveId===saveId)?.packId)
@@ -396,6 +405,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
                       type="button"
                       className={channel.id === selected.id ? css.channelItemActive : css.channelItem}
                       aria-current={channel.id === selected.id ? 'true' : undefined}
+                      disabled={submitBlocked}
                       onClick={() => { setView(state => selectChannel(state, channel.id));setProjection(previous=>{const next={...previous,selectedChannelId:channel.id,revision:previous.revision+1,updatedAt:new Date().toISOString()};persist(next);return next}) }}
                     >
                       <span className={css.channelKind}>{kindLabel(channel.kind)}</span>
@@ -427,6 +437,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
               value={draft}
               placeholder="输入对白；可使用 (行动) 或 (系统)"
               aria-label={`在 ${selected.title} 中输入`}
+              disabled={submitBlocked}
               onChange={event => {const text=event.target.value;setView(state=>setDraft(state,selected.id,text));setProjection(previous=>{const next=updateDraft(previous,selected.id,text);persist(next);return next})}}
               onKeyDown={event => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -435,7 +446,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
                 }
               }}
             />
-            <button type="button" className={css.sendButton} onClick={submit} disabled={submitBlocked}>{generating?'生成中…':turn!==null?'待恢复':'发送'}</button>
+            <button type="button" className={css.sendButton} onClick={submit} disabled={submitBlocked}>{generating?'生成中…':turn?.state==='cancelled'?'待 D2c 对账':turn!==null?'待恢复':'发送'}</button>
             {generating||turn?.state==='uncertain' ? <button type="button" className={css.cancelButton} onClick={cancelTurn}>取消</button> : null}
             {turn!==null&&(turn.state==='uncertain'||turn.state==='completed') ? <button type="button" className={css.retryButton} onClick={()=>{recoverPending(projection)}}>恢复</button> : null}
             {turn?.state==='failed' ? <button type="button" className={css.retryButton} onClick={retryTurn}>重试</button> : null}
