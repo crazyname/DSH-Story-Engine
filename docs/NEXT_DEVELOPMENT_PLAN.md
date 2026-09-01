@@ -50,7 +50,7 @@ D2 分成小而可验证的交付片段，不用一个巨型 PR 同时改 journa
 - hidden turn evidence 单向推进，不允许 completed/failed/cancelled 被 late result 倒写。
 - hidden identity 明确区分：
   - Story Engine `turnId`：稳定逻辑 hidden turn / social commit identity；
-  - `dshRequestId`：DSH prompt correlation identity，必须在 dispatch 前持久化；
+  - `dshRequestId`：DSH prompt correlation identity。schema 支持一次性绑定后不可修改；认证 DSH `0.1.1-rc.2` 的公开 `IApiClient` 由 carrier 内部生成该 ID，业务调用方只能在 accepted response 后取得，因此无法在 prompt 前自行持久化。若 response 丢失，则必须进入保守 recovery，不能假装已有 exactly-once request identity；
   - `dshTurn`：从 DSH durable history 对账得到的原生数字 turn。
 - Host journal store：按 save/transaction 隔离、原子写、进程内串行、optimistic revision、identical replay、collision conflict、corrupt journal fail-closed。
 - Windows-safe journal filenames：有界 base64url，不直接使用 transactionId 作为文件名。
@@ -68,12 +68,14 @@ D2a 合并后已进入本阶段。
 必须做到：
 
 1. 玩家提交前创建并保存 `prepared` transaction，之后才允许 hidden dispatch。
-2. 在 prompt 前持久化稳定 `dshRequestId`；retry/restart 复用 journal identity，不盲目重新发送原始玩家输入。
+2. Story Engine `turnId` 必须在 prompt 前持久化；认证 rc.2 返回 accepted response 后立即一次性绑定 `dshRequestId`。若 response 丢失导致 request ID 不可知，transaction 必须进入 `needs-recovery`，禁止盲目重发原始玩家输入。retry/restart 复用已有 transaction identity。
 3. 通过 DSH durable `user/message.source.rpcId` 与 `turn/start` / `turn/end` 数字 turn 对账；不确定时进入 `needs-recovery`。
 4. 一个 transaction 可有多个 retry/continuation hidden turns，但只有 canonical-result Story Engine `turnId` 能提交对应 social canonical messages。
 5. social-only transaction 在 Host projection 保存成功并确认 identical replay 后再 acknowledge hidden turn，然后 journal 收敛到 `committed`。
 6. `cancelled` 只用于尚无 canonical effect 的 transaction；late result 不能复活终态。
 7. 页面刷新/进程恢复必须从 Host journal 重新发现非终态 transaction，而不是只相信浏览器内存状态。
+
+当前 D2b 分支已经实现：submit 前 durable prepare、accepted rpcId 一次性绑定、rpcId→native turn durable history 对账与分页回溯、failed hidden turn 的同 transaction retry、canonical projection→ack→journal commit 顺序，以及在 browser pending 丢失但 journal 有 `sessionId + dshRequestId` 时从 Host journal evidence 重建 recovery turn。仍未完成或未认证的边界包括 continuation 的完整矩阵、cancel/core-effect reconciliation（属于 D2c）以及真实 Windows + certified DSH/browser crash-window 验收；在这些完成前不得宣称 D2b/D2 整体完成。
 
 #### D2c：Core step journal + cross-domain reconciliation
 
