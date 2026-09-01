@@ -437,6 +437,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
             />
             <button type="button" className={css.sendButton} onClick={submit} disabled={submitBlocked}>{generating?'生成中…':turn!==null?'待恢复':'发送'}</button>
             {generating||turn?.state==='uncertain' ? <button type="button" className={css.cancelButton} onClick={cancelTurn}>取消</button> : null}
+            {turn!==null&&(turn.state==='uncertain'||turn.state==='completed') ? <button type="button" className={css.retryButton} onClick={()=>{recoverPending(projection)}}>恢复</button> : null}
             {turn?.state==='failed' ? <button type="button" className={css.retryButton} onClick={retryTurn}>重试</button> : null}
           </div>
           {turn?.error !== undefined ? <div className={css.turnError} role="alert">AI 回合失败：{turn.error}</div> : null}
