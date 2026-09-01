@@ -35,7 +35,7 @@ export class PlayerTransactionCoordinator{
  private hooks(state:MutableTransaction,turnId:string,kind:StoryHiddenTurnKind):AiDispatchHooks{return{
   turnId,
   beforeDispatch:async(evidence:AiDispatchEvidence)=>{const hidden:StoryHiddenTurnRef={turnId:evidence.turnId,kind,state:'planned',sessionId:evidence.sessionId};await this.save(state,{hiddenTurns:[...state.record.hiddenTurns,hidden],activeTurnId:evidence.turnId})},
-  afterAccepted:async(evidence:AiDispatchEvidence)=>{const{index,turn}=this.findHidden(state.record,evidence.turnId);await this.save(state,{hiddenTurns:this.replaceHidden(state.record,index,{...turn,state:'dispatched',sessionId:evidence.sessionId})})},
+  afterAccepted:async(evidence:AiDispatchEvidence)=>{const{index,turn}=this.findHidden(state.record,evidence.turnId);await this.save(state,{hiddenTurns:this.replaceHidden(state.record,index,{...turn,state:'dispatched',sessionId:evidence.sessionId,...(evidence.dshRequestId===undefined?{}:{dshRequestId:evidence.dshRequestId})})})},
   afterUncertain:async(evidence:AiDispatchEvidence,error:unknown)=>{await this.needsRecovery(state,evidence.turnId,error)},
  }}
 

@@ -12,7 +12,7 @@ export interface StoryTransactionInput{channelId:string;text:string}
 export interface StoryHiddenTurnRef{
  /** Story Engine stable hidden-turn identity; used by social canonical commit. */
  turnId:string
- /** Optional durable prompt correlation identity. Present only when the DSH adapter can persist/reconcile it. */
+ /** Optional durable prompt correlation identity. It may be bound once after carrier acceptance, then is immutable. */
  dshRequestId?:string
  kind:StoryHiddenTurnKind
  state:StoryHiddenTurnState
@@ -85,7 +85,7 @@ export function assertTransactionUpdate(current:StoryTransactionRecord,next:Stor
  if(TERMINAL_TRANSACTION.has(current.status))conflict(`终态 ${current.status} 不可产生新 revision`)
  if(!TRANSACTION_TRANSITIONS[current.status].has(next.status))conflict(`transaction 状态不能从 ${current.status} 迁移到 ${next.status}`)
  if(next.hiddenTurns.length<current.hiddenTurns.length)conflict('hidden turn evidence 不可删除')
- for(let index=0;index<current.hiddenTurns.length;index+=1){const before=current.hiddenTurns[index]!;const after=next.hiddenTurns[index]!;if(after.turnId!==before.turnId||after.dshRequestId!==before.dshRequestId||after.kind!==before.kind)conflict('hidden turn identity 不可修改');if(before.sessionId!==undefined&&after.sessionId!==before.sessionId)conflict('hidden session identity 不可修改');if(before.dshTurn!==undefined&&after.dshTurn!==before.dshTurn)conflict('DSH native turn 不可修改');if(TERMINAL_TURN.has(before.state)){if(after.state!==before.state)conflict(`终态 hidden turn 不可改写：${before.turnId}`)}else if(!TURN_TRANSITIONS[before.state].has(after.state))conflict(`hidden turn ${before.turnId} 不能从 ${before.state} 迁移到 ${after.state}`)}
+ for(let index=0;index<current.hiddenTurns.length;index+=1){const before=current.hiddenTurns[index]!;const after=next.hiddenTurns[index]!;if(after.turnId!==before.turnId||after.kind!==before.kind)conflict('hidden turn identity 不可修改');if(before.dshRequestId!==undefined&&after.dshRequestId!==before.dshRequestId)conflict('DSH request identity 不可修改');if(before.sessionId!==undefined&&after.sessionId!==before.sessionId)conflict('hidden session identity 不可修改');if(before.dshTurn!==undefined&&after.dshTurn!==before.dshTurn)conflict('DSH native turn 不可修改');if(TERMINAL_TURN.has(before.state)){if(after.state!==before.state)conflict(`终态 hidden turn 不可改写：${before.turnId}`)}else if(!TURN_TRANSITIONS[before.state].has(after.state))conflict(`hidden turn ${before.turnId} 不能从 ${before.state} 迁移到 ${after.state}`)}
  for(let index=current.hiddenTurns.length;index<next.hiddenTurns.length;index+=1){const added=next.hiddenTurns[index]!;if(added.state!=='planned')conflict(`新增 hidden turn 必须从 planned 开始：${added.turnId}`);if(added.dshTurn!==undefined)conflict(`新增 hidden turn 不能预填 DSH native turn：${added.turnId}`)}
  if(next.operationRefs.length<current.operationRefs.length)conflict('operation identity evidence 不可删除')
  for(let index=0;index<current.operationRefs.length;index+=1){const before=current.operationRefs[index]!;const after=next.operationRefs[index]!;if(after.stepKey!==before.stepKey||after.operationId!==before.operationId)conflict('operation identity evidence 不可修改')}
