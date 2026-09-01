@@ -68,7 +68,7 @@ export function apply(ctx: ClientContext): void {
           recoverAiTurn:(projection:StorySaveProjection)=>playerTransactions.recover(projection),
           cancelAiTurn:(saveId:string)=>playerTransactions.cancel(saveId),
           retryAiTurn:(projection:StorySaveProjection)=>playerTransactions.retry(projection),
-          acknowledgeAiTurn:(saveId:string,turnId:string)=>{void playerTransactions.acknowledge(saveId,turnId).catch(error=>console.error('Story transaction acknowledge failed',error))},
+          acknowledgeAiTurn:(saveId:string,turnId:string)=>playerTransactions.acknowledge(saveId,turnId),
           aiTurn:(saveId:string)=>{const turn=ai.turn(saveId);return turn?.state==='uncertain'?{...turn,state:'running' as const}:turn},
           markWaitingChoice:(saveId:string,sessionId:string)=>ai.markWaitingChoice(saveId,sessionId),
           forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>ai.forkSave(sourceSaveId,targetSaveId,packId),

@@ -34,7 +34,7 @@ export interface StoryGameShellInjected {
   recoverAiTurn:(projection:StorySaveProjection)=>Promise<RecoveredAiBridgeResult|null>
   cancelAiTurn:(saveId:string)=>Promise<void>
   retryAiTurn:(projection:StorySaveProjection)=>Promise<AiBridgeResult>
-  acknowledgeAiTurn:(saveId:string,turnId:string)=>void
+  acknowledgeAiTurn:(saveId:string,turnId:string)=>Promise<void>
   aiTurn:(saveId:string)=>AiTurn|null
   markWaitingChoice:(saveId:string,sessionId:string)=>void
   forkAiSession:(sourceSaveId:string,targetSaveId:string,packId:string)=>Promise<string|null>
@@ -130,10 +130,10 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     const latest=storage.load(saveId)??fallback
     const next=appendAiMessages(latest,channelId,result.messages,new Date(),turnId)
     storage.save(next)
-    void hostStorage.save(next).then(()=>{
-      if(turnId!==undefined)acknowledgeAiTurn(saveId,turnId)
+    void hostStorage.save(next).then(async()=>{
+      if(turnId!==undefined)await acknowledgeAiTurn(saveId,turnId)
       setSaveSyncError(saveId,undefined)
-    },error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})
+    }).catch(error=>{setSaveSyncError(saveId,error instanceof Error?error.message:String(error))})
     setProjection(current=>current.saveId===saveId?next:current)
   }
   const recoverPending=(save:StorySaveProjection):void=>{
@@ -205,7 +205,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     if (text === ''||generating) return
     const submitted=appendPlayerMessage(projection,selected.id,text)
     const saveId=submitted.saveId
-    persist(submitted)
+    storage.save(submitted)
     setProjection(submitted)
     setGeneratingSaves(current=>new Set(current).add(saveId))
     void sendToAI(submitted,selected.id,text).then(result=>{
