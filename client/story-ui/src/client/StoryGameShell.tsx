@@ -191,6 +191,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
   const syncError=saveErrorFor(syncErrors,projection.saveId)
   const turn=aiTurn(projection.saveId)
   const generating=generatingSaves.has(projection.saveId)||turn?.state==='queued'||turn?.state==='running'||turn?.state==='waiting-choice'
+  const submitBlocked=generating||turn!==null
 
   // Preview data is intentionally ephemeral. Polling only forces a render while
   // a turn is active; it never persists raw model chunks into the story save.
@@ -202,7 +203,7 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
 
   const submit = (): void => {
     const text = draft.trim()
-    if (text === ''||generating) return
+    if (text === ''||submitBlocked) return
     const submitted=appendPlayerMessage(projection,selected.id,text)
     const saveId=submitted.saveId
     storage.save(submitted)
@@ -434,9 +435,9 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
                 }
               }}
             />
-            <button type="button" className={css.sendButton} onClick={submit} disabled={generating}>{generating?'生成中…':'发送'}</button>
-            {generating ? <button type="button" className={css.cancelButton} onClick={cancelTurn}>取消</button> : null}
-            {turn!==null&&(turn.state==='failed'||turn.state==='cancelled') ? <button type="button" className={css.retryButton} onClick={retryTurn}>重试</button> : null}
+            <button type="button" className={css.sendButton} onClick={submit} disabled={submitBlocked}>{generating?'生成中…':turn!==null?'待恢复':'发送'}</button>
+            {generating||turn?.state==='uncertain' ? <button type="button" className={css.cancelButton} onClick={cancelTurn}>取消</button> : null}
+            {turn?.state==='failed' ? <button type="button" className={css.retryButton} onClick={retryTurn}>重试</button> : null}
           </div>
           {turn?.error !== undefined ? <div className={css.turnError} role="alert">AI 回合失败：{turn.error}</div> : null}
         </main>
