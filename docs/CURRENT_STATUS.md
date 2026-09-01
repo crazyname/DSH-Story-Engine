@@ -8,7 +8,7 @@
 - 当前阶段：v0.8 阶段 A、B、C 已完成；Stage D 开发中；Stage E 未开始。
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
-- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation 和 PR #9 / D2b player transaction coordinator。
+- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator，以及 PR #11 / D2b pre-dispatch recovery hotfix。
 - 当前开发重点：D2c core step journal + cross-domain reconciliation。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
@@ -24,7 +24,7 @@
 - 每份存档使用独立隐藏 DSH session；选择卡、取消、retry、刷新恢复和跨存档隔离已具备。
 - AI canonical social messages 按稳定 Story Engine `turnId` 幂等提交；宿主保存成功后才 acknowledge pending completed turn。
 - PR #5 / D1 已合并：九个会修改 canonical runtime state 的公开 mutation 接受稳定 `operation_id`；matching receipt 在 optimistic version 检查前 replay；同 ID 不同 fingerprint 显式冲突；receipt 与 mutation 原子落盘；checkpoint restore 保留已消费 receipt evidence。
-- PR #9 / D2b 已合并：玩家 submit/retry/recover 接入 Host transaction journal；submit 前保存 `prepared` intent 和 Story Engine hidden `turnId`；accepted response 后绑定 `dshRequestId`；按 rc.2 真实 `user/message.source.rpcId` 与数字 turn 进行分页对账；retry 不重复玩家输入，Host projection 保存后再 acknowledge/journal commit。
+- PR #9 / D2b 与 PR #11 hotfix 已合并：玩家 submit/retry/recover 接入 Host transaction journal；submit 前保存 `prepared` intent 和 Story Engine hidden `turnId`；accepted response 后绑定 `dshRequestId`；按 rc.2 真实 `user/message.source.rpcId` 与数字 turn 进行分页对账；retry 不重复玩家输入，Host projection 保存后再 acknowledge/journal commit。Host 玩家 projection 可能已落盘、但 hidden evidence 尚未产生的前置失败会保持 `needs-recovery`，浏览器 projection 回滚后仍可按同一 transaction 恢复且不重复玩家输入。
 
 ## 当前开发重点：Stage D / D2c
 
@@ -94,6 +94,14 @@ D2b / PR #9 合并前最终自动验证（修复/artifact HEAD `9865cd9e42c15680
 - `turn/start` 只携带数字 turn、`user/message.source.rpcId` 携带 request identity 的认证 rc.2 事件形态已纳入回归，包含 start/message 跨页拆分。
 - tracked `client/story-ui/lib/client.js`、`client.js.map`、`index.js` 已由真实构建同步，重复构建 hash 一致且工作树干净。
 - 本轮未执行真实 certified DSH/browser crash-window 故障矩阵；该验收仍属于 D2d，不得由自动测试代替宣称通过。
+
+D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f97925591d1a22aac2c448057b6ee2`）：
+
+- 根项目 typecheck/build 通过；9 个测试文件、38 项测试全部通过。
+- Client typecheck/build 通过；28 个测试文件、142 项测试全部通过。
+- 自动故障注入覆盖 hidden session bootstrap 与 `beforeDispatch` journal 写入失败；恢复后只派发一次并且不重复玩家输入。
+- tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
+- 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
 
 本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 

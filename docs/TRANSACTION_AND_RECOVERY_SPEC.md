@@ -256,6 +256,8 @@ Checkpoint 不得成为释放已消费 operation identity 的手段。
 
 恢复保留同一 `transactionId`，读取 journal 决定继续哪个已计划步骤，不生成新 transaction。
 
+玩家 social projection 一旦已经向 Host 发起保存，就必须按“可能已落盘”处理。此后即使 hidden session bootstrap、archive、baseline history 或 `beforeDispatch` journal 写入失败，transaction 也只能保持非终态并进入 `needs-recovery`，不得在缺少 hidden-turn evidence 时直接写成 terminal `failed`。恢复器必须先以 base revision 和 input fingerprint 对账/恢复该玩家 projection，再在同一 transaction 内继续首次 hidden dispatch；不得要求浏览器内存仍保留 pending turn，也不得重复追加玩家输入。
+
 ### 9.2 Hidden dispatch 结果不确定
 
 最危险窗口是：DSH 可能已经接受 prompt，但页面在确认 durable history 前退出。

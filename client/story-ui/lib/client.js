@@ -2977,15 +2977,17 @@ window.__ModuleLoader__.load({
 				}
 				throw new Error(`transaction ${record.transactionId} 的玩家 projection 无法安全恢复：revision ${projection.revision}, base ${record.baseProjectionRevision}`);
 			}
-			async failBeforeDispatch(state, error) {
-				if (state.record.status !== "prepared" || state.record.hiddenTurns.length !== 0) return;
+			async recoverBeforeHiddenDispatch(state, error, code = "pre-hidden-dispatch-failed") {
+				if (state.record.status === "committed" || state.record.status === "cancelled" || state.record.status === "failed" || state.record.hiddenTurns.length !== 0) return;
+				const diagnostic = {
+					code,
+					message: detail(error)
+				};
+				if (state.record.status === "needs-recovery" && state.record.diagnostic?.code === diagnostic.code && state.record.diagnostic.message === diagnostic.message) return;
 				try {
 					await this.save(state, {
-						status: "failed",
-						diagnostic: {
-							code: "pre-dispatch-failed",
-							message: detail(error)
-						}
+						status: "needs-recovery",
+						diagnostic
 					});
 				} catch {}
 			}
@@ -3129,7 +3131,7 @@ window.__ModuleLoader__.load({
 							const current = this.findHidden(state.record, turnId).turn;
 							await this.needsRecovery(state, turnId, error, current.state === "dispatched" ? "hidden-recovery-failed" : "hidden-dispatch-uncertain", evidence);
 						}
-					} else await this.failBeforeDispatch(state, error);
+					} else await this.recoverBeforeHiddenDispatch(state, error);
 					throw error;
 				}
 			}
@@ -3160,7 +3162,7 @@ window.__ModuleLoader__.load({
 				try {
 					await this.projections.save(projection);
 				} catch (error) {
-					await this.failBeforeDispatch(state, error);
+					await this.recoverBeforeHiddenDispatch(state, error, "player-projection-save-uncertain");
 					throw error;
 				}
 				return this.dispatch(state, projection, channelId, input, "initial");
@@ -3181,7 +3183,7 @@ window.__ModuleLoader__.load({
 					return null;
 				}
 				if (record.hiddenTurns.length === 0) {
-					if (record.status !== "prepared") throw new Error(`transaction ${record.transactionId} 缺少 hidden evidence，状态为 ${record.status}`);
+					if (record.status !== "prepared" && record.status !== "needs-recovery") throw new Error(`transaction ${record.transactionId} 缺少 hidden evidence，状态为 ${record.status}`);
 					const restored = await this.ensurePlayerProjection(record, projection);
 					const result = await this.dispatch(state, restored, record.input.channelId, record.input.text, "initial");
 					return {
