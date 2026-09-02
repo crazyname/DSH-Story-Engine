@@ -48,8 +48,8 @@ function sessionId(exec: CoreToolExecution): string {
   return stableId(value, 'sessionId')
 }
 
-function versionConflict(error: unknown): boolean {
-  return error instanceof Error && error.message.includes('transaction 版本冲突')
+function retryableJournalConflict(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('transaction') && error.message.includes('冲突')
 }
 
 function sameOperationRef(left: StoryOperationRef, right: StoryOperationRef): boolean {
@@ -129,7 +129,7 @@ export class CoreStepJournalPreflight {
       try {
         return await this.transactions.write(current.saveId, current.transactionId, current.revision, next)
       } catch (error) {
-        if (!versionConflict(error)) throw error
+        if (!retryableJournalConflict(error)) throw error
         const refreshed = await this.transactions.read(current.saveId, current.transactionId)
         if (refreshed === undefined) throw new Error(`transaction 在 core step preflight 期间消失：${current.transactionId}`)
         current = refreshed
