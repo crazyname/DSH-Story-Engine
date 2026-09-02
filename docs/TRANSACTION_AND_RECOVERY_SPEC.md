@@ -70,6 +70,7 @@
 - stable ID 使用 1–128 位 ASCII：首字符为字母或数字，其余字符可使用字母、数字、`.`、`_`、`:`、`-`；
 - `operationId` 的作用域至少包含一个 save/runtime domain，不同存档不能因为字符串巧合互相命中 receipt；
 - 当 DSH session 已绑定一个 open player transaction 时，每个 mutating `story_*` 调用必须携带与该 journal 完全一致的 `transaction_id`；省略或错配必须在 tool body 前拒绝，使 D1 operation fingerprint 与 receipt 明确绑定该 transaction。没有 open player transaction 且调用方未声明 `transaction_id` 时，standalone mutation 仍允许；
+- 协调器必须在 hidden turn 第一次可能发起 mutating `story_*` 调用之前，把当前 durable `transactionId` 作为控制上下文提供给模型/执行层；不得把“先让第一次 mutation 因缺少 `transaction_id` 失败，再从错误文本学习 ID”当作正常路径。retry/continuation 继续使用同一个顶层 `transactionId`，同一原子 mutation 的重试仍复用原 `operationId`；
 - 在同一 save 中，只要 journal 仍保留某个 `operationId` 的 ownership evidence，后续 transaction 不得重用该 ID；并发 transaction 争用同一 ID 时，最终 journal 写临界区必须只允许一个 owner 成功。
 
 Core Runtime 接收这个稳定 ID，并在 canonical mutation 成功时把 receipt 与 mutation 原子持久化。完整 transaction 中由 journal/coordinator 在首次 core call 前保存 child step identity / `operationId`。
@@ -371,7 +372,7 @@ fork 后的新 save/session scope：
 12. hidden dispatch 前 Story Engine `turnId` 与 session evidence 已 durable；caller-controlled `dshRequestId` 在支持时也必须 pre-dispatch durable，carrier-generated identity 则验证 accepted 后一次性绑定与 response-loss `needs-recovery`；
 13. hidden dispatch 不确定窗口通过真实 DSH `dshRequestId/rpcId` correlation 对账出 native `dshTurn`，或明确进入 `needs-recovery`；
 14. 同 transaction 多 hidden retry/continuation turns 不重发原始玩家 input，只提交 canonical-result turn；
-15. active player transaction 的 mutating core call 必须携带正确 `transaction_id`；缺失/错配在 body 前失败，Core receipt fingerprint 必须 transaction-bound；
+15. active player transaction 的 hidden initial/retry control context 在第一次 mutating tool call 前携带正确 `transaction_id`；mutating core call 缺失/错配该 ID 在 body 前失败，Core receipt fingerprint 必须 transaction-bound；
 16. mutating core tool body 前 `stepKey + operationId` 已 durable，journal preflight 失败时 body 未执行，并发不同 step 不丢失 identity；
 17. 同一 save 的两个 transaction 并发争用同一 `operationId` 时只能有一个 journal owner；终态历史 owner 在 journal 保留期间仍阻止后续重用；
 18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；
