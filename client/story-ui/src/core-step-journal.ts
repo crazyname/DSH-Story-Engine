@@ -72,11 +72,12 @@ export function coreStepKey(transactionId: string, toolName: string, operationId
 /**
  * Persists child core-operation identity before a mutating story_* body runs.
  *
- * The active transaction is resolved from the durable hidden-session evidence,
- * not from browser memory. A model-supplied transaction_id is treated as an
- * additional assertion: when present it must match the resolved transaction.
- * Standalone story_* calls remain possible when the session has no open player
- * transaction and no transaction_id is claimed.
+ * The active transaction is resolved from durable hidden-session evidence, not
+ * browser memory. Once a session belongs to an open player transaction, every
+ * mutating story_* call must carry that exact transaction_id so the D1 receipt
+ * fingerprint is transaction-bound. Standalone story_* calls remain possible
+ * when the session has no open player transaction and no transaction_id is
+ * claimed.
  */
 export class CoreStepJournalPreflight {
   constructor(private readonly transactions: TransactionStorePort) {}
@@ -119,7 +120,10 @@ export class CoreStepJournalPreflight {
       return undefined
     }
 
-    if (claimedTransactionId !== undefined && claimedTransactionId !== current.transactionId) {
+    if (claimedTransactionId === undefined) {
+      throw new Error(`transaction_id 缺失；当前 session 属于 ${current.transactionId}；请使用相同 operation_id 重试并携带该 transaction_id`)
+    }
+    if (claimedTransactionId !== current.transactionId) {
       throw new Error(`transaction identity 冲突：工具声明 ${claimedTransactionId}，当前 session 属于 ${current.transactionId}`)
     }
 
