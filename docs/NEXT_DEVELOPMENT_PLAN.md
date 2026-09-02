@@ -88,8 +88,8 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - 利用认证 DSH rc.2 的 `tools/execute` around-dispatch：九个 mutating `story_*` 在真正 tool body 执行前，必须先通过 Story Host transaction preflight。
 - 由 journal hidden-turn `sessionId` 反查唯一 open transaction；多个 open transaction 争用同一 DSH session 时 fail-closed。
 - 第一次 core mutation body 前持久化稳定 `stepKey + operationId`；同一 identity 的 preflight replay 不产生新 revision。
-- 同一个 `operationId` 被不同 tool/step 复用显式冲突；并发不同 operationRef 通过 optimistic reread/retry 追加，不能互相覆盖。
-- tool 提供 `transaction_id` 时把它作为额外 identity assertion；没有 open player transaction 且没有声明 transaction identity 的独立 Story tool 使用仍可运行。
+- 同一个 `operationId` 被不同 tool/step 复用显式冲突；同一 save 的 journal 写使用短临界区串行并在最终写入前重查 operation ownership，并发不同 transaction 争用同一 `operationId` 只允许一个 owner；同 transaction 并发不同 operationRef 通过 optimistic reread/retry 追加。
+- active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在 body 前拒绝，使 D1 receipt fingerprint transaction-bound。没有 open player transaction 且未声明 transaction identity 的 standalone Story mutation 仍可运行。
 - preflight 持久化失败必须阻止 tool body 执行。
 - `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
 
