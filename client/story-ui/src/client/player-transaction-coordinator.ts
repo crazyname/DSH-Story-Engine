@@ -13,7 +13,7 @@ function detail(error:unknown):string{return error instanceof Error?error.messag
 function hiddenTerminal(state:StoryHiddenTurnRef['state']):boolean{return state==='completed'||state==='failed'||state==='cancelled'}
 
 /**
- * Browser coordinator for the social-only part of a player transaction.
+ * Browser coordinator for one player transaction's hidden/social flow.
  * DSH rc.2 persists its carrier rpcId into durable message source metadata,
  * but its public client mints that id internally and only echoes it after the
  * response. Ambiguous dispatch therefore still degrades to recovery instead
@@ -38,6 +38,7 @@ export class PlayerTransactionCoordinator{
 
  private hooks(state:MutableTransaction,turnId:string,kind:StoryHiddenTurnKind):AiDispatchHooks{return{
   turnId,
+  transactionId:state.record.transactionId,
   beforeDispatch:async(evidence:AiDispatchEvidence)=>{const hidden:StoryHiddenTurnRef={turnId:evidence.turnId,kind,state:'planned',sessionId:evidence.sessionId};await this.save(state,{hiddenTurns:[...state.record.hiddenTurns,hidden],activeTurnId:evidence.turnId})},
   afterAccepted:async(evidence:AiDispatchEvidence)=>{const{index,turn}=this.findHidden(state.record,evidence.turnId);await this.save(state,{hiddenTurns:this.replaceHidden(state.record,index,{...turn,state:'dispatched',sessionId:evidence.sessionId,...(evidence.dshRequestId===undefined?{}:{dshRequestId:evidence.dshRequestId})})})},
   afterUncertain:async(evidence:AiDispatchEvidence,error:unknown)=>{await this.needsRecovery(state,evidence.turnId,error,'hidden-dispatch-uncertain',evidence)},
