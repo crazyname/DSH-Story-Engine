@@ -24,7 +24,7 @@ export const MUTATING_STORY_TOOLS: ReadonlySet<string> = new Set(MUTATING_STORY_
 type CoreToolExecution = {
   readonly name: string
   readonly arguments: unknown
-  readonly agent?: { readonly session?: { readonly id?: unknown } }
+  readonly agent?: { readonly id?: unknown }
 }
 
 type TransactionStorePort = Pick<StoryTransactionStore, 'findOpenBySession' | 'read' | 'write'>
@@ -43,8 +43,8 @@ function stableId(value: unknown, label: string): string {
 }
 
 function sessionId(exec: CoreToolExecution): string {
-  const value = exec.agent?.session?.id
-  if (typeof value !== 'string' || value.trim() === '') throw new Error('mutating story_* 工具缺少 Agent session identity')
+  const value = exec.agent?.id
+  if (typeof value !== 'string' || value.trim() === '') throw new Error('mutating story_* 工具缺少 Agent/session identity')
   return stableId(value, 'sessionId')
 }
 
