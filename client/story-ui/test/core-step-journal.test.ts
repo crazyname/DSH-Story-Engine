@@ -38,7 +38,7 @@ function execution(name: string, operationId: string, sessionId = 'session-1', t
       operation_id: operationId,
       ...(transactionId === undefined ? {} : { transaction_id: transactionId }),
     },
-    agent: { session: { id: sessionId } },
+    agent: { id: sessionId },
   }
 }
 
@@ -94,7 +94,7 @@ describe('core step journal preflight', () => {
     expect(record?.revision).toBe(3)
   })
 
-  it('rejects missing operation identity and non-string Agent session identity before dispatch', async () => {
+  it('rejects missing operation identity and non-string Agent identity before dispatch', async () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-invalid-')))
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
     const preflight = new CoreStepJournalPreflight(store)
@@ -102,14 +102,14 @@ describe('core step journal preflight', () => {
     await expect(preflight.prepare({
       name: 'story_commit_state',
       arguments: { transaction_id: 'tx-core' },
-      agent: { session: { id: 'session-1' } },
+      agent: { id: 'session-1' },
     })).rejects.toThrow('operation_id 必须是字符串')
 
     await expect(preflight.prepare({
       name: 'story_commit_state',
       arguments: { operation_id: 'op-invalid-session' },
-      agent: { session: { id: 42 } },
-    })).rejects.toThrow('缺少 Agent session identity')
+      agent: { id: 42 },
+    })).rejects.toThrow('缺少 Agent/session identity')
 
     expect((await store.read('save-a', 'tx-core'))?.operationRefs).toEqual([])
   })
