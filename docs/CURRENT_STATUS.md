@@ -9,7 +9,7 @@
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
 - 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator，以及 PR #11 / D2b pre-dispatch recovery hotfix。
-- 当前开发重点：D2c core step journal + cross-domain reconciliation。
+- 当前开发重点：D2c core step journal + cross-domain reconciliation；当前工作分支先交付 D2c-1 / core preflight operation linking，不宣称完整 D2c。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -46,12 +46,25 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 9. contract/store/client bridge/Host API 自动测试覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写，以及 browser bridge load/save/list/response identity。
 10. Client tracked artifacts 已由真实 bundler 同步：`lib/index.js` 随 Node/Host entry 变化更新，`lib/client.js` 与 `lib/client.js.map` 保持不变；重复构建后 worktree 保持干净。
 
-D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH history correlation。D2 整体仍未完成：core operation receipts 尚未接入顶层 coordinator，cancel 后 canonical-effect reconciliation、fork/restart 产品策略及完整真实浏览器故障矩阵仍待 D2c/D2d。
+D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH history correlation。D2 整体仍未完成：core operation receipts 尚未完成顶层 reconciliation，cancel 后 canonical-effect reconciliation、fork/restart 产品策略及完整真实浏览器故障矩阵仍待 D2c/D2d。
+
+### D2c-1：Core preflight operation linking — 当前工作分支，待验证/合并
+
+当前分支 `codex/stage-d-core-step-reconciliation` 先建立 core mutation 的 durable-before-body 边界：
+
+- 认证 DSH rc.2 的 `tools/execute` around-dispatch 在最终 `dispatchToolBody()` 之前执行；Story Host 只拦截九个 mutating `story_*`，先完成 transaction journal preflight，成功后才调用 `next()` 进入工具 body。
+- active transaction 由 journal 中 hidden turn 的 durable `sessionId` 反查，而不是依赖浏览器内存；同一个 DSH session 若同时映射多个 open transaction 会 fail-closed。
+- 每个 mutating call 在 body 前把稳定 `stepKey + operationId` 追加到 `operationRefs`；相同 identity replay 不增加 journal revision，同一 `operationId` 被不同 core step/tool 复用显式冲突。
+- 可选 `transaction_id` 在此层作为额外 assertion；若提供则必须与 session 解析出的 transaction 匹配。没有 open player transaction、也没有声明 `transaction_id` 的独立 Story 工具调用仍保持可用。
+- 并发不同 core step 使用 optimistic reread/retry 合并追加；真实 step/operation identity 冲突在重读后仍拒绝。
+- `operationRef` 只证明“该 core step identity 已在工具 body 前持久化”，不证明 canonical mutation 已经发生。是否 applied 必须由匹配的 Core Runtime receipt 证明；这一区分也覆盖 `story_record_work_event` 高影响升级而不落盘的合法 no-op 路径。
+
+该切片目前尚未执行本机 Client typecheck/test/build，也尚未由真实 bundler 同步新的 Host `lib/index.js`；因此不属于已验证/可合并基线。D2c-2 仍需把 tool result / core receipt 与 social projection reconciliation 接起来，才能解决 core→social crash window、partial multi-operation 和 late cancel after canonical effect。
 
 ## D2 尚未完成
 
-- child core step identity / `operationId` 在第一次 core mutation 前的 journal 持久化与多 operation 部分恢复。
-- core receipt → social projection 的跨域恢复协调器。
+- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight；本机验证、tracked Host artifact 同步和合并仍待完成。
+- D2c-2：core receipt / tool result → social projection 的跨域恢复协调器，以及多个 core mutation 部分提交后的 applied/skipped 判定。
 - canonical effect 已发生后的 cancel/reconciliation 语义落地。
 - 非终态 transaction 与 Save As / fork 的正式产品策略。
 - restart、partial commit、hidden retry/continuation、core→social crash-window 的完整自动与真实浏览器矩阵。
@@ -102,6 +115,8 @@ D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f979255
 - 自动故障注入覆盖 hidden session bootstrap 与 `beforeDispatch` journal 写入失败；恢复后只派发一次并且不重复玩家输入。
 - tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
 - 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
+
+D2c-1 当前工作分支尚未执行 typecheck/test/build，也没有真实 DSH/browser 验收。由于 Node/Host entry 已修改，`client/story-ui/lib/index.js` 在本分支上预期为 stale，必须由认证 Windows DSH toolchain 真实构建后同步；不得手工伪造 bundle。`lib/client.js` / `client.js.map` 是否变化以真实 build 结果为准。
 
 本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 
