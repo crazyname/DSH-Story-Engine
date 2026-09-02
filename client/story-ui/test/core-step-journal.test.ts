@@ -94,6 +94,26 @@ describe('core step journal preflight', () => {
     expect(record?.revision).toBe(3)
   })
 
+  it('rejects missing operation identity and non-string Agent session identity before dispatch', async () => {
+    const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-invalid-')))
+    await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
+    const preflight = new CoreStepJournalPreflight(store)
+
+    await expect(preflight.prepare({
+      name: 'story_commit_state',
+      arguments: { transaction_id: 'tx-core' },
+      agent: { session: { id: 'session-1' } },
+    })).rejects.toThrow('operation_id 必须是字符串')
+
+    await expect(preflight.prepare({
+      name: 'story_commit_state',
+      arguments: { operation_id: 'op-invalid-session' },
+      agent: { session: { id: 42 } },
+    })).rejects.toThrow('缺少 Agent session identity')
+
+    expect((await store.read('save-a', 'tx-core'))?.operationRefs).toEqual([])
+  })
+
   it('allows standalone mutations only when no transaction is claimed and leaves non-mutating tools untouched', async () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-standalone-')))
     const preflight = new CoreStepJournalPreflight(store)
