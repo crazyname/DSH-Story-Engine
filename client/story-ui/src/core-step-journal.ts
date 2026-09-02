@@ -7,7 +7,7 @@ import {
 } from './transaction-journal.ts'
 import type { StoryTransactionStore } from './transaction-store.ts'
 
-export const MUTATING_STORY_TOOLS = new Set([
+const MUTATING_STORY_TOOL_NAMES = [
   'story_commit_state',
   'story_advance_scene',
   'story_initialize_episode_state',
@@ -17,7 +17,9 @@ export const MUTATING_STORY_TOOLS = new Set([
   'story_pause_for_revision',
   'story_submit_script_revision',
   'story_record_episode_summary',
-] as const)
+] as const
+
+export const MUTATING_STORY_TOOLS: ReadonlySet<string> = new Set(MUTATING_STORY_TOOL_NAMES)
 
 type CoreToolExecution = {
   readonly name: string
@@ -42,8 +44,8 @@ function stableId(value: unknown, label: string): string {
 
 function sessionId(exec: CoreToolExecution): string {
   const value = exec.agent?.session?.id
-  if (value === undefined || value === null || String(value).trim() === '') throw new Error('mutating story_* 工具缺少 Agent session identity')
-  return stableId(String(value), 'sessionId')
+  if (typeof value !== 'string' || value.trim() === '') throw new Error('mutating story_* 工具缺少 Agent session identity')
+  return stableId(value, 'sessionId')
 }
 
 function versionConflict(error: unknown): boolean {
@@ -55,7 +57,7 @@ function sameOperationRef(left: StoryOperationRef, right: StoryOperationRef): bo
 }
 
 export function isMutatingStoryTool(name: string): boolean {
-  return MUTATING_STORY_TOOLS.has(name as (typeof MUTATING_STORY_TOOLS extends Set<infer T> ? T : never))
+  return MUTATING_STORY_TOOLS.has(name)
 }
 
 export function coreStepKey(transactionId: string, toolName: string, operationId: string): string {
@@ -64,7 +66,7 @@ export function coreStepKey(transactionId: string, toolName: string, operationId
   const digest = createHash('sha256')
     .update(JSON.stringify([transactionId, toolName, operationId]))
     .digest('hex')
-  return `core-${digest.slice(0, 40)}`
+  return `core-${digest}`
 }
 
 /**
