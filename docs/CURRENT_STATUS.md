@@ -55,8 +55,9 @@ D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH histor
 - 认证 DSH rc.2 的 `tools/execute` around-dispatch 在最终 `dispatchToolBody()` 之前执行；Story Host 只拦截九个 mutating `story_*`，先完成 transaction journal preflight，成功后才调用 `next()` 进入工具 body。
 - active transaction 由 journal 中 hidden turn 的 durable `sessionId` 反查，而不是依赖浏览器内存；同一个 DSH session 若同时映射多个 open transaction 会 fail-closed。
 - 每个 mutating call 在 body 前把稳定 `stepKey + operationId` 追加到 `operationRefs`；相同 identity replay 不增加 journal revision，同一 `operationId` 被不同 core step/tool 复用显式冲突。
-- 可选 `transaction_id` 在此层作为额外 assertion；若提供则必须与 session 解析出的 transaction 匹配。没有 open player transaction、也没有声明 `transaction_id` 的独立 Story 工具调用仍保持可用。
-- 并发不同 core step 使用 optimistic reread/retry 合并追加；真实 step/operation identity 冲突在重读后仍拒绝。
+- active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在工具 body 前拒绝，确保 D1 operation fingerprint / receipt 与顶层 transaction 绑定。没有 open player transaction、也没有声明 `transaction_id` 的独立 Story mutation 仍保持可用。
+- 同一 save 的 journal 写使用本地短临界区串行；不同 transaction 并发争用同一 `operationId` 时在最终写入前重新检查 ownership，只允许一个 owner 成功。终态历史 transaction 的 operation ownership 在 journal 保留期间仍阻止后续 transaction 重用同一 ID。
+- 同一 transaction 内并发不同 core step 使用 optimistic reread/retry 合并追加；真实 step/operation identity 冲突在重读后仍拒绝。
 - `operationRef` 只证明“该 core step identity 已在工具 body 前持久化”，不证明 canonical mutation 已经发生。是否 applied 必须由匹配的 Core Runtime receipt 证明；这一区分也覆盖 `story_record_work_event` 高影响升级而不落盘的合法 no-op 路径。
 
 该切片目前尚未执行本机 Client typecheck/test/build，也尚未由真实 bundler 同步新的 Host `lib/index.js`；因此不属于已验证/可合并基线。D2c-2 仍需把 tool result / core receipt 与 social projection reconciliation 接起来，才能解决 core→social crash window、partial multi-operation 和 late cancel after canonical effect。
