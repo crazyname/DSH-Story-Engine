@@ -94,6 +94,26 @@ describe('core step journal preflight', () => {
     expect(record?.revision).toBe(3)
   })
 
+  it('serializes competing transactions so one operation id has only one owner in a save', async () => {
+    const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-cross-tx-race-')))
+    await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-a', sessionId: 'session-a' })
+    await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-b', sessionId: 'session-b' })
+    const preflight = new CoreStepJournalPreflight(store)
+
+    const settled = await Promise.allSettled([
+      preflight.prepare(execution('story_commit_state', 'op-race', 'session-a')),
+      preflight.prepare(execution('story_commit_state', 'op-race', 'session-b')),
+    ])
+    expect(settled.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+    expect(settled.filter(result => result.status === 'rejected')).toHaveLength(1)
+
+    const a = await store.read('save-a', 'tx-a')
+    const b = await store.read('save-a', 'tx-b')
+    const owners = [a, b].filter(record => record?.operationRefs.some(ref => ref.operationId === 'op-race'))
+    expect(owners).toHaveLength(1)
+    expect([a?.operationRefs.length, b?.operationRefs.length].sort()).toEqual([0, 1])
+  })
+
   it('rejects missing operation identity and non-string Agent identity before dispatch', async () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-invalid-')))
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
