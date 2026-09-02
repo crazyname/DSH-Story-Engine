@@ -56,15 +56,16 @@ D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH histor
 - active transaction 由 journal 中 hidden turn 的 durable `sessionId` 反查，而不是依赖浏览器内存；同一个 DSH session 若同时映射多个 open transaction 会 fail-closed。
 - 每个 mutating call 在 body 前把稳定 `stepKey + operationId` 追加到 `operationRefs`；相同 identity replay 不增加 journal revision，同一 `operationId` 被不同 core step/tool 复用显式冲突。
 - active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在工具 body 前拒绝，确保 D1 operation fingerprint / receipt 与顶层 transaction 绑定。没有 open player transaction、也没有声明 `transaction_id` 的独立 Story mutation 仍保持可用。
+- `PlayerTransactionCoordinator` 把 durable `transactionId` 作为 hidden control context 交给 `StoryAiBridge`；initial/retry prompt 在模型第一次 mutating tool call 前就要求携带完全相同的 `transaction_id`，同一原子 mutation retry 仍复用原 `operation_id`。该控制上下文只存在于隐藏 DSH prompt/pending turn，不进入 social canonical messages。
 - 同一 save 的 journal 写使用本地短临界区串行；不同 transaction 并发争用同一 `operationId` 时在最终写入前重新检查 ownership，只允许一个 owner 成功。终态历史 transaction 的 operation ownership 在 journal 保留期间仍阻止后续 transaction 重用同一 ID。
 - 同一 transaction 内并发不同 core step 使用 optimistic reread/retry 合并追加；真实 step/operation identity 冲突在重读后仍拒绝。
 - `operationRef` 只证明“该 core step identity 已在工具 body 前持久化”，不证明 canonical mutation 已经发生。是否 applied 必须由匹配的 Core Runtime receipt 证明；这一区分也覆盖 `story_record_work_event` 高影响升级而不落盘的合法 no-op 路径。
 
-该切片目前尚未执行本机 Client typecheck/test/build，也尚未由真实 bundler 同步新的 Host `lib/index.js`；因此不属于已验证/可合并基线。D2c-2 仍需把 tool result / core receipt 与 social projection reconciliation 接起来，才能解决 core→social crash window、partial multi-operation 和 late cancel after canonical effect。
+该切片目前尚未执行本机 Client typecheck/test/build，也尚未由真实 bundler 同步本分支的 tracked Client artifacts；因此不属于已验证/可合并基线。D2c-2 仍需把 tool result / core receipt 与 social projection reconciliation 接起来，才能解决 core→social crash window、partial multi-operation 和 late cancel after canonical effect。
 
 ## D2 尚未完成
 
-- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight；本机验证、tracked Host artifact 同步和合并仍待完成。
+- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight 与 hidden transaction control context；本机验证、tracked Client artifact 同步和合并仍待完成。
 - D2c-2：core receipt / tool result → social projection 的跨域恢复协调器，以及多个 core mutation 部分提交后的 applied/skipped 判定。
 - canonical effect 已发生后的 cancel/reconciliation 语义落地。
 - 非终态 transaction 与 Save As / fork 的正式产品策略。
@@ -117,7 +118,7 @@ D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f979255
 - tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
 - 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
 
-D2c-1 当前工作分支尚未执行 typecheck/test/build，也没有真实 DSH/browser 验收。由于 Node/Host entry 已修改，`client/story-ui/lib/index.js` 在本分支上预期为 stale，必须由认证 Windows DSH toolchain 真实构建后同步；不得手工伪造 bundle。`lib/client.js` / `client.js.map` 是否变化以真实 build 结果为准。
+D2c-1 当前工作分支尚未执行 typecheck/test/build，也没有真实 DSH/browser 验收。由于 Node/Host entry 与 browser client source 都已修改，`client/story-ui/lib/index.js`、`lib/client.js`、`lib/client.js.map` 在本分支上均须以认证 Windows DSH toolchain 的真实构建结果为准并同步；不得手工伪造 bundle/source map。重复构建后还必须确认 tracked artifacts deterministic/clean。
 
 本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 
