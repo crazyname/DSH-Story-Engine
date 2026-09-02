@@ -48,23 +48,25 @@ describe('core step journal preflight', () => {
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
     const preflight = new CoreStepJournalPreflight(store)
 
-    const first = await preflight.prepare(execution('story_commit_state', 'op-1'))
+    const first = await preflight.prepare(execution('story_commit_state', 'op-1', 'session-1', 'tx-core'))
     expect(first?.operationRefs).toEqual([{
       stepKey: coreStepKey('tx-core', 'story_commit_state', 'op-1'),
       operationId: 'op-1',
     }])
     expect(first?.revision).toBe(2)
 
-    const replay = await preflight.prepare(execution('story_commit_state', 'op-1'))
+    const replay = await preflight.prepare(execution('story_commit_state', 'op-1', 'session-1', 'tx-core'))
     expect(replay?.revision).toBe(2)
     expect((await store.read('save-a', 'tx-core'))?.operationRefs).toHaveLength(1)
   })
 
-  it('treats a supplied transaction_id as an assertion and rejects mismatches without mutation', async () => {
+  it('requires the active transaction identity and rejects mismatches without mutation', async () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-tx-')))
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
     const preflight = new CoreStepJournalPreflight(store)
 
+    await expect(preflight.prepare(execution('story_commit_state', 'op-missing-tx')))
+      .rejects.toThrow('transaction_id 缺失')
     await expect(preflight.prepare(execution('story_commit_state', 'op-1', 'session-1', 'tx-other')))
       .rejects.toThrow('transaction identity 冲突')
     expect((await store.read('save-a', 'tx-core'))?.operationRefs).toEqual([])
@@ -75,8 +77,8 @@ describe('core step journal preflight', () => {
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-core', sessionId: 'session-1' })
     const preflight = new CoreStepJournalPreflight(store)
 
-    await preflight.prepare(execution('story_commit_state', 'op-shared'))
-    await expect(preflight.prepare(execution('story_advance_scene', 'op-shared')))
+    await preflight.prepare(execution('story_commit_state', 'op-shared', 'session-1', 'tx-core'))
+    await expect(preflight.prepare(execution('story_advance_scene', 'op-shared', 'session-1', 'tx-core')))
       .rejects.toThrow('core step identity 已被不同 operation 占用')
   })
 
@@ -86,8 +88,8 @@ describe('core step journal preflight', () => {
     const preflight = new CoreStepJournalPreflight(store)
 
     await Promise.all([
-      preflight.prepare(execution('story_commit_state', 'op-a')),
-      preflight.prepare(execution('story_enter_episode_scene', 'op-b')),
+      preflight.prepare(execution('story_commit_state', 'op-a', 'session-1', 'tx-core')),
+      preflight.prepare(execution('story_enter_episode_scene', 'op-b', 'session-1', 'tx-core')),
     ])
     const record = await store.read('save-a', 'tx-core')
     expect(record?.operationRefs.map(item => item.operationId).sort()).toEqual(['op-a', 'op-b'])
@@ -101,8 +103,8 @@ describe('core step journal preflight', () => {
     const preflight = new CoreStepJournalPreflight(store)
 
     const settled = await Promise.allSettled([
-      preflight.prepare(execution('story_commit_state', 'op-race', 'session-a')),
-      preflight.prepare(execution('story_commit_state', 'op-race', 'session-b')),
+      preflight.prepare(execution('story_commit_state', 'op-race', 'session-a', 'tx-a')),
+      preflight.prepare(execution('story_commit_state', 'op-race', 'session-b', 'tx-b')),
     ])
     expect(settled.filter(result => result.status === 'fulfilled')).toHaveLength(1)
     expect(settled.filter(result => result.status === 'rejected')).toHaveLength(1)
@@ -127,7 +129,7 @@ describe('core step journal preflight', () => {
 
     await expect(preflight.prepare({
       name: 'story_commit_state',
-      arguments: { operation_id: 'op-invalid-session' },
+      arguments: { operation_id: 'op-invalid-session', transaction_id: 'tx-core' },
       agent: { id: 42 },
     })).rejects.toThrow('缺少 Agent/session identity')
 
@@ -138,7 +140,7 @@ describe('core step journal preflight', () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-owner-')))
     const preflight = new CoreStepJournalPreflight(store)
     const oldLinked = await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-old', sessionId: 'session-old' })
-    const oldWithOperation = await preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-old'))
+    const oldWithOperation = await preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-old', 'tx-old'))
     expect(oldWithOperation?.operationRefs[0]?.operationId).toBe('op-reserved')
 
     const oldTerminal = reviseTransaction(oldWithOperation!, {
@@ -149,7 +151,7 @@ describe('core step journal preflight', () => {
     await store.write('save-a', 'tx-old', oldWithOperation!.revision, oldTerminal)
 
     await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-new', sessionId: 'session-new' })
-    await expect(preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-new')))
+    await expect(preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-new', 'tx-new')))
       .rejects.toThrow('operationId op-reserved 已属于 tx-old')
     expect((await store.read('save-a', 'tx-new'))?.operationRefs).toEqual([])
     expect(oldLinked.revision).toBe(1)
