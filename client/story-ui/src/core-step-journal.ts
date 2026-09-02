@@ -27,7 +27,7 @@ type CoreToolExecution = {
   readonly agent?: { readonly id?: unknown }
 }
 
-type TransactionStorePort = Pick<StoryTransactionStore, 'findOpenBySession' | 'read' | 'write'>
+type TransactionStorePort = Pick<StoryTransactionStore, 'findOpenBySession' | 'findOperationOwner' | 'read' | 'write'>
 
 const TERMINAL_TRANSACTION = new Set<StoryTransactionRecord['status']>(['committed', 'cancelled', 'failed'])
 
@@ -96,6 +96,13 @@ export class CoreStepJournalPreflight {
     }
   }
 
+  private async assertOperationOwnership(record: StoryTransactionRecord, operationId: string): Promise<void> {
+    const owner = await this.transactions.findOperationOwner(record.saveId, operationId)
+    if (owner !== undefined && owner.transactionId !== record.transactionId) {
+      throw new Error(`transaction 幂等冲突：operationId ${operationId} 已属于 ${owner.transactionId}`)
+    }
+  }
+
   async prepare(exec: CoreToolExecution): Promise<StoryTransactionRecord | undefined> {
     if (!isMutatingStoryTool(exec.name)) return undefined
 
@@ -123,6 +130,7 @@ export class CoreStepJournalPreflight {
 
     for (let attempt = 0; attempt < 8; attempt += 1) {
       this.assertRecordStillOwnsSession(current, currentSessionId)
+      await this.assertOperationOwnership(current, operationId)
       if (this.existing(current, expected) !== undefined) return current
 
       const next = reviseTransaction(current, { operationRefs: [...current.operationRefs, expected] })
