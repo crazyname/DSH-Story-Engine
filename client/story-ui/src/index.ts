@@ -99,15 +99,13 @@ export function apply(ctx:Context,config:Config={}):void{
       if(typeof payload.packId!=='string'||typeof payload.sourceSessionId!=='string'||typeof payload.targetSessionId!=='string'){json(res,400,{error:'请求格式无效'});return}
       const cloned=await runtime.clone(payload.packId,payload.sourceSessionId,payload.targetSessionId)
       json(res,200,{cloned})
-    }catch(error){json(res,400,{error:message(error)})
-    }
+    }catch(error){json(res,400,{error:message(error)})}
   }}),'story-ui: runtime clone API')
 
   ctx.effect(()=>ctx.webServer.register({kind:'exact',path:CATALOG,async handler(req,res){
     try{
       if(req.method!=='GET'){res.setHeader('allow','GET');json(res,405,{error:'方法不允许'});return}
       json(res,200,{packs:await catalog.list()})
-    }catch(error){json(res,400,{error:message(error)})
-    }
+    }catch(error){json(res,400,{error:message(error)})}
   }}),'story-ui: content pack catalog API')
 }
