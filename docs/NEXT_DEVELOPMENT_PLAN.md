@@ -14,7 +14,7 @@ M5：1.0 Release Candidate
 v1.0.0 Stable
 ```
 
-Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5、D2a / PR #6、D2b / PR #9 及其 pre-dispatch recovery hotfix / PR #11 已合并；当前开发进入 D2c。
+Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5、D2a / PR #6、D2b / PR #9 及其 pre-dispatch recovery hotfix / PR #11 已合并；当前开发进入 D2c，并按 D2c-1 / D2c-2 两个小切片收口。
 
 ## M3：Stage D
 
@@ -77,16 +77,34 @@ D2a 完成条件已经满足：Client typecheck 通过；17 个测试文件 / 10
 
 D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按认证 rc.2 `user/message.source.rpcId` 进行 rpcId→native turn durable history 对账与跨页回溯、failed hidden turn 的同 transaction retry、canonical projection→ack→journal commit 顺序，以及 browser pending 丢失但 journal 保留 `sessionId + dshRequestId` 时的 recovery turn 重建。PR #11 进一步保证 Host 玩家 projection 可能已保存、但 hidden evidence 尚未产生时，session/bootstrap 或 journal 前置失败保持非终态并可从浏览器旧 projection 恢复，不重复玩家输入。hotfix 后根项目 9 个测试文件/38 项测试、Client 28 个测试文件/142 项测试及两端 typecheck/build 全部通过，tracked lib 重复构建一致。continuation、cancel/core-effect reconciliation 属于 D2c；restart、partial commit 及真实 certified DSH/browser crash-window 完整矩阵在 D2d 统一验收。
 
-#### D2c：Core step journal + cross-domain reconciliation
+#### D2c：Core step journal + cross-domain reconciliation — 当前阶段
 
-目标：把 D1 core receipts 接到 transaction coordinator。
+目标：把 D1 core receipts 接到 transaction coordinator。为了不把“计划了 operation”与“operation 已经产生 canonical effect”混成一个状态，D2c 分成两个顺序切片。
 
-- 每个计划中的 canonical core step 在第一次 mutation 前持久化稳定 step key / `operationId`。
-- 已有 matching core receipt 的 step 只 replay 原结果；未完成 step 才执行。
-- core effect 需要 social 可见结果时：先确认 core receipt，再补 social projection。
-- 支持多个 core mutations 部分提交后的恢复。
-- canonical effect 已存在后收到 cancel 不倒改历史，而是完成 reconciliation。
-- recovery 不用“最后一次 HTTP 是否成功”判断事实，而是读取 journal + DSH history + core receipts/runtime + Host projection。
+##### D2c-1：Core preflight operation linking — 当前工作分支
+
+目标：先建立不可绕过的 durable-before-body 边界。
+
+- 利用认证 DSH rc.2 的 `tools/execute` around-dispatch：九个 mutating `story_*` 在真正 tool body 执行前，必须先通过 Story Host transaction preflight。
+- 由 journal hidden-turn `sessionId` 反查唯一 open transaction；多个 open transaction 争用同一 DSH session 时 fail-closed。
+- 第一次 core mutation body 前持久化稳定 `stepKey + operationId`；同一 identity 的 preflight replay 不产生新 revision。
+- 同一个 `operationId` 被不同 tool/step 复用显式冲突；并发不同 operationRef 通过 optimistic reread/retry 追加，不能互相覆盖。
+- tool 提供 `transaction_id` 时把它作为额外 identity assertion；没有 open player transaction 且没有声明 transaction identity 的独立 Story tool 使用仍可运行。
+- preflight 持久化失败必须阻止 tool body 执行。
+- `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
+
+该切片必须在合并前完成 Client typecheck/test/build、tracked Host artifact 同步与 diff 自审。它只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
+
+##### D2c-2：Receipt/result reconciliation — D2c-1 后
+
+目标：用 Core Runtime receipt 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
+
+- 从 tool result 与 Runtime `_engine.operationReceipts` 区分 planned、skipped/no-op、applied/replayed core step，不能把 operationRef 本身当成成功证据。
+- 已有 matching core receipt 的 step 只 replay 原结果；没有 receipt 且确定需要执行的 step 才允许继续执行。
+- core effect 需要 social 可见结果时：先确认 matching core receipt，再补 social projection。
+- 支持多个 core mutations 部分提交后的恢复；恢复时逐 operationId 对账，不依赖“最后一个网络请求是否成功”。
+- canonical effect 已存在后收到 cancel 不倒改历史，而是进入/继续 reconciliation，完成必要 projection 后收敛。
+- transaction 的最终 `committed/failed` 判断同时读取 journal、DSH durable history、core receipts/runtime 与 Host projection。
 
 #### D2d：Fork / restart / failure matrix
 
