@@ -114,6 +114,27 @@ describe('core step journal preflight', () => {
     expect((await store.read('save-a', 'tx-core'))?.operationRefs).toEqual([])
   })
 
+  it('reserves an operation id across terminal and later transactions in the same save', async () => {
+    const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-owner-')))
+    const preflight = new CoreStepJournalPreflight(store)
+    const oldLinked = await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-old', sessionId: 'session-old' })
+    const oldWithOperation = await preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-old'))
+    expect(oldWithOperation?.operationRefs[0]?.operationId).toBe('op-reserved')
+
+    const oldTerminal = reviseTransaction(oldWithOperation!, {
+      status: 'cancelled',
+      hiddenTurns: oldWithOperation!.hiddenTurns.map(turn => ({ ...turn, state: 'cancelled' as const })),
+      activeTurnId: undefined,
+    }, new Date('2026-09-03T00:00:02.000Z'))
+    await store.write('save-a', 'tx-old', oldWithOperation!.revision, oldTerminal)
+
+    await openTransaction(store, { saveId: 'save-a', transactionId: 'tx-new', sessionId: 'session-new' })
+    await expect(preflight.prepare(execution('story_commit_state', 'op-reserved', 'session-new')))
+      .rejects.toThrow('operationId op-reserved 已属于 tx-old')
+    expect((await store.read('save-a', 'tx-new'))?.operationRefs).toEqual([])
+    expect(oldLinked.revision).toBe(1)
+  })
+
   it('allows standalone mutations only when no transaction is claimed and leaves non-mutating tools untouched', async () => {
     const store = new StoryTransactionStore(await mkdtemp(join(tmpdir(), 'story-core-step-standalone-')))
     const preflight = new CoreStepJournalPreflight(store)
