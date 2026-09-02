@@ -7,7 +7,7 @@ const ok=(value:unknown)=>({result:{ok:true as const,value}})
 describe('hidden transaction control context',()=>{
  it('keeps the same transaction id in initial and retry prompts without repeating player input',async()=>{
   const values=new Map<string,string>([['dsh-story-ai-session:save-tx-context','session-tx-context']])
-  const prompt=vi.fn(async()=>ok({accepted:true}))
+  const prompt=vi.fn(async(_payload:any)=>ok({accepted:true}))
   let history=0
   const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"收到。"}]}'
   const api={sessions:{
