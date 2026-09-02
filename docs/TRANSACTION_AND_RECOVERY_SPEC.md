@@ -68,7 +68,9 @@
 - 调用方必须在第一次 core mutation 调用之前确定并持久化稳定 `operationId`；
 - 可以随机生成，也可以由 `transactionId + 持久 stepKey` 确定性派生，但不能依赖未持久化的临时网络 request/tool-call index；
 - stable ID 使用 1–128 位 ASCII：首字符为字母或数字，其余字符可使用字母、数字、`.`、`_`、`:`、`-`；
-- `operationId` 的作用域至少包含一个 save/runtime domain，不同存档不能因为字符串巧合互相命中 receipt。
+- `operationId` 的作用域至少包含一个 save/runtime domain，不同存档不能因为字符串巧合互相命中 receipt；
+- 当 DSH session 已绑定一个 open player transaction 时，每个 mutating `story_*` 调用必须携带与该 journal 完全一致的 `transaction_id`；省略或错配必须在 tool body 前拒绝，使 D1 operation fingerprint 与 receipt 明确绑定该 transaction。没有 open player transaction 且调用方未声明 `transaction_id` 时，standalone mutation 仍允许；
+- 在同一 save 中，只要 journal 仍保留某个 `operationId` 的 ownership evidence，后续 transaction 不得重用该 ID；并发 transaction 争用同一 ID 时，最终 journal 写临界区必须只允许一个 owner 成功。
 
 Core Runtime 接收这个稳定 ID，并在 canonical mutation 成功时把 receipt 与 mutation 原子持久化。完整 transaction 中由 journal/coordinator 在首次 core call 前保存 child step identity / `operationId`。
 
@@ -179,10 +181,11 @@ journal 至少支持 `planned`、`dispatched`、`uncertain`、`completed`、`fai
 
 ### 5.4 Journal 写入语义
 
-- 同一 transaction 的写入使用 optimistic journal revision，并在进程内串行化临界区；
+- 同一 save 的 journal 写入使用进程内短临界区串行化；单个 transaction 仍使用 optimistic journal revision，锁只覆盖本地对账/写入，不跨模型、网络或用户选择；
 - 同 revision、内容完全相同的重放可以作为 already-applied replay 返回原记录；
 - 同 revision、内容不同必须冲突；
 - 同 `transactionId` 不同 input identity 必须显式冲突；
+- 同一 save 中不同 transaction 不能持有相同 `operationId`；ownership 在最终 journal 写临界区再次校验，不能只依赖锁外预查；
 - journal 文件损坏或身份不一致时恢复流程 fail-closed，不得静默跳过一条可能非终态的 recovery evidence；
 - 首版可以不主动删除/压缩 journal；删除与 compaction 见第 12 节。
 
@@ -368,15 +371,17 @@ fork 后的新 save/session scope：
 12. hidden dispatch 前 Story Engine `turnId` 与 session evidence 已 durable；caller-controlled `dshRequestId` 在支持时也必须 pre-dispatch durable，carrier-generated identity 则验证 accepted 后一次性绑定与 response-loss `needs-recovery`；
 13. hidden dispatch 不确定窗口通过真实 DSH `dshRequestId/rpcId` correlation 对账出 native `dshTurn`，或明确进入 `needs-recovery`；
 14. 同 transaction 多 hidden retry/continuation turns 不重发原始玩家 input，只提交 canonical-result turn；
-15. mutating core tool body 前 `stepKey + operationId` 已 durable，journal preflight 失败时 body 未执行，并发不同 step 不丢失 identity；
-16. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；
-17. core commit 后、social commit 前崩溃恢复；
-18. 多 operation transaction 中间崩溃只补未完成步骤；
-19. social host save 后、AI acknowledge 前恢复；
-20. cancelled 后晚到 completed result 不提交；
-21. canonical effect 已提交后才收到 cancel 时不倒改历史；
-22. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
-23. deterministic build 与 tracked artifacts 一致。
+15. active player transaction 的 mutating core call 必须携带正确 `transaction_id`；缺失/错配在 body 前失败，Core receipt fingerprint 必须 transaction-bound；
+16. mutating core tool body 前 `stepKey + operationId` 已 durable，journal preflight 失败时 body 未执行，并发不同 step 不丢失 identity；
+17. 同一 save 的两个 transaction 并发争用同一 `operationId` 时只能有一个 journal owner；终态历史 owner 在 journal 保留期间仍阻止后续重用；
+18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；
+19. core commit 后、social commit 前崩溃恢复；
+20. 多 operation transaction 中间崩溃只补未完成步骤；
+21. social host save 后、AI acknowledge 前恢复；
+22. cancelled 后晚到 completed result 不提交；
+23. canonical effect 已提交后才收到 cancel 时不倒改历史；
+24. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
+25. deterministic build 与 tracked artifacts 一致。
 
 单个阶段切片只能宣称其实际覆盖的子集，不能因为 core receipt 或 journal primitive 测试通过就宣称完整跨域 recovery 已完成。
 
