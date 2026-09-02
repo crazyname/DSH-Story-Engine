@@ -1,13 +1,15 @@
 import type{IncomingMessage,ServerResponse}from'node:http'
 import type{Context}from'@deepseek-ai/cordis'
 import type{}from'@deepseek-ai/dsh-host-webserver'
+import type{}from'@deepseek-ai/dsh-tools'
 import{StoryProjectionStore,type SaveSummary}from'./host-store.ts'
 import{StoryRuntimeStore}from'./runtime-store.ts'
 import{StoryCatalogStore}from'./catalog-store.ts'
 import{StoryTransactionStore}from'./transaction-store.ts'
 import{assertSaveId,assertTransactionId}from'./transaction-journal.ts'
+import{CoreStepJournalPreflight,isMutatingStoryTool}from'./core-step-journal.ts'
 
-export const inject=['webServer']
+export const inject=['webServer','tools']
 export interface Config{runtimeRoot?:string;storyRuntimeRoot?:string;packsRoot?:string}
 const SAVE_BASE='/story-engine/api/saves/'
 const TRANSACTION_BASE='/story-engine/api/transactions/'
@@ -30,6 +32,13 @@ export function apply(ctx:Context,config:Config={}):void{
   const transactions=new StoryTransactionStore(runtimeRoot)
   const runtime=new StoryRuntimeStore(config.storyRuntimeRoot??'D:/DSH-Story-Engine/runtime')
   const catalog=new StoryCatalogStore(config.packsRoot??'D:/DSH-Story-Engine/packs')
+  const coreSteps=new CoreStepJournalPreflight(transactions)
+
+  ctx.on('tools/execute',async(exec,next)=>{
+    if(!isMutatingStoryTool(exec.name))return next()
+    try{await coreSteps.prepare(exec)}catch(error){throw new Error(`Story core step preflight 失败：${message(error)}`)}
+    return next()
+  })
 
   ctx.effect(()=>ctx.webServer.register({kind:'prefix',path:SAVE_BASE.slice(0,-1),async handler(req,res){
     try{
@@ -90,13 +99,15 @@ export function apply(ctx:Context,config:Config={}):void{
       if(typeof payload.packId!=='string'||typeof payload.sourceSessionId!=='string'||typeof payload.targetSessionId!=='string'){json(res,400,{error:'请求格式无效'});return}
       const cloned=await runtime.clone(payload.packId,payload.sourceSessionId,payload.targetSessionId)
       json(res,200,{cloned})
-    }catch(error){json(res,400,{error:message(error)})}
+    }catch(error){json(res,400,{error:message(error)})
+    }
   }}),'story-ui: runtime clone API')
 
   ctx.effect(()=>ctx.webServer.register({kind:'exact',path:CATALOG,async handler(req,res){
     try{
       if(req.method!=='GET'){res.setHeader('allow','GET');json(res,405,{error:'方法不允许'});return}
       json(res,200,{packs:await catalog.list()})
-    }catch(error){json(res,400,{error:message(error)})}
+    }catch(error){json(res,400,{error:message(error)})
+    }
   }}),'story-ui: content pack catalog API')
 }
