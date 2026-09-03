@@ -2,6 +2,7 @@ export interface StoryToolCallEvidence{
  operationId:string
  transactionId:string
  toolName:string
+ argumentsCanonical:string
  callId:string
  callSeq:number
  resultSeq?:number
@@ -16,6 +17,12 @@ function args(value:unknown):Record<string,unknown>|undefined{
  if(typeof value!=='string')return undefined
  try{const parsed=JSON.parse(value)as unknown;return parsed!==null&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed as Record<string,unknown>:undefined}catch{return undefined}
 }
+function canonical(value:unknown):unknown{
+ if(Array.isArray(value))return value.map(canonical)
+ if(value!==null&&typeof value==='object')return Object.fromEntries(Object.keys(value as Record<string,unknown>).sort().map(key=>[key,canonical((value as Record<string,unknown>)[key])]))
+ return value
+}
+function canonicalArgs(value:Record<string,unknown>):string{return JSON.stringify(canonical(value))}
 function resultCallId(event:any):string|undefined{
  const source=event?.data?.message?.source
  if(source?.kind==='tool'&&typeof source.callId==='string')return source.callId
@@ -46,8 +53,8 @@ export function collectToolOperationEvidence(entries:HistoryEntry[],transactionI
   const operationId=parsed.operation_id,claimedTransaction=parsed.transaction_id
   if(typeof operationId!=='string'||!operationIds.has(operationId)||claimedTransaction!==transactionId)continue
   const existing=calls.get(callId)
-  const next:StoryToolCallEvidence={operationId,transactionId,toolName:name,callId,callSeq}
-  if(existing!==undefined&&(existing.operationId!==next.operationId||existing.transactionId!==next.transactionId||existing.toolName!==next.toolName||existing.callSeq!==next.callSeq))throw new Error(`DSH tool call identity 冲突：${callId}`)
+  const next:StoryToolCallEvidence={operationId,transactionId,toolName:name,argumentsCanonical:canonicalArgs(parsed),callId,callSeq}
+  if(existing!==undefined&&(existing.operationId!==next.operationId||existing.transactionId!==next.transactionId||existing.toolName!==next.toolName||existing.argumentsCanonical!==next.argumentsCanonical||existing.callSeq!==next.callSeq))throw new Error(`DSH tool call identity 冲突：${callId}`)
   calls.set(callId,existing??next)
  }
  for(const event of ordered){
