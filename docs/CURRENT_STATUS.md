@@ -58,18 +58,21 @@ PR #12 已合并。主要保证：
 当前分支已实现以下 repo-side 逻辑：
 
 - `StoryRuntimeStore.readReceipt()` 只读 Runtime schema v3 `_engine.operationReceipts`；schema v2 不作为 D1 receipt 来源，未知/损坏 schema fail-closed。
-- Host `GET /story-engine/api/core-receipts/{saveId}/{transactionId}/{operationId}` 只允许读取 transaction-owned operation、Host projection 所属 pack 与 journal-owned hidden sessions；跨 transaction/session receipt 冲突显式拒绝。
+- Host `GET /story-engine/api/core-receipts/{saveId}/{transactionId}/{operationId}` 只允许读取 transaction-owned operation、Host projection 所属 pack 与 journal-owned hidden sessions；receipt 的 transaction identity、operation 名称和由 `transactionId + operation + operationId` 重算的 `stepKey` 都必须与 journal 一致，跨 transaction/session/operation receipt 冲突显式拒绝。
 - browser `HostCoreReceiptReader` 对 receipt 结构、operationId、transactionId 再校验。
-- `DshToolEvidenceReader` 分页读取认证 rc.2 append-only history；`tool/call` 与 `tool/result` 按 callId 配对，并验证 `source.callId` / `toolCallId` 一致。
-- 无 receipt evidence 记录规范化 tool arguments identity；同 operationId 被不同 tool/arguments 使用、跨 hidden session 重复、仍有 pending attempt 时 fail-closed。
-- `CoreTransactionReconciler` 区分 `applied-or-replayed`、`skipped`、`failed`、`pending`、`inconsistent`。matching D1 receipt 是 applied/replayed 权威证据；当前明确允许的无 receipt success 是高影响 `story_record_work_event` 的 `{ escalated: true, recorded: false }`。
+- `DshToolEvidenceReader` 分页读取认证 rc.2 append-only history；`tool/call` 与 `tool/result` 按 call identity 配对。terminal result 必须同时拥有一致的 `message.source.callId` 与 `tool-result.toolCallId`，缺一侧保持 pending，互相冲突 fail-closed。
+- durable tool arguments 使用 D1 语义 identity：忽略不参与 fingerprint 的 `expected_version`，并归一化 wrapper 注入的默认值；duplicate result 的 seq、isError 与 canonical content 也必须一致。
+- matching receipt 仍是 applied/replayed 权威证据，但 receipt 不会掩盖 durable tool identity 漂移：同 operationId 后续被不同 tool/semantic arguments 复用、跨 hidden session 出现冲突 evidence，仍判 `inconsistent` 并阻止 social commit。
+- `CoreTransactionReconciler` 区分 `applied-or-replayed`、`skipped`、`failed`、`pending`、`inconsistent`。当前明确允许的无 receipt success 是高影响 `story_record_work_event` 的 `{ escalated: true, recorded: false }`；其它成功 mutating result 缺 receipt fail-closed。
+- `StoryTransactionStore` 进一步要求任一 durable transaction revision 最多一个非终态 hidden turn；历史 refs 可以保留多个，但 retry/continuation 必须等上一 attempt 收敛为 `completed` / `failed` / `cancelled`，第二个未完成 turn 的 journal 写在 prompt 发送前被拒绝。
 - normal dispatch 和 restart/recover 在外部 hidden/model 等待结束后重新读取 Host journal，避免 D2c-1 preflight 在等待期间推进 revision 后，被 stale browser record 覆盖或丢失 `operationRefs`。
-- hidden result 在交给 social commit 路径前先做 Core reconciliation；已 durable 的 social projection 在 recover/acknowledge 时也会再次核对 Core evidence。
-- 无 canonical effect 且 core attempts 明确失败可收敛 `failed`；pending/inconsistent 保持 `needs-recovery`。
+- hidden result 在交给 social commit 路径前先做 Core reconciliation；已 durable 的 social projection 在 recover 与最终 acknowledge 时也会再次核对 Core evidence。Core evidence 在最后一道 acknowledge barrier 重新变成 pending/inconsistent 时不得 commit。
+- 无 canonical effect 且 core attempts 明确失败可收敛 `failed`；terminal `failed` journal 必须先持久化成功，随后才允许 acknowledge 本地 AI pending result。pending/inconsistent 保持 `needs-recovery`。
 - 多 operation partial commit 被识别为 `repairablePartial`：已 receipt-confirmed operation 不重做；恢复动作只启动一个 continuation hidden turn；不重发玩家输入；明确 failed 的同一原子 mutation retry 必须复用原 `operation_id`。
+- 已存在 core `operationRefs` 的 failed hidden retry 会先重新 Core reconcile；unresolved evidence 禁止 generic retry，只有 ready/repairable/deterministic outcome 才进入受控 continuation，不会重新发送原玩家输入。
 - canonical effect 已存在后 cancel 不倒改 canonical history；进入 `needs-recovery` 并通过 reconciliation/continuation 补齐必要结果。只有无 canonical effect 且无 unresolved evidence 才能进入 `cancelled`。
 
-本分支已新增对应自动测试源码，覆盖 receipt store/API、rc.2 tool evidence、reconciler 状态表、stale-journal dispatch/recover、partial continuation、core→social crash recovery、deterministic no-effect failure 与 late cancel。但**这些新增测试尚未在本机执行**，因此当前没有本分支“通过 X 项”的验证数字。
+本分支已新增对应自动测试源码，覆盖 receipt store/API、receipt/session/operation identity、认证 rc.2 tool evidence 与 call identity、reconciler 状态表和 receipt-backed identity drift、single-nonterminal journal guard、stale-journal dispatch/recover、Core-aware retry、partial/failed continuation、core→social crash recovery、最终 acknowledge barrier、deterministic no-effect finalization 与 late cancel。但**这些新增测试尚未在本机执行**，因此当前没有本分支“通过 X 项”的验证数字。
 
 ## D2 尚未完成
 
