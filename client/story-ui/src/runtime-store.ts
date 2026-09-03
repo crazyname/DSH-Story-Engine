@@ -1,19 +1,9 @@
 import { access, cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import{validateCoreReceipt,type StoryCoreReceipt}from'./core-receipt.ts'
 
 const SAFE_ID=/^[a-zA-Z0-9_-]{1,100}$/
 const STABLE_ID=/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/
-const SHA256=/^[a-f0-9]{64}$/
-
-export interface StoryCoreReceipt{
-  operationId:string
-  transactionId?:string
-  operation:string
-  fingerprint:string
-  stateVersion:number
-  committedAt:string
-  result:unknown
-}
 
 function assertId(value:string,label:string):void{
   if(!SAFE_ID.test(value))throw new Error(`${label} 无效`)
@@ -24,13 +14,6 @@ function assertStableId(value:string,label:string):void{
 function object(value:unknown,label:string):Record<string,unknown>{
   if(value===null||typeof value!=='object'||Array.isArray(value))throw new Error(`${label} 损坏`)
   return value as Record<string,unknown>
-}
-function receipt(value:unknown,operationId:string):StoryCoreReceipt{
-  const raw=object(value,'Core operation receipt')
-  if(raw.operationId!==operationId||typeof raw.operation!=='string'||raw.operation.length===0||typeof raw.fingerprint!=='string'||!SHA256.test(raw.fingerprint)||!Number.isSafeInteger(raw.stateVersion)||Number(raw.stateVersion)<0||typeof raw.committedAt!=='string'||Number.isNaN(Date.parse(raw.committedAt))||!Object.prototype.hasOwnProperty.call(raw,'result'))throw new Error(`Core operation receipt 损坏：${operationId}`)
-  const transactionId=raw.transactionId
-  if(transactionId!==undefined&&(typeof transactionId!=='string'||!STABLE_ID.test(transactionId)))throw new Error(`Core operation receipt transactionId 损坏：${operationId}`)
-  return{operationId,...(transactionId===undefined?{}:{transactionId}),operation:raw.operation,fingerprint:raw.fingerprint,stateVersion:Number(raw.stateVersion),committedAt:raw.committedAt,result:structuredClone(raw.result)}
 }
 
 function replacePaths(value:unknown,source:string,target:string):unknown{
@@ -62,7 +45,7 @@ export class StoryRuntimeStore{
     if(engine.operationReceipts===undefined)return undefined
     const receipts=object(engine.operationReceipts,'Story Runtime operationReceipts')
     const found=receipts[operationId]
-    return found===undefined?undefined:receipt(found,operationId)
+    return found===undefined?undefined:validateCoreReceipt(found,operationId)
   }
 
   async clone(packId:string,sourceSessionId:string,targetSessionId:string):Promise<boolean>{
