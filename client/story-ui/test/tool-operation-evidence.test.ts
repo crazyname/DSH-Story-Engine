@@ -23,6 +23,17 @@ describe('rc.2 durable tool operation evidence',()=>{
   expect(new Set(evidence.map(item=>item.argumentsCanonical)).size).toBe(1)
  })
 
+ it('ignores expected_version changes because optimistic version is not part of the D1 operation fingerprint',()=>{
+  const evidence=collectToolOperationEvidence([
+   call(1,'old-version','story_commit_state',{operation_id:'op-a',transaction_id:'tx-a',expected_version:3,reason:'same',changes:{flag:true}}),
+   result(2,'old-version',true,{error:'stale'}),
+   call(3,'new-version','story_commit_state',{operation_id:'op-a',transaction_id:'tx-a',expected_version:4,reason:'same',changes:{flag:true}}),
+   result(4,'new-version',true,{error:'still failed'}),
+  ],'tx-a',new Set(['op-a']))
+  expect(new Set(evidence.map(item=>item.argumentsCanonical)).size).toBe(1)
+  expect(evidence[0]?.argumentsCanonical).not.toContain('expected_version')
+ })
+
  it('ignores calls belonging to another transaction or operation set',()=>{
   const evidence=collectToolOperationEvidence([
    call(1,'wrong-tx','story_commit_state',{operation_id:'op-a',transaction_id:'tx-other'}),
