@@ -4,8 +4,10 @@ import{CoreTransactionReconciler}from'../src/client/core-reconciliation.ts'
 
 async function record(operationIds:string[]){
  const prepared=await createPreparedTransaction({transactionId:'tx-core-reconcile',saveId:'save-a',channelId:'scene-main',text:'继续',baseProjectionRevision:0})
- const linked=reviseTransaction(prepared,{hiddenTurns:[{turnId:'turn-a',kind:'initial',state:'completed',sessionId:'session-a'}]})
- return reviseTransaction(linked,{operationRefs:operationIds.map((operationId,index)=>({stepKey:`step-${index}`,operationId}))})
+ const planned=reviseTransaction(prepared,{hiddenTurns:[{turnId:'turn-a',kind:'initial',state:'planned',sessionId:'session-a'}],activeTurnId:'turn-a'})
+ const dispatched=reviseTransaction(planned,{hiddenTurns:[{turnId:'turn-a',kind:'initial',state:'dispatched',sessionId:'session-a'}],activeTurnId:'turn-a'})
+ const completed=reviseTransaction(dispatched,{hiddenTurns:[{turnId:'turn-a',kind:'initial',state:'completed',sessionId:'session-a'}],activeTurnId:undefined})
+ return reviseTransaction(completed,{operationRefs:operationIds.map((operationId,index)=>({stepKey:`step-${index}`,operationId}))})
 }
 function receipt(operationId:string){return{sessionId:'session-a',receipt:{operationId,transactionId:'tx-core-reconcile',operation:'story_commit_state',fingerprint:'a'.repeat(64),stateVersion:1,committedAt:'2026-09-03T00:00:00.000Z',result:{ok:true}}}}
 function evidence(operationId:string,input:{sessionId?:string;toolName?:string;isError?:boolean;result?:unknown;pending?:boolean}={}){return{sessionId:input.sessionId??'session-a',operationId,transactionId:'tx-core-reconcile',toolName:input.toolName??'story_commit_state',callId:`call-${operationId}-${input.sessionId??'session-a'}`,callSeq:1,...(input.pending?{}:{resultSeq:2,isError:input.isError??false,result:input.result??{ok:true}})}}
@@ -14,7 +16,7 @@ describe('core transaction reconciliation',()=>{
  it('treats matching receipts as authoritative applied/replayed evidence',async()=>{
   const current=await record(['op-a','op-b'])
   const receipts={load:vi.fn(async(_save:string,_tx:string,operationId:string)=>receipt(operationId))}
-  const tools={load:vi.fn()}
+  const tools={load:vi.fn(async()=>[])}
   const result=await new CoreTransactionReconciler(receipts as never,tools as never).reconcile(current)
   expect(result.operations.map(item=>item.state)).toEqual(['applied-or-replayed','applied-or-replayed'])
   expect(result).toMatchObject({hasCanonicalEffect:true,readyForSocialCommit:true,deterministicNoEffectFailure:false,repairablePartial:false,unresolved:false})
