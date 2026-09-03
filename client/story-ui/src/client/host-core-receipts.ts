@@ -15,6 +15,7 @@ export class HostCoreReceiptReader{
   if(!response.ok){const detail=await response.json().catch(()=>({}))as{error?:string};throw new Error(detail.error??`读取 Core receipt 失败：${response.status}`)}
   const body=await response.json()as{sessionId?:unknown;receipt?:unknown}
   if(typeof body.sessionId!=='string'||body.sessionId.trim()==='')throw new Error('Core receipt 响应缺少 sessionId')
+  assertTransactionId(body.sessionId,'sessionId')
   const receipt=validateCoreReceipt(body.receipt,operationId)
   if(receipt.transactionId!==transactionId)throw new Error(`Core receipt transaction identity 冲突：${operationId}`)
   return{sessionId:body.sessionId,receipt}
