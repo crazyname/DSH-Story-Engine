@@ -41,7 +41,8 @@ export class StoryRuntimeStore{
     const root=object(state,'Story Runtime state')
     const engine=object(root._engine,'Story Runtime _engine')
     const schemaVersion=Number(engine.schemaVersion)
-    if(!Number.isSafeInteger(schemaVersion)||schemaVersion<2||schemaVersion>3)throw new Error(`Story Runtime schemaVersion 不受支持：${String(engine.schemaVersion)}`)
+    if(schemaVersion===2)return undefined
+    if(schemaVersion!==3)throw new Error(`Story Runtime schemaVersion 不受支持：${String(engine.schemaVersion)}`)
     if(engine.operationReceipts===undefined)return undefined
     const receipts=object(engine.operationReceipts,'Story Runtime operationReceipts')
     const found=receipts[operationId]
