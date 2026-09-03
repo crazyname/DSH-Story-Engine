@@ -11,7 +11,7 @@ export class HostCoreReceiptReader{
  }
  async load(saveId:string,transactionId:string,operationId:string):Promise<HostCoreReceiptEvidence|undefined>{
   const response=await this.fetcher(this.endpoint(saveId,transactionId,operationId),{headers:{accept:'application/json'}})
-  if(response.status===204||response.status===404)return undefined
+  if(response.status===204)return undefined
   if(!response.ok){const detail=await response.json().catch(()=>({}))as{error?:string};throw new Error(detail.error??`读取 Core receipt 失败：${response.status}`)}
   const body=await response.json()as{sessionId?:unknown;receipt?:unknown}
   if(typeof body.sessionId!=='string'||body.sessionId.trim()==='')throw new Error('Core receipt 响应缺少 sessionId')
