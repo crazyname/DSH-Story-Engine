@@ -63,4 +63,25 @@ describe('hidden transaction control context',()=>{
   expect(text).toContain('不要再次转述或提交原玩家输入')
   expect(text).not.toContain('SECRET-PLAYER-TEXT')
  })
+
+ it('can continue from the persisted hidden session after local pending state is lost',async()=>{
+  const saveId='save-continuation-restart';const sessionId='session-continuation-restart'
+  const values=new Map<string,string>([[`dsh-story-ai-session:${saveId}`,sessionId]])
+  const prompt=vi.fn(async()=>ok({accepted:true}));let history=0
+  const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"重启恢复完成。"}]}'
+  const api={sessions:{
+   create:vi.fn(async()=>ok({sessionId})),
+   history:vi.fn(async()=>{history+=1;return history===1?ok({events:[]}):ok({events:[{event:{type:'assistant/message',seq:1,data:{message:{content:[{type:'text',text:raw}]}}}},{event:{type:'turn/end',seq:2,data:{}}}]})}),
+   prompt,cancel:vi.fn(async()=>ok({accepted:true})),
+  },workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}}
+  const bridge=new StoryAiBridge(api as never,storage,async()=>{})
+  const save={...createInitialProjection(),saveId,selectedChannelId:'ch-direct-hezhou'}
+
+  await expect(bridge.continueTransaction(save,save.selectedChannelId,'只补齐 durable core 已证明后的 social 结果。',{transactionId:'tx-restart'})).resolves.toMatchObject({messages:[{content:'重启恢复完成。'}]})
+
+  expect(prompt).toHaveBeenCalledTimes(1)
+  expect(prompt.mock.calls[0]![0].content[0].text).toContain('当前 player transaction_id：tx-restart')
+  expect(values.get(`dsh-story-ai-pending:${saveId}`)).toContain('completed')
+ })
 })
