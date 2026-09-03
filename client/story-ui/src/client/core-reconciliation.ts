@@ -30,6 +30,7 @@ export class CoreTransactionReconciler{
   if(record.operationRefs.length===0)return{operations:[],hasCanonicalEffect:false,readyForSocialCommit:true,deterministicNoEffectFailure:false,repairablePartial:false,unresolved:false}
   const sessionIds=[...new Set(record.hiddenTurns.map(turn=>turn.sessionId).filter((value):value is string=>value!==undefined))]
   if(sessionIds.length===0)throw new Error(`transaction ${record.transactionId} 有 operationRef 但缺少 hidden session evidence`)
+  const sessionSet=new Set(sessionIds)
 
   const receiptEntries=await Promise.all(record.operationRefs.map(async ref=>({ref,evidence:await this.receipts.load(record.saveId,record.transactionId,ref.operationId)})))
   const unresolvedIds=receiptEntries.filter(entry=>entry.evidence===undefined).map(entry=>entry.ref.operationId)
@@ -38,7 +39,7 @@ export class CoreTransactionReconciler{
   for(const evidence of toolEvidence){const list=byOperation.get(evidence.operationId)??[];list.push(evidence);byOperation.set(evidence.operationId,list)}
 
   const operations:CoreOperationResolution[]=receiptEntries.map(({ref,evidence:receiptEvidence})=>{
-   if(receiptEvidence!==undefined)return{ref,state:'applied-or-replayed',receipt:receiptEvidence.receipt,evidence:[]}
+   if(receiptEvidence!==undefined){if(!sessionSet.has(receiptEvidence.sessionId))return{ref,state:'inconsistent',evidence:[],detail:'Core receipt 来自 transaction 未登记的 hidden session'};return{ref,state:'applied-or-replayed',receipt:receiptEvidence.receipt,evidence:[]}}
    const evidence=byOperation.get(ref.operationId)??[]
    if(evidence.length===0)return{ref,state:'pending',evidence,detail:'尚未在 DSH durable history 找到 matching tool outcome'}
    const sessions=new Set(evidence.map(item=>item.sessionId))
