@@ -6,6 +6,7 @@ import{createInitialProjection}from'../src/client/initial-projection.ts'
 
 function projection(){const base={...createInitialProjection(),saveId:'save-finalize'};return appendPlayerMessage(base,base.selectedChannelId,'继续')}
 function pendingSummary(operationId='op-pending'){return{operations:[{ref:{stepKey:`step-${operationId}`,operationId},state:'pending' as const,evidence:[],detail:'still pending'}],hasCanonicalEffect:false,readyForSocialCommit:false,deterministicNoEffectFailure:false,repairablePartial:false,unresolved:true}}
+function failedSummary(operationId='op-failed'){return{operations:[{ref:{stepKey:`step-${operationId}`,operationId},state:'failed' as const,evidence:[],detail:'failed'}],hasCanonicalEffect:false,readyForSocialCommit:false,deterministicNoEffectFailure:true,repairablePartial:false,unresolved:false}}
 async function journalRecord(state:'dispatched'|'completed',canonical=false){
  const save=projection()
  const prepared=await createPreparedTransaction({transactionId:'tx-finalize',saveId:save.saveId,channelId:save.selectedChannelId,text:'继续',baseProjectionRevision:0})
@@ -41,5 +42,26 @@ describe('core-aware transaction finalization',()=>{
   await coordinator.cancel(fixture.save.saveId)
 
   expect(state.record).toMatchObject({status:'needs-recovery',hiddenTurns:[{state:'cancelled'}],diagnostic:{code:'cancel-core-outcome-uncertain'}})
+ })
+
+ it('does not acknowledge a deterministic no-effect failure before the terminal journal write succeeds',async()=>{
+  const save=projection();let record:StoryTransactionRecord|undefined
+  const journal={
+   listOpen:vi.fn(async()=>record===undefined||['committed','cancelled','failed'].includes(record.status)?[]:[record]),
+   prepare:vi.fn(async(input:any)=>{record=await createPreparedTransaction({...input,transactionId:'tx-terminal-order'});return record}),
+   save:vi.fn(async(next:StoryTransactionRecord)=>{if(next.status==='failed')throw new Error('terminal journal unavailable');record=next;return next}),
+  }
+  const acknowledge=vi.fn()
+  const ai={
+   send:vi.fn(async(_projection:any,_channel:string,_input:string,hooks:any)=>{const evidence={turnId:hooks.turnId,sessionId:'session-finalize',baseline:0};await hooks.beforeDispatch(evidence);await hooks.afterAccepted(evidence);record=await journal.save(reviseTransaction(record!,{operationRefs:[{stepKey:'step-op-failed',operationId:'op-failed'}]}));return{raw:'{}',messages:[{senderId:'p-hezhou',kind:'dialogue' as const,content:'不会提交。'}],turnId:evidence.turnId}}),
+   recover:vi.fn(),recoverFromEvidence:vi.fn(),retry:vi.fn(),continueTransaction:vi.fn(),cancel:vi.fn(),turn:vi.fn(()=>null),acknowledge,
+  }
+  const core={reconcile:vi.fn(async()=>failedSummary())}
+  const coordinator=new PlayerTransactionCoordinator(journal as never,{save:vi.fn()} as never,ai as never,core as never)
+
+  await expect(coordinator.send(save,save.selectedChannelId,'继续')).rejects.toThrow('terminal journal unavailable')
+
+  expect(acknowledge).not.toHaveBeenCalled()
+  expect(record?.status).not.toBe('failed')
  })
 })
