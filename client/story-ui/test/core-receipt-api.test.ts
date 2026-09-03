@@ -53,8 +53,9 @@ describe('browser core receipt reader',()=>{
   await expect(mismatched.load('save-a','tx-receipt','op-a')).rejects.toThrow('transaction identity 冲突')
  })
 
- it('treats 204 as no receipt and rejects malformed evidence',async()=>{
+ it('treats only 204 as no receipt and rejects missing endpoints or malformed evidence',async()=>{
   await expect(new HostCoreReceiptReader(async()=>new Response(null,{status:204}) as never).load('save-a','tx-receipt','op-a')).resolves.toBeUndefined()
+  await expect(new HostCoreReceiptReader(async()=>new Response(null,{status:404}) as never).load('save-a','tx-receipt','op-a')).rejects.toThrow('读取 Core receipt 失败：404')
   await expect(new HostCoreReceiptReader(async()=>new Response(JSON.stringify({sessionId:'',receipt:receipt()}),{status:200}) as never).load('save-a','tx-receipt','op-a')).rejects.toThrow('缺少 sessionId')
  })
 })
