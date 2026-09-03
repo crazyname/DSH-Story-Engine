@@ -40,25 +40,28 @@ export class CoreTransactionReconciler{
   const operations:CoreOperationResolution[]=receiptEntries.map(({ref,evidence:receiptEvidence})=>{
    if(receiptEvidence!==undefined)return{ref,state:'applied-or-replayed',receipt:receiptEvidence.receipt,evidence:[]}
    const evidence=byOperation.get(ref.operationId)??[]
+   if(evidence.length===0)return{ref,state:'pending',evidence,detail:'尚未在 DSH durable history 找到 matching tool outcome'}
+   const sessions=new Set(evidence.map(item=>item.sessionId))
+   if(sessions.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 在多个 hidden session 出现 tool evidence'}
+   const callIdentities=new Set(evidence.map(item=>`${item.toolName}\u0000${item.argumentsCanonical}`))
+   if(callIdentities.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 被不同 tool 或 arguments 复用'}
    const successful=evidence.filter(item=>item.resultSeq!==undefined&&item.isError===false)
    const pending=evidence.filter(item=>item.resultSeq===undefined)
    const failed=evidence.filter(item=>item.resultSeq!==undefined&&item.isError===true)
+   if(pending.length>0)return{ref,state:'pending',evidence,detail:'tool/call 已持久化但仍有未终态 attempt'}
    if(successful.length>0){
-    const sessions=new Set(successful.map(item=>item.sessionId))
-    if(sessions.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 在多个 hidden session 出现成功 tool result'}
     if(successful.every(isKnownSkippedStoryResult))return{ref,state:'skipped',evidence}
     return{ref,state:'inconsistent',evidence,detail:'成功 mutating tool result 缺少 matching Core receipt，且不是已知 no-op'}
    }
-   if(pending.length>0)return{ref,state:'pending',evidence,detail:'tool/call 已持久化但尚无 terminal tool/result'}
    if(failed.length>0)return{ref,state:'failed',evidence,detail:'matching mutating tool attempt 已明确失败且无 Core receipt'}
-   return{ref,state:'pending',evidence,detail:'尚未在 DSH durable history 找到 matching tool outcome'}
+   return{ref,state:'pending',evidence,detail:'matching tool evidence 尚未形成可判定 terminal outcome'}
   })
 
   const hasCanonicalEffect=operations.some(item=>item.state==='applied-or-replayed')
   const readyForSocialCommit=operations.every(item=>item.state==='applied-or-replayed'||item.state==='skipped')
   const deterministicNoEffectFailure=!hasCanonicalEffect&&operations.some(item=>item.state==='failed')&&operations.every(item=>item.state==='failed'||item.state==='skipped')
-  const repairablePartial=hasCanonicalEffect&&operations.some(item=>item.state==='failed')&&operations.every(item=>item.state==='applied-or-replayed'||item.state==='skipped'||item.state==='failed')
-  const unresolved=operations.some(item=>item.state==='pending'||item.state==='inconsistent')||repairablePartial
+  const unresolved=operations.some(item=>item.state==='pending'||item.state==='inconsistent')
+  const repairablePartial=hasCanonicalEffect&&!unresolved&&operations.some(item=>item.state==='failed')&&operations.every(item=>item.state==='applied-or-replayed'||item.state==='skipped'||item.state==='failed')
   return{operations,hasCanonicalEffect,readyForSocialCommit,deterministicNoEffectFailure,repairablePartial,unresolved}
  }
 }
