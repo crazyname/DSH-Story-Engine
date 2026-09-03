@@ -72,6 +72,14 @@ describe('rc.2 durable tool operation evidence',()=>{
   ],'tx-a',new Set(['op-a']))).toThrow('tool result identity 冲突')
  })
 
+ it('fails closed when duplicate result identity keeps the same status but changes canonical content',()=>{
+  expect(()=>collectToolOperationEvidence([
+   call(1,'dup-content','story_record_work_event',{operation_id:'op-a',transaction_id:'tx-a'}),
+   result(2,'dup-content',false,{escalated:true,recorded:false}),
+   result(2,'dup-content',false,{escalated:false,recorded:true}),
+  ],'tx-a',new Set(['op-a']))).toThrow('tool result identity 冲突')
+ })
+
  it('fails closed when rc.2 result source and tool-result block disagree on callId',()=>{
   const corrupted={event:{seq:2,type:'tool/result',data:{message:{source:{kind:'tool',callId:'call-a'},content:[{type:'tool-result',toolCallId:'call-b',isError:false,content:[{type:'text',text:'{"ok":true}'}]}]}}}}
   expect(()=>collectToolOperationEvidence([
