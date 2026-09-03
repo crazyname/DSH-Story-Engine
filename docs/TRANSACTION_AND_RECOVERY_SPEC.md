@@ -132,6 +132,8 @@ receipt 与其保护的 canonical mutation 必须在同一次持久化提交中�
 8. coordinator 根据 receipt 继续其他 operation 或 social projection；
 9. 所有必要域完成后再把 transaction 收敛到 `committed`。
 
+任何第 4 步这类跨模型、网络或用户等待返回后，协调器在再次修改 transaction journal 或据此判断 core/social 状态前，必须重新读取该 transaction 的 durable 最新 revision，并验证 `transactionId` 未发生变化。等待期间由 Host core preflight 或其它合法 writer 新增的 `operationRefs`、hidden evidence 与 journal revision 必须被保留；浏览器内存中的 stale record 不得覆盖这些 durable facts。无法唯一重新取得同一 open transaction 时 fail-closed，不能继续用旧 revision 猜测。
+
 ## 5. Transaction Journal
 
 ### 5.1 最小持久字段
@@ -150,6 +152,8 @@ journal 至少保存：
 journal 是恢复协调证据，不替代 core receipt 或 social projection。
 
 `operationRefs` 中的 `stepKey + operationId` 只证明某个 core step identity 已经被 transaction 计划/预登记，并且可以安全用于后续调用或对账；它**不证明**对应 canonical mutation 已发生。只有 Runtime 中 matching operation receipt 才能证明该 mutation 已 applied/replayed。某些工具允许在进入 mutation 路径前根据领域规则返回合法 no-op/upgrade 结果，因此可以存在 operationRef 而没有 receipt；恢复器不得把“缺少 receipt”一律解释为崩溃、失败或尚待无条件重放。
+
+当恢复器使用 durable tool/result 证明“operationRef 存在但无 receipt”的结果时，证据必须属于同一 `transactionId` 和 transaction-owned hidden session，并与该 `operationId` 的 tool identity/规范化 arguments 一致。仍存在未终态 matching tool call 时，不能因为更早出现过成功结果就提前宣称 skipped；跨 hidden session 的重复成功 evidence、同一 operationId 被不同 tool/arguments 复用、call/result identity 自相矛盾或结构损坏都必须 fail-closed。只有领域契约明确允许的成功 no-op/upgrade result 才能在无 receipt 时判定为 skipped；其它成功 mutating tool result 缺少 matching receipt 仍属于不一致 evidence。
 
 ### 5.2 Transaction 状态
 
@@ -375,14 +379,15 @@ fork 后的新 save/session scope：
 15. active player transaction 的 hidden initial/retry control context 在第一次 mutating tool call 前携带正确 `transaction_id`；mutating core call 缺失/错配该 ID 在 body 前失败，Core receipt fingerprint 必须 transaction-bound；
 16. mutating core tool body 前 `stepKey + operationId` 已 durable，journal preflight 失败时 body 未执行，并发不同 step 不丢失 identity；
 17. 同一 save 的两个 transaction 并发争用同一 `operationId` 时只能有一个 journal owner；终态历史 owner 在 journal 保留期间仍阻止后续重用；
-18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；
-19. core commit 后、social commit 前崩溃恢复；
-20. 多 operation transaction 中间崩溃只补未完成步骤；
-21. social host save 后、AI acknowledge 前恢复；
-22. cancelled 后晚到 completed result 不提交；
-23. canonical effect 已提交后才收到 cancel 时不倒改历史；
-24. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
-25. deterministic build 与 tracked artifacts 一致。
+18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；无 receipt tool evidence 的 transaction/session/tool/arguments/call identity 冲突及 pending attempt 必须 fail-closed；
+19. model/network/recovery 等外部等待期间 journal revision 被 Host preflight 推进后，返回路径重新读取 durable record并保留新增 operationRefs/evidence；
+20. core commit 后、social commit 前崩溃恢复；
+21. 多 operation transaction 中间崩溃只补未完成步骤；
+22. social host save 后、AI acknowledge 前恢复；
+23. cancelled 后晚到 completed result 不提交；
+24. canonical effect 已提交后才收到 cancel 时不倒改历史；
+25. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
+26. deterministic build 与 tracked artifacts 一致。
 
 单个阶段切片只能宣称其实际覆盖的子集，不能因为 core receipt 或 journal primitive 测试通过就宣称完整跨域 recovery 已完成。
 
