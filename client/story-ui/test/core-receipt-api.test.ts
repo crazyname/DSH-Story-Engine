@@ -44,7 +44,9 @@ describe('core receipt Host API',()=>{
   capture=responseCapture();await receiptRoute.handler(request('GET','/story-engine/api/core-receipts/save-a/tx-receipt/op-a'),capture.res);expect(capture.snapshot()).toMatchObject({status:409,body:{error:expect.stringContaining('operation identity 冲突')}})
 
   await writeRuntime(root,'session-a')
-  const twoSessions=reviseTransaction(linked,{hiddenTurns:[...linked.hiddenTurns,{turnId:'turn-b',kind:'retry',state:'planned',sessionId:'session-b'}]});capture=responseCapture();await txRoute.handler(request('PUT','/story-engine/api/transactions/save-a/tx-receipt',{expectedRevision:2,transaction:twoSessions}),capture.res);expect(capture.snapshot().status).toBe(200)
+  const dispatchedA=reviseTransaction(linked,{hiddenTurns:[{...linked.hiddenTurns[0]!,state:'dispatched'}]});capture=responseCapture();await txRoute.handler(request('PUT','/story-engine/api/transactions/save-a/tx-receipt',{expectedRevision:2,transaction:dispatchedA}),capture.res);expect(capture.snapshot().status).toBe(200)
+  const completedA=reviseTransaction(dispatchedA,{hiddenTurns:[{...dispatchedA.hiddenTurns[0]!,state:'completed'}],activeTurnId:undefined});capture=responseCapture();await txRoute.handler(request('PUT','/story-engine/api/transactions/save-a/tx-receipt',{expectedRevision:3,transaction:completedA}),capture.res);expect(capture.snapshot().status).toBe(200)
+  const twoSessions=reviseTransaction(completedA,{hiddenTurns:[...completedA.hiddenTurns,{turnId:'turn-b',kind:'retry',state:'planned',sessionId:'session-b'}],activeTurnId:'turn-b'});capture=responseCapture();await txRoute.handler(request('PUT','/story-engine/api/transactions/save-a/tx-receipt',{expectedRevision:4,transaction:twoSessions}),capture.res);expect(capture.snapshot().status).toBe(200)
   await writeRuntime(root,'session-b')
   capture=responseCapture();await receiptRoute.handler(request('GET','/story-engine/api/core-receipts/save-a/tx-receipt/op-a'),capture.res);expect(capture.snapshot()).toMatchObject({status:409,body:{error:expect.stringContaining('多个 hidden session')}})
  })
