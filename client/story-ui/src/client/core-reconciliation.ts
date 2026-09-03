@@ -17,6 +17,7 @@ export interface CoreTransactionReconciliation{
  hasCanonicalEffect:boolean
  readyForSocialCommit:boolean
  deterministicNoEffectFailure:boolean
+ repairablePartial:boolean
  unresolved:boolean
 }
 
@@ -26,7 +27,7 @@ type ToolPort=Pick<DshToolEvidenceReader,'load'>
 export class CoreTransactionReconciler{
  constructor(private readonly receipts:ReceiptPort,private readonly tools:ToolPort){}
  async reconcile(record:StoryTransactionRecord):Promise<CoreTransactionReconciliation>{
-  if(record.operationRefs.length===0)return{operations:[],hasCanonicalEffect:false,readyForSocialCommit:true,deterministicNoEffectFailure:false,unresolved:false}
+  if(record.operationRefs.length===0)return{operations:[],hasCanonicalEffect:false,readyForSocialCommit:true,deterministicNoEffectFailure:false,repairablePartial:false,unresolved:false}
   const sessionIds=[...new Set(record.hiddenTurns.map(turn=>turn.sessionId).filter((value):value is string=>value!==undefined))]
   if(sessionIds.length===0)throw new Error(`transaction ${record.transactionId} 有 operationRef 但缺少 hidden session evidence`)
 
@@ -56,7 +57,8 @@ export class CoreTransactionReconciler{
   const hasCanonicalEffect=operations.some(item=>item.state==='applied-or-replayed')
   const readyForSocialCommit=operations.every(item=>item.state==='applied-or-replayed'||item.state==='skipped')
   const deterministicNoEffectFailure=!hasCanonicalEffect&&operations.some(item=>item.state==='failed')&&operations.every(item=>item.state==='failed'||item.state==='skipped')
-  const unresolved=operations.some(item=>item.state==='pending'||item.state==='inconsistent')||hasCanonicalEffect&&operations.some(item=>item.state==='failed')
-  return{operations,hasCanonicalEffect,readyForSocialCommit,deterministicNoEffectFailure,unresolved}
+  const repairablePartial=hasCanonicalEffect&&operations.some(item=>item.state==='failed')&&operations.every(item=>item.state==='applied-or-replayed'||item.state==='skipped'||item.state==='failed')
+  const unresolved=operations.some(item=>item.state==='pending'||item.state==='inconsistent')||repairablePartial
+  return{operations,hasCanonicalEffect,readyForSocialCommit,deterministicNoEffectFailure,repairablePartial,unresolved}
  }
 }
