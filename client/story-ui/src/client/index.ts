@@ -13,6 +13,9 @@
  * reserved `hooks` compartment; the renderer binds it to `useGameMode`).
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: pulls the SlotMap declarations (the keys' owners) into this
+// program so both registrations typecheck against the real declarations —
+// no runtime edge to ui-layout or ui-sidebar.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import { createGameModeController } from './mode.ts'
@@ -29,8 +32,13 @@ import { PlayerTransactionCoordinator } from './player-transaction-coordinator.t
 import { createLocalProjectionStorage } from './persistence.ts'
 import type { StorySaveProjection } from './story-domain.ts'
 
+/** Required services: the slot registry (declaration lifetimes + registration). */
 export const inject = ['slots','connection']
 
+/**
+ * Client plugin body: one shared game-mode controller, then both entries.
+ * @param ctx - client root context.
+ */
 export function apply(ctx: ClientContext): void {
   const controller = createGameModeController()
   const connection=ctx.get('connection') as unknown as {api:StoryClientApi}
@@ -52,7 +60,14 @@ export function apply(ctx: ClientContext): void {
     if(channelId===undefined)return null
     return{version:1,id:`journal-lock-${saveId}`,sessionId:'journal-recovery',baseline:-1,channelId,prompt:'journal-recovery-lock',state:'uncertain',error:'Host transaction journal 尚未收口；请恢复或完成对账后继续'}
   }
+  // One choice bridge per plugin lifetime. It only surfaces questions whose
+  // session belongs to the currently active save (per-save hidden sessions),
+  // so a replayed card from another game never leaks into this one.
   const choices:StoryChoiceBridge=createStoryChoiceBridge(connection.api,(saveId:string)=>ai.currentSessionId(saveId))
+  // slots.inject waits on the declaration lifecycle: it runs once the
+  // declaring register() commits, reruns after redeclaration, and rolls back
+  // with this plugin's fiber. Each callback returns the registration's own
+  // disposer.
   ctx.slots.inject('sidebar.footer.action', () =>
     ctx.slots.register(
       {
