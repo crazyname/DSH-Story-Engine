@@ -22,8 +22,8 @@ function canonical(value:unknown):unknown{
  if(value!==null&&typeof value==='object')return Object.fromEntries(Object.keys(value as Record<string,unknown>).sort().map(key=>[key,canonical((value as Record<string,unknown>)[key])]))
  return value
 }
-function canonicalIdentity(value:unknown):string{return value===undefined?'undefined':JSON.stringify(canonical(value))}
-function canonicalArgs(value:Record<string,unknown>):string{const{expected_version:_expectedVersion,...semantic}=value;return JSON.stringify(canonical(semantic))}
+function canonicalIdentity(value:unknown):string{const encoded=JSON.stringify(canonical(value));return encoded===undefined?'undefined':encoded}
+function canonicalArgs(value:Record<string,unknown>):string{const{expected_version:_expectedVersion,...semantic}=value;return canonicalIdentity(semantic)}
 function resultBlock(event:any):any|undefined{
  const blocks=event?.data?.message?.content
  if(!Array.isArray(blocks))return undefined
