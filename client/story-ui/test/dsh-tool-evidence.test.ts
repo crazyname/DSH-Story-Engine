@@ -13,7 +13,7 @@ describe('DSH durable tool evidence reader',()=>{
   })
   const reader=new DshToolEvidenceReader({sessions:{history}} as never)
   await expect(reader.load(['session-a'],'tx-a',['op-a'])).resolves.toEqual([{
-   sessionId:'session-a',operationId:'op-a',transactionId:'tx-a',toolName:'story_commit_state',callId:'call-a',callSeq:10,resultSeq:20,isError:false,result:{ok:true},
+   sessionId:'session-a',operationId:'op-a',transactionId:'tx-a',toolName:'story_commit_state',argumentsCanonical:'{"operation_id":"op-a","transaction_id":"tx-a"}',callId:'call-a',callSeq:10,resultSeq:20,isError:false,result:{ok:true},
   }])
   expect(history).toHaveBeenCalledTimes(2)
  })
