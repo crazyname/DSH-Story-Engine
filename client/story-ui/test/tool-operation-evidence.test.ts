@@ -34,6 +34,26 @@ describe('rc.2 durable tool operation evidence',()=>{
   expect(evidence[0]?.argumentsCanonical).not.toContain('expected_version')
  })
 
+ it('normalizes wrapper defaults that are part of the D1 semantic payload',()=>{
+  const scene=collectToolOperationEvidence([
+   call(1,'scene-implicit','story_enter_episode_scene',{operation_id:'op-scene',transaction_id:'tx-a',episode_id:'ep-1',scene_id:'scene-1'}),
+   result(2,'scene-implicit',true,{error:'first'}),
+   call(3,'scene-explicit','story_enter_episode_scene',{operation_id:'op-scene',transaction_id:'tx-a',episode_id:'ep-1',scene_id:'scene-1',branch_id:'main'}),
+   result(4,'scene-explicit',true,{error:'second'}),
+  ],'tx-a',new Set(['op-scene']))
+  expect(new Set(scene.map(item=>item.argumentsCanonical)).size).toBe(1)
+  expect(scene[0]?.argumentsCanonical).toContain('"branch_id":"main"')
+
+  const summary=collectToolOperationEvidence([
+   call(5,'summary-implicit','story_record_episode_summary',{operation_id:'op-summary',transaction_id:'tx-a',episode_id:'ep-1',scene_id:'scene-1',consequences:[]}),
+   result(6,'summary-implicit',true,{error:'first'}),
+   call(7,'summary-explicit','story_record_episode_summary',{operation_id:'op-summary',transaction_id:'tx-a',episode_id:'ep-1',scene_id:'scene-1',consequences:[],relationship_changes:[]}),
+   result(8,'summary-explicit',true,{error:'second'}),
+  ],'tx-a',new Set(['op-summary']))
+  expect(new Set(summary.map(item=>item.argumentsCanonical)).size).toBe(1)
+  expect(summary[0]?.argumentsCanonical).toContain('"relationship_changes":[]')
+ })
+
  it('ignores calls belonging to another transaction or operation set',()=>{
   const evidence=collectToolOperationEvidence([
    call(1,'wrong-tx','story_commit_state',{operation_id:'op-a',transaction_id:'tx-other'}),
