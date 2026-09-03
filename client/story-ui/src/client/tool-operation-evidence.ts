@@ -39,7 +39,7 @@ function resultCallId(event:any,block:any):string|undefined{
  const source=event?.data?.message?.source
  const sourceId=source?.kind==='tool'&&typeof source.callId==='string'?source.callId:undefined
  const blockId=block?.type==='tool-result'&&typeof block.toolCallId==='string'?block.toolCallId:undefined
- if(sourceId!==undefined&&blockId!==undefined&&sourceId!==blockId)throw new Error(`DSH tool result callId 冲突：${sourceId} != ${blockId}`)
+ if(sourceId!==undefined&&blockId!==undefined&&sourceId!==blockId)throw new Error(`DSH tool result call identity 冲突：${sourceId} != ${blockId}`)
  return sourceId??blockId
 }
 function parseCanonicalResult(block:any):unknown{
