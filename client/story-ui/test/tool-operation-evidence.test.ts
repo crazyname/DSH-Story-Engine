@@ -10,7 +10,17 @@ describe('rc.2 durable tool operation evidence',()=>{
    result(4,'call-a',false,{ok:true}),
    call(2,'call-a','story_commit_state',{operation_id:'op-a',transaction_id:'tx-a'}),
   ],'tx-a',new Set(['op-a']))
-  expect(evidence).toEqual([{operationId:'op-a',transactionId:'tx-a',toolName:'story_commit_state',callId:'call-a',callSeq:2,resultSeq:4,isError:false,result:{ok:true}}])
+  expect(evidence).toEqual([{operationId:'op-a',transactionId:'tx-a',toolName:'story_commit_state',argumentsCanonical:'{"operation_id":"op-a","transaction_id":"tx-a"}',callId:'call-a',callSeq:2,resultSeq:4,isError:false,result:{ok:true}}])
+ })
+
+ it('canonicalizes argument object key order for retry identity comparison',()=>{
+  const evidence=collectToolOperationEvidence([
+   call(1,'one','story_commit_state',{transaction_id:'tx-a',reason:'same',operation_id:'op-a'}),
+   result(2,'one',true,{error:'first'}),
+   call(3,'two','story_commit_state',{operation_id:'op-a',reason:'same',transaction_id:'tx-a'}),
+   result(4,'two',true,{error:'second'}),
+  ],'tx-a',new Set(['op-a']))
+  expect(new Set(evidence.map(item=>item.argumentsCanonical)).size).toBe(1)
  })
 
  it('ignores calls belonging to another transaction or operation set',()=>{
@@ -25,7 +35,7 @@ describe('rc.2 durable tool operation evidence',()=>{
  it('retains a durable pending call when no terminal result exists',()=>{
   expect(collectToolOperationEvidence([
    call(7,'pending','story_advance_scene',{operation_id:'op-pending',transaction_id:'tx-a'}),
-  ],'tx-a',new Set(['op-pending']))).toEqual([{operationId:'op-pending',transactionId:'tx-a',toolName:'story_advance_scene',callId:'pending',callSeq:7}])
+  ],'tx-a',new Set(['op-pending']))).toEqual([{operationId:'op-pending',transactionId:'tx-a',toolName:'story_advance_scene',argumentsCanonical:'{"operation_id":"op-pending","transaction_id":"tx-a"}',callId:'pending',callSeq:7}])
  })
 
  it('recognizes only the high-impact work-event escalation as a known successful skip',()=>{
