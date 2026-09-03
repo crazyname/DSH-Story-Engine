@@ -23,16 +23,17 @@ function canonical(value:unknown):unknown{
  return value
 }
 function canonicalArgs(value:Record<string,unknown>):string{return JSON.stringify(canonical(value))}
-function resultCallId(event:any):string|undefined{
- const source=event?.data?.message?.source
- if(source?.kind==='tool'&&typeof source.callId==='string')return source.callId
- const block=event?.data?.message?.content?.[0]
- return block?.type==='tool-result'&&typeof block.toolCallId==='string'?block.toolCallId:undefined
-}
 function resultBlock(event:any):any|undefined{
  const blocks=event?.data?.message?.content
  if(!Array.isArray(blocks))return undefined
  return blocks.find((block:any)=>block?.type==='tool-result')
+}
+function resultCallId(event:any,block:any):string|undefined{
+ const source=event?.data?.message?.source
+ const sourceId=source?.kind==='tool'&&typeof source.callId==='string'?source.callId:undefined
+ const blockId=block?.type==='tool-result'&&typeof block.toolCallId==='string'?block.toolCallId:undefined
+ if(sourceId!==undefined&&blockId!==undefined&&sourceId!==blockId)throw new Error(`DSH tool result callId 冲突：${sourceId} != ${blockId}`)
+ return sourceId??blockId
 }
 function parseCanonicalResult(block:any):unknown{
  const content=block?.content
@@ -59,11 +60,11 @@ export function collectToolOperationEvidence(entries:HistoryEntry[],transactionI
  }
  for(const event of ordered){
   if(event?.type!=='tool/result')continue
-  const callId=resultCallId(event),resultSeq=seq(event)
+  const block=resultBlock(event),resultSeq=seq(event)
+  const callId=resultCallId(event,block)
   if(callId===undefined||resultSeq===undefined)continue
   const call=calls.get(callId)
   if(call===undefined)continue
-  const block=resultBlock(event)
   if(block===undefined||typeof block.isError!=='boolean')throw new Error(`DSH tool result 结构无效：${callId}`)
   if(call.resultSeq!==undefined){if(call.resultSeq!==resultSeq||call.isError!==block.isError)throw new Error(`DSH tool result identity 冲突：${callId}`);continue}
   call.resultSeq=resultSeq
