@@ -2269,15 +2269,18 @@ window.__ModuleLoader__.load({
 				this.writeTurn(projection.saveId, rebuilt);
 				return this.wait(projection, rebuilt);
 			}
-			promptFor(projection, channelId, playerInput) {
-				const channel = projection.channels.find((c) => c.id === channelId);
-				if (channel === void 0) throw new Error("频道不存在");
-				return `当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n可用发送者：${channel.participantIds.join(", ")}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;
+			transactionInstruction(transactionId) {
+				return transactionId === void 0 ? "" : `当前 player transaction_id：${transactionId}。本回合所有会修改 canonical runtime state 的 story_* 调用必须携带完全相同的 transaction_id；同一原子写操作重试必须复用原 operation_id。\n`;
 			}
-			retryPrompt(projection, channelId) {
+			promptFor(projection, channelId, playerInput, transactionId) {
 				const channel = projection.channels.find((c) => c.id === channelId);
 				if (channel === void 0) throw new Error("频道不存在");
-				return `继续刚才未完成的文字游戏回合。不要再次转述或提交玩家输入、选择或已提交的剧情消息。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。只在通过必要的 story_* 工具后输出新的结构化 JSON 回复。`;
+				return `当前文字游戏频道：${channel.title}\n当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}\n玩家输入：${playerInput}\n${this.transactionInstruction(transactionId)}可用发送者：${channel.participantIds.join(", ")}，旁白和系统也可使用。请推进剧情并调用必要的 story_* 工具。最终仅输出 JSON：{"messages":[{"senderId":"人物ID","kind":"dialogue|narration|action|system|work-dispatch|relationship|episode-summary","content":"内容"}]}。不得替玩家角色发言或决定。注意：content 内的对白引用请使用中文引号“”或「」，不要使用英文双引号 "，以免破坏 JSON 格式。`;
+			}
+			retryPrompt(projection, channelId, transactionId) {
+				const channel = projection.channels.find((c) => c.id === channelId);
+				if (channel === void 0) throw new Error("频道不存在");
+				return `继续刚才未完成的文字游戏回合。不要再次转述或提交玩家输入、选择或已提交的剧情消息。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。\n${this.transactionInstruction(transactionId)}只在通过必要的 story_* 工具后输出新的结构化 JSON 回复。`;
 			}
 			async start(projection, channelId, prompt, hooks = {}) {
 				const sessionId = await this.session(projection.saveId, projection.agentPreset ?? `story-${projection.packId}`);
@@ -2364,7 +2367,7 @@ window.__ModuleLoader__.load({
 					"uncertain",
 					"completed"
 				].includes(prior.state)) throw new Error("当前存档已有待处理 AI 回合；请等待、恢复或取消后再发送");
-				const completed = await this.start(projection, channelId, this.promptFor(projection, channelId, playerInput), hooks);
+				const completed = await this.start(projection, channelId, this.promptFor(projection, channelId, playerInput, hooks.transactionId), hooks);
 				return {
 					...completed.result,
 					turnId: completed.turnId
@@ -2373,7 +2376,7 @@ window.__ModuleLoader__.load({
 			async retry(projection, hooks = {}) {
 				const prior = this.readTurn(projection.saveId);
 				if (prior === null || !["failed", "cancelled"].includes(prior.state) || prior.prompt === "") throw new Error("当前 AI 回合不可安全重试");
-				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId), hooks);
+				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId, hooks.transactionId), hooks);
 				return {
 					...completed.result,
 					turnId: completed.turnId
@@ -2915,7 +2918,7 @@ window.__ModuleLoader__.load({
 			return state === "completed" || state === "failed" || state === "cancelled";
 		}
 		/**
-		* Browser coordinator for the social-only part of a player transaction.
+		* Browser coordinator for one player transaction's hidden/social flow.
 		* DSH rc.2 persists its carrier rpcId into durable message source metadata,
 		* but its public client mints that id internally and only echoes it after the
 		* response. Ambiguous dispatch therefore still degrades to recovery instead
@@ -3053,6 +3056,7 @@ window.__ModuleLoader__.load({
 			hooks(state, turnId, kind) {
 				return {
 					turnId,
+					transactionId: state.record.transactionId,
 					beforeDispatch: async (evidence) => {
 						const hidden = {
 							turnId: evidence.turnId,

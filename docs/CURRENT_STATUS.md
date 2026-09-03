@@ -48,7 +48,7 @@ D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journ
 
 D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH history correlation。D2 整体仍未完成：core operation receipts 尚未完成顶层 reconciliation，cancel 后 canonical-effect reconciliation、fork/restart 产品策略及完整真实浏览器故障矩阵仍待 D2c/D2d。
 
-### D2c-1：Core preflight operation linking — 当前工作分支，待验证/合并
+### D2c-1：Core preflight operation linking — 当前工作分支，已验证待合并
 
 当前分支 `codex/stage-d-core-step-reconciliation` 先建立 core mutation 的 durable-before-body 边界：
 
@@ -65,7 +65,7 @@ D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH histor
 
 ## D2 尚未完成
 
-- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight 与 hidden transaction control context；本机验证、tracked Client artifact 同步和合并仍待完成。
+- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight 与 hidden transaction control context；本机自动验证、tracked Client artifact 同步和认证 DSH ToolRuntime smoke 已完成，合并仍待完成。
 - D2c-2：core receipt / tool result → social projection 的跨域恢复协调器，以及多个 core mutation 部分提交后的 applied/skipped 判定。
 - canonical effect 已发生后的 cancel/reconciliation 语义落地。
 - 非终态 transaction 与 Save As / fork 的正式产品策略。
@@ -118,7 +118,14 @@ D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f979255
 - tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
 - 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
 
-D2c-1 当前工作分支尚未执行 typecheck/test/build，也没有真实 DSH/browser 验收。由于 Node/Host entry 与 browser client source 都已修改，`client/story-ui/lib/index.js`、`lib/client.js`、`lib/client.js.map` 在本分支上均须以认证 Windows DSH toolchain 的真实构建结果为准并同步；不得手工伪造 bundle/source map。重复构建后还必须确认 tracked artifacts deterministic/clean。
+D2c-1 当前工作分支最终验证：
+
+- 根项目 typecheck/build 通过；9 个测试文件、38 项测试全部通过。
+- Client typecheck/build 通过；30 个测试文件、154 项测试全部通过。
+- 真实 bundler 已同步 `client/story-ui/lib/index.js`、`lib/client.js` 与 `lib/client.js.map`；连续构建 SHA-256 一致且第二次构建没有产生新增 diff。
+- 在认证 DSH `0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` 的真实 `ToolRuntime` 上加载本分支 Host bundle：core preflight 在实际工具 body 前落盘，真实 D1 receipt 保留同一 `transactionId`，transaction identity 错配在 body 前拒绝且未改变 Runtime/journal。
+- `git diff --check` 通过；原项目工作目录和 `D:\DeepSeek-Harness` 工作树保持干净。
+- 本切片没有运行完整 `dsh web` 浏览器回合或浏览器 crash-window 矩阵；这些不能由 ToolRuntime smoke 代替，仍在后续 D2c-2/D2d 适用验收范围内。
 
 本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
 

@@ -81,7 +81,7 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 
 目标：把 D1 core receipts 接到 transaction coordinator。为了不把“计划了 operation”与“operation 已经产生 canonical effect”混成一个状态，D2c 分成两个顺序切片。
 
-##### D2c-1：Core preflight operation linking — 当前工作分支
+##### D2c-1：Core preflight operation linking — 已实现并验证，待合并
 
 目标：先建立不可绕过的 durable-before-body 边界。
 
@@ -94,7 +94,7 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - preflight 持久化失败必须阻止 tool body 执行。
 - `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
 
-该切片必须在合并前完成 Client typecheck/test/build、tracked Client artifacts 同步与 diff 自审。由于本切片同时修改 Host entry 和 browser AI/coordinator source，真实 bundler 必须检查 `lib/index.js`、`lib/client.js` 与 `lib/client.js.map` 的实际输出并确认重复构建干净。它只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
+该切片已完成两端 typecheck/test/build、tracked Client artifacts 同步、重复构建一致性和 diff 自审；认证 DSH rc.2 的真实 ToolRuntime smoke 已证明本分支 Host bundle 在实际 mutating tool body 前持久化 preflight、产生 transaction-bound D1 receipt，并在 transaction identity 错配时阻止 body。完整 `dsh web` 浏览器回合与 crash-window 矩阵尚未执行，留在后续适用验收范围。该切片只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
 
 ##### D2c-2：Receipt/result reconciliation — D2c-1 后
 

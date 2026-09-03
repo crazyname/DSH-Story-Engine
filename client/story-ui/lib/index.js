@@ -1,6 +1,7 @@
 import { access, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { createHash } from "node:crypto";
 //#region src/host-store.ts
 function safe(id) {
 	return basename(id.replace(/[^a-zA-Z0-9_-]/g, "_")).slice(0, 100) || "default";
@@ -199,7 +200,7 @@ const canonStatuses = new Set([
 	"committed",
 	"retracted"
 ]);
-function object$1(value, path) {
+function object$2(value, path) {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${path} 必须是对象`);
 	return value;
 }
@@ -216,7 +217,7 @@ function exactKeys(value, allowed, path) {
 	for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new Error(`${path} 不允许字段：${key}`);
 }
 function stringMap(value, path, validKeys, messageIds) {
-	const data = object$1(value, path);
+	const data = object$2(value, path);
 	for (const [key, item] of Object.entries(data)) {
 		if (!validKeys.has(key)) throw new Error(`${path} 引用了不存在的频道：${key}`);
 		if (typeof item !== "string") throw new Error(`${path}.${key} 必须是字符串`);
@@ -229,7 +230,7 @@ function timestamp$1(value, path) {
 }
 /** Validates the schema shape and all participant/channel/message references. */
 function validateStoryUiDescriptor(value) {
-	const data = object$1(value, "ui/story-ui.json");
+	const data = object$2(value, "ui/story-ui.json");
 	exactKeys(data, [
 		"schemaVersion",
 		"selectedChannelId",
@@ -245,7 +246,7 @@ function validateStoryUiDescriptor(value) {
 	if (!Array.isArray(data.participants) || data.participants.length === 0) throw new Error("participants 必须是非空数组");
 	const participantIds = /* @__PURE__ */ new Set();
 	for (const [index, item] of data.participants.entries()) {
-		const participant = object$1(item, `participants[${index}]`);
+		const participant = object$2(item, `participants[${index}]`);
 		exactKeys(participant, [
 			"id",
 			"heroNameZh",
@@ -264,12 +265,12 @@ function validateStoryUiDescriptor(value) {
 		if (!roles.has(participant.role)) throw new Error(`participants[${index}].role 无效`);
 		if (!statuses.has(participant.status)) throw new Error(`participants[${index}].status 无效`);
 	}
-	if (data.participants.filter((item) => object$1(item, "participant").role === "player").length !== 1) throw new Error("participants 必须且只能有一名玩家角色");
+	if (data.participants.filter((item) => object$2(item, "participant").role === "player").length !== 1) throw new Error("participants 必须且只能有一名玩家角色");
 	if (!Array.isArray(data.channels) || data.channels.length === 0) throw new Error("channels 必须是非空数组");
 	const channelIds = /* @__PURE__ */ new Set();
 	const channelMembers = /* @__PURE__ */ new Map();
 	for (const [index, item] of data.channels.entries()) {
-		const channel = object$1(item, `channels[${index}]`);
+		const channel = object$2(item, `channels[${index}]`);
 		exactKeys(channel, [
 			"id",
 			"kind",
@@ -310,7 +311,7 @@ function validateStoryUiDescriptor(value) {
 	const messageIds = /* @__PURE__ */ new Set();
 	const messageChannels = /* @__PURE__ */ new Map();
 	for (const [index, item] of data.messages.entries()) {
-		const message = object$1(item, `messages[${index}]`);
+		const message = object$2(item, `messages[${index}]`);
 		exactKeys(message, [
 			"id",
 			"channelId",
@@ -332,7 +333,7 @@ function validateStoryUiDescriptor(value) {
 		const channelId = id(message.channelId, `messages[${index}].channelId`);
 		const senderId = id(message.senderId, `messages[${index}].senderId`);
 		if (!channelIds.has(channelId) || !participantIds.has(senderId)) throw new Error(`消息引用无效：${messageId}`);
-		const senderRole = data.participants.map((item) => object$1(item, "participant")).find((participant) => participant.id === senderId)?.role;
+		const senderRole = data.participants.map((item) => object$2(item, "participant")).find((participant) => participant.id === senderId)?.role;
 		if (!channelMembers.get(channelId)?.has(senderId) && senderRole !== "narrator" && senderRole !== "system") throw new Error(`消息发送者不属于频道：${messageId}`);
 		if (!messageKinds.has(message.kind)) throw new Error(`messages[${index}].kind 无效`);
 		string(message.content, `messages[${index}].content`);
@@ -345,12 +346,12 @@ function validateStoryUiDescriptor(value) {
 		if (!canonStatuses.has(message.canonStatus)) throw new Error(`messages[${index}].canonStatus 无效`);
 	}
 	for (const [index, item] of data.channels.entries()) {
-		const channel = object$1(item, `channels[${index}]`);
+		const channel = object$2(item, `channels[${index}]`);
 		if (channel.lastMessageId !== void 0 && (!messageIds.has(channel.lastMessageId) || messageChannels.get(channel.lastMessageId) !== channel.id)) throw new Error(`频道最后消息不存在或不属于该频道：${channel.id}`);
 	}
 	stringMap(data.drafts, "drafts", channelIds);
 	stringMap(data.readCursors, "readCursors", channelIds, messageIds);
-	const frame = object$1(data.frame, "frame");
+	const frame = object$2(data.frame, "frame");
 	exactKeys(frame, [
 		"seasonLabel",
 		"episodeLabel",
@@ -415,7 +416,7 @@ const TRANSACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const SAVE_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/u;
 const STORY_UI_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/u;
-function object(value, label) {
+function object$1(value, label) {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 必须是对象`);
 	return value;
 }
@@ -451,12 +452,12 @@ function storyUiId(value, label) {
 	return raw;
 }
 function validateTransactionRecord(value) {
-	const raw = object(value, "transaction");
+	const raw = object$1(value, "transaction");
 	if (raw.schemaVersion !== 1) throw new Error("transaction.schemaVersion 必须为 1");
 	const transactionId = stableString(raw.transactionId, "transactionId");
 	const saveId = text(raw.saveId, "saveId");
 	assertSaveId(saveId);
-	const inputRaw = object(raw.input, "input");
+	const inputRaw = object$1(raw.input, "input");
 	const channelId = storyUiId(inputRaw.channelId, "input.channelId");
 	const inputText = text(inputRaw.text, "input.text");
 	if (inputText.trim() !== inputText) throw new Error("input.text 必须是已规范化的非空字符串");
@@ -476,7 +477,7 @@ function validateTransactionRecord(value) {
 	const requestIds = /* @__PURE__ */ new Set();
 	const nativeTurns = /* @__PURE__ */ new Set();
 	const hiddenTurns = raw.hiddenTurns.map((item, index) => {
-		const entry = object(item, `hiddenTurns[${index}]`);
+		const entry = object$1(item, `hiddenTurns[${index}]`);
 		const turnId = storyUiId(entry.turnId, `hiddenTurns[${index}].turnId`);
 		const dshRequestId = entry.dshRequestId === void 0 ? void 0 : stableString(entry.dshRequestId, `hiddenTurns[${index}].dshRequestId`);
 		if (turnIds.has(turnId)) throw new Error(`hidden turnId 重复：${turnId}`);
@@ -523,7 +524,7 @@ function validateTransactionRecord(value) {
 	const stepKeys = /* @__PURE__ */ new Set();
 	const operationIds = /* @__PURE__ */ new Set();
 	const operationRefs = raw.operationRefs.map((item, index) => {
-		const entry = object(item, `operationRefs[${index}]`);
+		const entry = object$1(item, `operationRefs[${index}]`);
 		const stepKey = stableString(entry.stepKey, `operationRefs[${index}].stepKey`);
 		const operationId = stableString(entry.operationId, `operationRefs[${index}].operationId`);
 		if (stepKeys.has(stepKey)) throw new Error(`operation stepKey 重复：${stepKey}`);
@@ -566,7 +567,7 @@ function validateTransactionRecord(value) {
 	}
 	let diagnostic;
 	if (raw.diagnostic !== void 0) {
-		const entry = object(raw.diagnostic, "diagnostic");
+		const entry = object$1(raw.diagnostic, "diagnostic");
 		diagnostic = {
 			code: text(entry.code, "diagnostic.code"),
 			message: text(entry.message, "diagnostic.message")
@@ -603,7 +604,7 @@ function assertInitialTransactionRecord(record) {
 	if (record.operationRefs.length !== 0) throw new Error("初始 transaction 不能预填 operation identity evidence");
 	if (record.activeTurnId !== void 0 || record.canonicalResultTurnId !== void 0) throw new Error("初始 transaction 不能预填 turn result identity");
 }
-const TERMINAL_TRANSACTION = new Set([
+const TERMINAL_TRANSACTION$2 = new Set([
 	"committed",
 	"cancelled",
 	"failed"
@@ -661,7 +662,7 @@ function conflict(message) {
 function assertTransactionUpdate(current, next) {
 	if (next.transactionId !== current.transactionId || next.saveId !== current.saveId) conflict("identity 不可修改");
 	if (next.inputFingerprint !== current.inputFingerprint || next.input.channelId !== current.input.channelId || next.input.text !== current.input.text || next.baseProjectionRevision !== current.baseProjectionRevision || next.createdAt !== current.createdAt) conflict("input identity 不可修改");
-	if (TERMINAL_TRANSACTION.has(current.status)) conflict(`终态 ${current.status} 不可产生新 revision`);
+	if (TERMINAL_TRANSACTION$2.has(current.status)) conflict(`终态 ${current.status} 不可产生新 revision`);
 	if (!TRANSACTION_TRANSITIONS[current.status].has(next.status)) conflict(`transaction 状态不能从 ${current.status} 迁移到 ${next.status}`);
 	if (next.hiddenTurns.length < current.hiddenTurns.length) conflict("hidden turn evidence 不可删除");
 	for (let index = 0; index < current.hiddenTurns.length; index += 1) {
@@ -687,7 +688,7 @@ function assertTransactionUpdate(current, next) {
 		if (after.stepKey !== before.stepKey || after.operationId !== before.operationId) conflict("operation identity evidence 不可修改");
 	}
 	if (current.canonicalResultTurnId !== void 0 && next.canonicalResultTurnId !== current.canonicalResultTurnId) conflict("canonicalResultTurnId 不可修改");
-	if (TERMINAL_TRANSACTION.has(next.status)) {
+	if (TERMINAL_TRANSACTION$2.has(next.status)) {
 		if (next.activeTurnId !== void 0) conflict(`终态 ${next.status} 不能保留 activeTurnId`);
 		const pending = next.hiddenTurns.find((turn) => !TERMINAL_TURN.has(turn.state));
 		if (pending !== void 0) conflict(`终态 ${next.status} 不能包含非终态 hidden turn：${pending.turnId}`);
@@ -705,17 +706,35 @@ async function fingerprintTransactionInput(saveId, channelId, inputText) {
 	const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
 	return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+function reviseTransaction(record, patch, now = /* @__PURE__ */ new Date()) {
+	const next = validateTransactionRecord({
+		...record,
+		...patch,
+		revision: record.revision + 1,
+		updatedAt: now.toISOString()
+	});
+	assertTransactionUpdate(record, next);
+	return next;
+}
 //#endregion
 //#region src/transaction-store.ts
+const TERMINAL_TRANSACTION$1 = new Set([
+	"committed",
+	"cancelled",
+	"failed"
+]);
 var StoryTransactionStore = class {
 	root;
 	queues = /* @__PURE__ */ new Map();
 	constructor(root) {
 		this.root = root;
 	}
+	journalDirectory() {
+		return join(this.root, "transaction-journal");
+	}
 	directory(saveId) {
 		assertSaveId(saveId);
-		return join(this.root, "transaction-journal", saveId);
+		return join(this.journalDirectory(), saveId);
 	}
 	filename(transactionId) {
 		assertTransactionId(transactionId);
@@ -743,21 +762,29 @@ var StoryTransactionStore = class {
 		if (record.inputFingerprint !== fingerprint) throw new Error("inputFingerprint 与 transaction input 不一致");
 		return record;
 	}
-	async exclusive(saveId, transactionId, work) {
-		const key = `${saveId}:${transactionId}`;
-		const previous = this.queues.get(key) ?? Promise.resolve();
+	async exclusive(saveId, work) {
+		const previous = this.queues.get(saveId) ?? Promise.resolve();
 		let release;
 		const current = new Promise((resolve) => {
 			release = resolve;
 		});
 		const queued = previous.then(() => current);
-		this.queues.set(key, queued);
+		this.queues.set(saveId, queued);
 		await previous;
 		try {
 			return await work();
 		} finally {
 			release();
-			if (this.queues.get(key) === queued) this.queues.delete(key);
+			if (this.queues.get(saveId) === queued) this.queues.delete(saveId);
+		}
+	}
+	async assertOperationOwnership(saveId, transactionId, refs) {
+		if (refs.length === 0) return;
+		const operationIds = new Set(refs.map((ref) => ref.operationId));
+		for (const record of await this.list(saveId)) {
+			if (record.transactionId === transactionId) continue;
+			const collision = record.operationRefs.find((ref) => operationIds.has(ref.operationId));
+			if (collision !== void 0) throw new Error(`transaction 幂等冲突：operationId ${collision.operationId} 已属于 ${record.transactionId}`);
 		}
 	}
 	async read(saveId, transactionId) {
@@ -788,6 +815,35 @@ var StoryTransactionStore = class {
 		}
 		return records.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.transactionId.localeCompare(b.transactionId));
 	}
+	async findOperationOwner(saveId, operationId) {
+		assertSaveId(saveId);
+		assertTransactionId(operationId, "operationId");
+		const matches = (await this.list(saveId)).filter((record) => record.operationRefs.some((ref) => ref.operationId === operationId));
+		if (matches.length > 1) throw new Error(`operationId ${operationId} 同时关联多个 transaction：${matches.map((record) => record.transactionId).join(", ")}`);
+		return matches[0];
+	}
+	async findOpenBySession(sessionId) {
+		assertTransactionId(sessionId, "sessionId");
+		const entries = await readdir(this.journalDirectory(), { withFileTypes: true }).catch((error) => {
+			if (error.code === "ENOENT") return [];
+			throw error;
+		});
+		const matches = [];
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			try {
+				assertSaveId(entry.name, "transaction saveId");
+			} catch {
+				throw new Error(`transaction journal 存档目录无效：${entry.name}`);
+			}
+			for (const record of await this.list(entry.name)) {
+				if (TERMINAL_TRANSACTION$1.has(record.status)) continue;
+				if (record.hiddenTurns.some((turn) => turn.sessionId === sessionId)) matches.push(record);
+			}
+		}
+		if (matches.length > 1) throw new Error(`DSH session ${sessionId} 同时关联多个 open transaction：${matches.map((record) => `${record.saveId}/${record.transactionId}`).join(", ")}`);
+		return matches[0];
+	}
 	async write(saveId, transactionId, expectedRevision, value) {
 		assertSaveId(saveId);
 		assertTransactionId(transactionId);
@@ -795,7 +851,7 @@ var StoryTransactionStore = class {
 		const next = await this.validate(value);
 		if (next.saveId !== saveId || next.transactionId !== transactionId) throw new Error("transaction journal 路径身份不匹配");
 		if (next.revision !== expectedRevision + 1) throw new Error("transaction 新版本无效");
-		return this.exclusive(saveId, transactionId, async () => {
+		return this.exclusive(saveId, async () => {
 			const current = await this.read(saveId, transactionId);
 			const revision = current === void 0 ? -1 : current.revision;
 			if (current !== void 0 && revision === next.revision) {
@@ -806,6 +862,7 @@ var StoryTransactionStore = class {
 			if (revision !== expectedRevision) throw new Error(`transaction 版本冲突：当前 ${revision}，提交基于 ${expectedRevision}`);
 			if (current === void 0) assertInitialTransactionRecord(next);
 			else assertTransactionUpdate(current, next);
+			await this.assertOperationOwnership(saveId, transactionId, next.operationRefs);
 			const path = this.path(saveId, transactionId);
 			await mkdir(this.directory(saveId), { recursive: true });
 			const temporary = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
@@ -815,9 +872,121 @@ var StoryTransactionStore = class {
 		});
 	}
 };
+const MUTATING_STORY_TOOLS = new Set([
+	"story_commit_state",
+	"story_advance_scene",
+	"story_initialize_episode_state",
+	"story_enter_episode_scene",
+	"story_record_script_choice",
+	"story_record_work_event",
+	"story_pause_for_revision",
+	"story_submit_script_revision",
+	"story_record_episode_summary"
+]);
+const TERMINAL_TRANSACTION = new Set([
+	"committed",
+	"cancelled",
+	"failed"
+]);
+function object(value, label) {
+	if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 必须是对象`);
+	return value;
+}
+function stableId(value, label) {
+	if (typeof value !== "string") throw new Error(`${label} 必须是字符串`);
+	assertTransactionId(value, label);
+	return value;
+}
+function sessionId(exec) {
+	const value = exec.agent?.id;
+	if (typeof value !== "string" || value.trim() === "") throw new Error("mutating story_* 工具缺少 Agent/session identity");
+	return stableId(value, "sessionId");
+}
+function retryableJournalConflict(error) {
+	return error instanceof Error && error.message.includes("transaction") && error.message.includes("冲突");
+}
+function sameOperationRef(left, right) {
+	return left.stepKey === right.stepKey && left.operationId === right.operationId;
+}
+function isMutatingStoryTool(name) {
+	return MUTATING_STORY_TOOLS.has(name);
+}
+function coreStepKey(transactionId, toolName, operationId) {
+	assertTransactionId(transactionId);
+	assertTransactionId(operationId, "operation_id");
+	return `core-${createHash("sha256").update(JSON.stringify([
+		transactionId,
+		toolName,
+		operationId
+	])).digest("hex")}`;
+}
+/**
+* Persists child core-operation identity before a mutating story_* body runs.
+*
+* The active transaction is resolved from durable hidden-session evidence, not
+* browser memory. Once a session belongs to an open player transaction, every
+* mutating story_* call must carry that exact transaction_id so the D1 receipt
+* fingerprint is transaction-bound. Standalone story_* calls remain possible
+* when the session has no open player transaction and no transaction_id is
+* claimed.
+*/
+var CoreStepJournalPreflight = class {
+	transactions;
+	constructor(transactions) {
+		this.transactions = transactions;
+	}
+	existing(record, expected) {
+		const byStep = record.operationRefs.find((item) => item.stepKey === expected.stepKey);
+		const byOperation = record.operationRefs.find((item) => item.operationId === expected.operationId);
+		if (byStep === void 0 && byOperation === void 0) return void 0;
+		if (byStep !== void 0 && byOperation !== void 0 && sameOperationRef(byStep, expected) && sameOperationRef(byOperation, expected)) return byStep;
+		throw new Error(`transaction 幂等冲突：core step identity 已被不同 operation 占用：${expected.operationId}`);
+	}
+	assertRecordStillOwnsSession(record, expectedSessionId) {
+		if (TERMINAL_TRANSACTION.has(record.status)) throw new Error(`transaction ${record.transactionId} 已是终态 ${record.status}`);
+		if (!record.hiddenTurns.some((turn) => turn.sessionId === expectedSessionId)) throw new Error(`transaction ${record.transactionId} 不再关联当前 DSH session：${expectedSessionId}`);
+	}
+	async assertOperationOwnership(record, operationId) {
+		const owner = await this.transactions.findOperationOwner(record.saveId, operationId);
+		if (owner !== void 0 && owner.transactionId !== record.transactionId) throw new Error(`transaction 幂等冲突：operationId ${operationId} 已属于 ${owner.transactionId}`);
+	}
+	async prepare(exec) {
+		if (!isMutatingStoryTool(exec.name)) return void 0;
+		const args = object(exec.arguments, `${exec.name} arguments`);
+		const operationId = stableId(args.operation_id, "operation_id");
+		const claimedTransactionId = args.transaction_id === void 0 ? void 0 : stableId(args.transaction_id, "transaction_id");
+		const currentSessionId = sessionId(exec);
+		let current = await this.transactions.findOpenBySession(currentSessionId);
+		if (current === void 0) {
+			if (claimedTransactionId !== void 0) throw new Error(`transaction ${claimedTransactionId} 不存在可恢复的 open journal；拒绝脱离 journal 执行 core mutation`);
+			return;
+		}
+		if (claimedTransactionId === void 0) throw new Error(`transaction_id 缺失；当前 session 属于 ${current.transactionId}；请使用相同 operation_id 重试并携带该 transaction_id`);
+		if (claimedTransactionId !== current.transactionId) throw new Error(`transaction identity 冲突：工具声明 ${claimedTransactionId}，当前 session 属于 ${current.transactionId}`);
+		const expected = {
+			stepKey: coreStepKey(current.transactionId, exec.name, operationId),
+			operationId
+		};
+		for (let attempt = 0; attempt < 8; attempt += 1) {
+			this.assertRecordStillOwnsSession(current, currentSessionId);
+			await this.assertOperationOwnership(current, operationId);
+			if (this.existing(current, expected) !== void 0) return current;
+			const next = reviseTransaction(current, { operationRefs: [...current.operationRefs, expected] });
+			try {
+				return await this.transactions.write(current.saveId, current.transactionId, current.revision, next);
+			} catch (error) {
+				if (!retryableJournalConflict(error)) throw error;
+				const refreshed = await this.transactions.read(current.saveId, current.transactionId);
+				if (refreshed === void 0) throw new Error(`transaction 在 core step preflight 期间消失：${current.transactionId}`);
+				current = refreshed;
+			}
+		}
+		throw new Error(`transaction ${current.transactionId} 的 core step journal 并发冲突未能收敛`);
+	}
+};
 //#endregion
 //#region src/index.ts
-const inject = ["webServer"];
+const inject = ["webServer", "tools"];
 const SAVE_BASE = "/story-engine/api/saves/";
 const TRANSACTION_BASE = "/story-engine/api/transactions/";
 const RUNTIME_CLONE = "/story-engine/api/runtime/clone";
@@ -856,6 +1025,16 @@ function apply(ctx, config = {}) {
 	const transactions = new StoryTransactionStore(runtimeRoot);
 	const runtime = new StoryRuntimeStore(config.storyRuntimeRoot ?? "D:/DSH-Story-Engine/runtime");
 	const catalog = new StoryCatalogStore(config.packsRoot ?? "D:/DSH-Story-Engine/packs");
+	const coreSteps = new CoreStepJournalPreflight(transactions);
+	ctx.on("tools/execute", async (exec, next) => {
+		if (!isMutatingStoryTool(exec.name)) return next();
+		try {
+			await coreSteps.prepare(exec);
+		} catch (error) {
+			throw new Error(`Story core step preflight 失败：${message(error)}`);
+		}
+		return next();
+	});
 	ctx.effect(() => ctx.webServer.register({
 		kind: "prefix",
 		path: SAVE_BASE.slice(0, -1),
