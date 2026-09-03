@@ -90,10 +90,11 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - 第一次 core mutation body 前持久化稳定 `stepKey + operationId`；同一 identity 的 preflight replay 不产生新 revision。
 - 同一个 `operationId` 被不同 tool/step 复用显式冲突；同一 save 的 journal 写使用短临界区串行并在最终写入前重查 operation ownership，并发不同 transaction 争用同一 `operationId` 只允许一个 owner；同 transaction 并发不同 operationRef 通过 optimistic reread/retry 追加。
 - active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在 body 前拒绝，使 D1 receipt fingerprint transaction-bound。没有 open player transaction 且未声明 transaction identity 的 standalone Story mutation 仍可运行。
+- `PlayerTransactionCoordinator` 必须把 durable journal `transactionId` 作为 hidden control context 传给 initial/retry AI prompt，使模型在第一次 mutating `story_*` 调用前就能提供正确 `transaction_id`；不能把故意触发一次缺失-ID错误再从错误文本学习 identity 当成正常流程，retry 也必须继续使用同一 transaction identity。
 - preflight 持久化失败必须阻止 tool body 执行。
 - `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
 
-该切片必须在合并前完成 Client typecheck/test/build、tracked Host artifact 同步与 diff 自审。它只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
+该切片必须在合并前完成 Client typecheck/test/build、tracked Client artifacts 同步与 diff 自审。由于本切片同时修改 Host entry 和 browser AI/coordinator source，真实 bundler 必须检查 `lib/index.js`、`lib/client.js` 与 `lib/client.js.map` 的实际输出并确认重复构建干净。它只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
 
 ##### D2c-2：Receipt/result reconciliation — D2c-1 后
 
