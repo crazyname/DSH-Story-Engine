@@ -40,7 +40,8 @@ function resultCallId(event:any,block:any):string|undefined{
  const sourceId=source?.kind==='tool'&&typeof source.callId==='string'?source.callId:undefined
  const blockId=block?.type==='tool-result'&&typeof block.toolCallId==='string'?block.toolCallId:undefined
  if(sourceId!==undefined&&blockId!==undefined&&sourceId!==blockId)throw new Error(`DSH tool result call identity 冲突：${sourceId} != ${blockId}`)
- return sourceId??blockId
+ if(sourceId===undefined||blockId===undefined)return undefined
+ return sourceId
 }
 function parseCanonicalResult(block:any):unknown{
  const content=block?.content
