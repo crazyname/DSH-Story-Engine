@@ -23,7 +23,13 @@ function canonical(value:unknown):unknown{
  return value
 }
 function canonicalIdentity(value:unknown):string{const encoded=JSON.stringify(canonical(value));return encoded===undefined?'undefined':encoded}
-function canonicalArgs(value:Record<string,unknown>):string{const{expected_version:_expectedVersion,...semantic}=value;return canonicalIdentity(semantic)}
+function semanticArgs(toolName:string,value:Record<string,unknown>):Record<string,unknown>{
+ const{expected_version:_expectedVersion,...semantic}=value
+ if(toolName==='story_enter_episode_scene'&&semantic.branch_id===undefined)semantic.branch_id='main'
+ if(toolName==='story_record_episode_summary'&&semantic.relationship_changes===undefined)semantic.relationship_changes=[]
+ return semantic
+}
+function canonicalArgs(toolName:string,value:Record<string,unknown>):string{return canonicalIdentity(semanticArgs(toolName,value))}
 function resultBlock(event:any):any|undefined{
  const blocks=event?.data?.message?.content
  if(!Array.isArray(blocks))return undefined
@@ -55,7 +61,7 @@ export function collectToolOperationEvidence(entries:HistoryEntry[],transactionI
   const operationId=parsed.operation_id,claimedTransaction=parsed.transaction_id
   if(typeof operationId!=='string'||!operationIds.has(operationId)||claimedTransaction!==transactionId)continue
   const existing=calls.get(callId)
-  const next:StoryToolCallEvidence={operationId,transactionId,toolName:name,argumentsCanonical:canonicalArgs(parsed),callId,callSeq}
+  const next:StoryToolCallEvidence={operationId,transactionId,toolName:name,argumentsCanonical:canonicalArgs(name,parsed),callId,callSeq}
   if(existing!==undefined&&(existing.operationId!==next.operationId||existing.transactionId!==next.transactionId||existing.toolName!==next.toolName||existing.argumentsCanonical!==next.argumentsCanonical||existing.callSeq!==next.callSeq))throw new Error(`DSH tool call identity 冲突：${callId}`)
   calls.set(callId,existing??next)
  }
