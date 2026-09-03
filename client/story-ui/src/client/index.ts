@@ -50,11 +50,11 @@ export function apply(ctx: ClientContext): void {
   const coreReconciler=new CoreTransactionReconciler(new HostCoreReceiptReader(),new DshToolEvidenceReader(connection.api))
   const playerTransactions=new PlayerTransactionCoordinator(transactionJournal,hostProjections,ai,coreReconciler)
   const journalLocks=new Map<string,string>()
-  const recoveryChannel=(saveId:string,channelId:string|undefined,authoritative:StorySaveProjection|undefined):string=>channelId??authoritative?.selectedChannelId??'journal-recovery'
+  const recoveryChannel=(channelId:string|undefined,authoritative:StorySaveProjection|undefined):string=>channelId??authoritative?.selectedChannelId??'journal-recovery'
   const syncRecoveryState=async(saveId:string,channelId?:string):Promise<void>=>{
     const authoritative=await hostProjections.load(saveId).catch(()=>undefined)
     if(authoritative!==undefined)localProjections.save(authoritative)
-    const fallbackChannel=recoveryChannel(saveId,channelId,authoritative)
+    const fallbackChannel=recoveryChannel(channelId,authoritative)
     try{
       await playerTransactions.assertQuiescent(saveId)
       try{await reconcileSettledLocalTurn(transactionJournal,ai,saveId);journalLocks.delete(saveId)}catch{journalLocks.set(saveId,fallbackChannel)}
