@@ -10,7 +10,7 @@ async function record(operationIds:string[]){
  return reviseTransaction(completed,{operationRefs:operationIds.map((operationId,index)=>({stepKey:`step-${index}`,operationId}))})
 }
 function receipt(operationId:string){return{sessionId:'session-a',receipt:{operationId,transactionId:'tx-core-reconcile',operation:'story_commit_state',fingerprint:'a'.repeat(64),stateVersion:1,committedAt:'2026-09-03T00:00:00.000Z',result:{ok:true}}}}
-function evidence(operationId:string,input:{sessionId?:string;toolName?:string;isError?:boolean;result?:unknown;pending?:boolean}={}){return{sessionId:input.sessionId??'session-a',operationId,transactionId:'tx-core-reconcile',toolName:input.toolName??'story_commit_state',callId:`call-${operationId}-${input.sessionId??'session-a'}`,callSeq:1,...(input.pending?{}:{resultSeq:2,isError:input.isError??false,result:input.result??{ok:true}})}}
+function evidence(operationId:string,input:{sessionId?:string;toolName?:string;argumentsCanonical?:string;callId?:string;isError?:boolean;result?:unknown;pending?:boolean}={}){return{sessionId:input.sessionId??'session-a',operationId,transactionId:'tx-core-reconcile',toolName:input.toolName??'story_commit_state',argumentsCanonical:input.argumentsCanonical??`{"operation_id":"${operationId}","transaction_id":"tx-core-reconcile"}`,callId:input.callId??`call-${operationId}-${input.sessionId??'session-a'}`,callSeq:1,...(input.pending?{}:{resultSeq:2,isError:input.isError??false,result:input.result??{ok:true}})}}
 
 describe('core transaction reconciliation',()=>{
  it('treats matching receipts as authoritative applied/replayed evidence',async()=>{
@@ -31,6 +31,32 @@ describe('core transaction reconciliation',()=>{
   expect(result.operations[0]?.state).toBe('skipped')
   expect(result.readyForSocialCommit).toBe(true)
   expect(result.hasCanonicalEffect).toBe(false)
+ })
+
+ it('does not declare skipped while a matching retry call remains pending',async()=>{
+  const current=await record(['op-skip'])
+  const same='{"event_id":"e1","operation_id":"op-skip","transaction_id":"tx-core-reconcile"}'
+  const receipts={load:vi.fn(async()=>undefined)}
+  const tools={load:vi.fn(async()=>[
+   evidence('op-skip',{toolName:'story_record_work_event',argumentsCanonical:same,callId:'call-done',result:{escalated:true,recorded:false}}),
+   evidence('op-skip',{toolName:'story_record_work_event',argumentsCanonical:same,callId:'call-pending',pending:true}),
+  ])}
+  const result=await new CoreTransactionReconciler(receipts as never,tools as never).reconcile(current)
+  expect(result.operations[0]?.state).toBe('pending')
+  expect(result.readyForSocialCommit).toBe(false)
+  expect(result.unresolved).toBe(true)
+ })
+
+ it('fails closed when a no-receipt operation id is reused with different canonical arguments',async()=>{
+  const current=await record(['op-skip'])
+  const receipts={load:vi.fn(async()=>undefined)}
+  const tools={load:vi.fn(async()=>[
+   evidence('op-skip',{toolName:'story_record_work_event',argumentsCanonical:'{"event_id":"e1","operation_id":"op-skip","transaction_id":"tx-core-reconcile"}',callId:'call-one',result:{escalated:true,recorded:false}}),
+   evidence('op-skip',{toolName:'story_record_work_event',argumentsCanonical:'{"event_id":"e2","operation_id":"op-skip","transaction_id":"tx-core-reconcile"}',callId:'call-two',isError:true,result:{error:'preflight conflict'}}),
+  ])}
+  const result=await new CoreTransactionReconciler(receipts as never,tools as never).reconcile(current)
+  expect(result.operations[0]).toMatchObject({state:'inconsistent',detail:expect.stringContaining('不同 tool 或 arguments')})
+  expect(result.unresolved).toBe(true)
  })
 
  it('classifies deterministic no-effect failure without inventing a canonical effect',async()=>{
@@ -69,7 +95,7 @@ describe('core transaction reconciliation',()=>{
   expect(result.unresolved).toBe(true)
  })
 
- it('fails closed when one operation has successful evidence in multiple hidden sessions',async()=>{
+ it('fails closed when one operation has evidence in multiple hidden sessions',async()=>{
   const current=await record(['op-duplicate'])
   const receipts={load:vi.fn(async()=>undefined)}
   const tools={load:vi.fn(async()=>[evidence('op-duplicate',{sessionId:'session-a'}),evidence('op-duplicate',{sessionId:'session-b'})])}
