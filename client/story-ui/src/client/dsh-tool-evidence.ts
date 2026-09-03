@@ -4,16 +4,17 @@ import{collectToolOperationEvidence,type StoryToolCallEvidence}from'./tool-opera
 
 type StoryHistoryPage={events:Array<{event:any}>;hasMore?:boolean}
 type ToolEvidenceApi={sessions:{history(payload:Record<string,unknown>):Promise<Rpc<StoryHistoryPage>>}}
+export type DurableStoryToolCallEvidence=StoryToolCallEvidence&{sessionId:string}
 
 function eventSeq(event:any):number|undefined{const value=Number(event?.seq);return Number.isSafeInteger(value)&&value>=0?value:undefined}
 
 /** Reads rc.2 append-only session history to recover transaction-owned tool outcomes. */
 export class DshToolEvidenceReader{
  constructor(private readonly api:ToolEvidenceApi){}
- async load(sessionIds:readonly string[],transactionId:string,operationIds:readonly string[]):Promise<StoryToolCallEvidence[]>{
+ async load(sessionIds:readonly string[],transactionId:string,operationIds:readonly string[]):Promise<DurableStoryToolCallEvidence[]>{
   const targets=new Set(operationIds)
   if(targets.size===0)return[]
-  const all:StoryToolCallEvidence[]=[]
+  const all:DurableStoryToolCallEvidence[]=[]
   for(const sessionId of[...new Set(sessionIds)]){
    let page=unwrap(await this.api.sessions.history({sessionId,maxMessages:50}),'读取 Core tool evidence')
    let events=[...page.events]
@@ -25,7 +26,7 @@ export class DshToolEvidenceReader{
     page=unwrap(await this.api.sessions.history({sessionId,beforeSeq:first,maxMessages:50}),'读取 Core tool evidence')
     events=[...page.events,...events]
    }
-   all.push(...collectToolOperationEvidence(events,transactionId,targets))
+   all.push(...collectToolOperationEvidence(events,transactionId,targets).map(evidence=>({...evidence,sessionId})))
   }
   return all.sort((left,right)=>left.callSeq-right.callSeq)
  }
