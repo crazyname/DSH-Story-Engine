@@ -22,6 +22,7 @@ function canonical(value:unknown):unknown{
  if(value!==null&&typeof value==='object')return Object.fromEntries(Object.keys(value as Record<string,unknown>).sort().map(key=>[key,canonical((value as Record<string,unknown>)[key])]))
  return value
 }
+function canonicalIdentity(value:unknown):string{return value===undefined?'undefined':JSON.stringify(canonical(value))}
 function canonicalArgs(value:Record<string,unknown>):string{const{expected_version:_expectedVersion,...semantic}=value;return JSON.stringify(canonical(semantic))}
 function resultBlock(event:any):any|undefined{
  const blocks=event?.data?.message?.content
@@ -66,10 +67,11 @@ export function collectToolOperationEvidence(entries:HistoryEntry[],transactionI
   const call=calls.get(callId)
   if(call===undefined)continue
   if(block===undefined||typeof block.isError!=='boolean')throw new Error(`DSH tool result 结构无效：${callId}`)
-  if(call.resultSeq!==undefined){if(call.resultSeq!==resultSeq||call.isError!==block.isError)throw new Error(`DSH tool result identity 冲突：${callId}`);continue}
+  const parsedResult=parseCanonicalResult(block)
+  if(call.resultSeq!==undefined){if(call.resultSeq!==resultSeq||call.isError!==block.isError||canonicalIdentity(call.result)!==canonicalIdentity(parsedResult))throw new Error(`DSH tool result identity 冲突：${callId}`);continue}
   call.resultSeq=resultSeq
   call.isError=block.isError
-  call.result=parseCanonicalResult(block)
+  call.result=parsedResult
  }
  return[...calls.values()].sort((left,right)=>left.callSeq-right.callSeq)
 }
