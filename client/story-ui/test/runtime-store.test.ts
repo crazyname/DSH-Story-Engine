@@ -33,6 +33,13 @@ describe('story runtime receipt reader',()=>{
     await expect(store.readReceipt('pack-a','session-a','op-1')).resolves.toEqual(state._engine.operationReceipts['op-1'])
     expect(JSON.parse(await readFile(join(directory,'state.json'),'utf8'))).toEqual(state)
   })
+  it('treats schema v2 as pre-receipt state even if a stray receipt-looking field is present',async()=>{
+    const root=await mkdtemp(join(tmpdir(),'story-runtime-receipt-v2-'))
+    const directory=join(root,'pack-a','session-a')
+    await mkdir(directory,{recursive:true})
+    await writeFile(join(directory,'state.json'),JSON.stringify({_engine:{schemaVersion:2,operationReceipts:{'op-fake':{operationId:'op-fake',transactionId:'tx-fake',operation:'story_commit_state',fingerprint:'a'.repeat(64),stateVersion:1,committedAt:'2026-09-03T00:00:00.000Z',result:{ok:true}}}}}),'utf8')
+    await expect(new StoryRuntimeStore(root).readReceipt('pack-a','session-a','op-fake')).resolves.toBeUndefined()
+  })
   it('returns absent receipts but fails closed on unsupported or corrupt runtime state',async()=>{
     const root=await mkdtemp(join(tmpdir(),'story-runtime-receipt-invalid-'))
     const directory=join(root,'pack-a','session-a')
