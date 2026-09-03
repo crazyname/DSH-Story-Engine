@@ -33,19 +33,25 @@ export class CoreTransactionReconciler{
   const sessionSet=new Set(sessionIds)
 
   const receiptEntries=await Promise.all(record.operationRefs.map(async ref=>({ref,evidence:await this.receipts.load(record.saveId,record.transactionId,ref.operationId)})))
-  const unresolvedIds=receiptEntries.filter(entry=>entry.evidence===undefined).map(entry=>entry.ref.operationId)
-  const toolEvidence=await this.tools.load(sessionIds,record.transactionId,unresolvedIds)
+  const operationIds=record.operationRefs.map(ref=>ref.operationId)
+  const toolEvidence=await this.tools.load(sessionIds,record.transactionId,operationIds)
   const byOperation=new Map<string,DurableStoryToolCallEvidence[]>()
   for(const evidence of toolEvidence){const list=byOperation.get(evidence.operationId)??[];list.push(evidence);byOperation.set(evidence.operationId,list)}
 
   const operations:CoreOperationResolution[]=receiptEntries.map(({ref,evidence:receiptEvidence})=>{
-   if(receiptEvidence!==undefined){if(!sessionSet.has(receiptEvidence.sessionId))return{ref,state:'inconsistent',evidence:[],detail:'Core receipt 来自 transaction 未登记的 hidden session'};return{ref,state:'applied-or-replayed',receipt:receiptEvidence.receipt,evidence:[]}}
    const evidence=byOperation.get(ref.operationId)??[]
-   if(evidence.length===0)return{ref,state:'pending',evidence,detail:'尚未在 DSH durable history 找到 matching tool outcome'}
-   const sessions=new Set(evidence.map(item=>item.sessionId))
-   if(sessions.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 在多个 hidden session 出现 tool evidence'}
+   const evidenceSessions=new Set(evidence.map(item=>item.sessionId))
+   if(receiptEvidence!==undefined)evidenceSessions.add(receiptEvidence.sessionId)
+   if(evidenceSessions.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 在多个 hidden session 出现 receipt/tool evidence'}
    const callIdentities=new Set(evidence.map(item=>`${item.toolName}\u0000${item.argumentsCanonical}`))
    if(callIdentities.size>1)return{ref,state:'inconsistent',evidence,detail:'同一 operationId 被不同 tool 或 arguments 复用'}
+
+   if(receiptEvidence!==undefined){
+    if(!sessionSet.has(receiptEvidence.sessionId))return{ref,state:'inconsistent',evidence,detail:'Core receipt 来自 transaction 未登记的 hidden session'}
+    if(evidence.some(item=>item.toolName!==receiptEvidence.receipt.operation))return{ref,state:'inconsistent',evidence,detail:'Core receipt operation 与 durable tool identity 冲突'}
+    return{ref,state:'applied-or-replayed',receipt:receiptEvidence.receipt,evidence}
+   }
+   if(evidence.length===0)return{ref,state:'pending',evidence,detail:'尚未在 DSH durable history 找到 matching tool outcome'}
    const successful=evidence.filter(item=>item.resultSeq!==undefined&&item.isError===false)
    const pending=evidence.filter(item=>item.resultSeq===undefined)
    const failed=evidence.filter(item=>item.resultSeq!==undefined&&item.isError===true)
