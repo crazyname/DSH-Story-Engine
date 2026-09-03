@@ -10,13 +10,15 @@ type ProjectionPort=Pick<HostProjectionStorage,'save'>
 type AiPort=Pick<StoryAiBridge,'send'|'recover'|'recoverFromEvidence'|'retry'|'cancel'|'acknowledge'|'turn'>
 type CorePort=Pick<CoreTransactionReconciler,'reconcile'>
 
+const SOCIAL_ONLY_CORE:CorePort={async reconcile(record){if(record.operationRefs.length!==0)throw new Error(`transaction ${record.transactionId} 含 core operation，但 Core reconciler 未配置`);return{operations:[],hasCanonicalEffect:false,readyForSocialCommit:true,deterministicNoEffectFailure:false,unresolved:false}}}
+
 type MutableTransaction={record:StoryTransactionRecord}
 function detail(error:unknown):string{return error instanceof Error?error.message:String(error)}
 function hiddenTerminal(state:StoryHiddenTurnRef['state']):boolean{return state==='completed'||state==='failed'||state==='cancelled'}
 
 /** Browser coordinator for hidden, core-reconciliation, and social commit ordering. */
 export class PlayerTransactionCoordinator{
- constructor(private readonly journal:JournalPort,private readonly projections:ProjectionPort,private readonly ai:AiPort,private readonly core:CorePort){}
+ constructor(private readonly journal:JournalPort,private readonly projections:ProjectionPort,private readonly ai:AiPort,private readonly core:CorePort=SOCIAL_ONLY_CORE){}
 
  private async open(saveId:string):Promise<StoryTransactionRecord|undefined>{const records=await this.journal.listOpen(saveId);if(records.length>1)throw new Error(`存档存在多个未完成 transaction，必须先恢复：${records.map(record=>record.transactionId).join(', ')}`);return records[0]}
  private findHidden(record:StoryTransactionRecord,turnId:string):{index:number;turn:StoryHiddenTurnRef}{const index=record.hiddenTurns.findIndex(turn=>turn.turnId===turnId);if(index<0)throw new Error(`transaction 未记录 hidden turn：${turnId}`);return{index,turn:record.hiddenTurns[index]!}}
