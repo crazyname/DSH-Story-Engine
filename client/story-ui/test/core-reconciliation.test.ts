@@ -13,14 +13,27 @@ function receipt(operationId:string){return{sessionId:'session-a',receipt:{opera
 function evidence(operationId:string,input:{sessionId?:string;toolName?:string;argumentsCanonical?:string;callId?:string;isError?:boolean;result?:unknown;pending?:boolean}={}){return{sessionId:input.sessionId??'session-a',operationId,transactionId:'tx-core-reconcile',toolName:input.toolName??'story_commit_state',argumentsCanonical:input.argumentsCanonical??`{"operation_id":"${operationId}","transaction_id":"tx-core-reconcile"}`,callId:input.callId??`call-${operationId}-${input.sessionId??'session-a'}`,callSeq:1,...(input.pending?{}:{resultSeq:2,isError:input.isError??false,result:input.result??{ok:true}})}}
 
 describe('core transaction reconciliation',()=>{
- it('treats matching receipts as authoritative applied/replayed evidence',async()=>{
+ it('treats matching receipts as authoritative applied/replayed evidence while still checking durable tool identities',async()=>{
   const current=await record(['op-a','op-b'])
   const receipts={load:vi.fn(async(_save:string,_tx:string,operationId:string)=>receipt(operationId))}
   const tools={load:vi.fn(async()=>[])}
   const result=await new CoreTransactionReconciler(receipts as never,tools as never).reconcile(current)
   expect(result.operations.map(item=>item.state)).toEqual(['applied-or-replayed','applied-or-replayed'])
   expect(result).toMatchObject({hasCanonicalEffect:true,readyForSocialCommit:true,deterministicNoEffectFailure:false,repairablePartial:false,unresolved:false})
-  expect(tools.load).toHaveBeenCalledWith(['session-a'],'tx-core-reconcile',[])
+  expect(tools.load).toHaveBeenCalledWith(['session-a'],'tx-core-reconcile',['op-a','op-b'])
+ })
+
+ it('fails closed when a receipt-backed operation id is reused with different durable arguments',async()=>{
+  const current=await record(['op-a'])
+  const receipts={load:vi.fn(async()=>receipt('op-a'))}
+  const tools={load:vi.fn(async()=>[
+   evidence('op-a',{argumentsCanonical:'{"changes":{"a":1},"operation_id":"op-a","transaction_id":"tx-core-reconcile"}',callId:'call-one'}),
+   evidence('op-a',{argumentsCanonical:'{"changes":{"a":2},"operation_id":"op-a","transaction_id":"tx-core-reconcile"}',callId:'call-two',isError:true,result:{error:'idempotency conflict'}}),
+  ])}
+  const result=await new CoreTransactionReconciler(receipts as never,tools as never).reconcile(current)
+  expect(result.operations[0]).toMatchObject({state:'inconsistent',detail:expect.stringContaining('不同 tool 或 arguments')})
+  expect(result.readyForSocialCommit).toBe(false)
+  expect(result.unresolved).toBe(true)
  })
 
  it('accepts only the known successful work-event escalation as skipped',async()=>{
