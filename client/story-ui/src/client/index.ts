@@ -29,6 +29,7 @@ import { HostCoreReceiptReader } from './host-core-receipts.ts'
 import { DshToolEvidenceReader } from './dsh-tool-evidence.ts'
 import { CoreTransactionReconciler } from './core-reconciliation.ts'
 import { PlayerTransactionCoordinator } from './player-transaction-coordinator.ts'
+import { reconcileSettledLocalTurn } from './terminal-turn-reconciliation.ts'
 import { createLocalProjectionStorage } from './persistence.ts'
 import type { StorySaveProjection } from './story-domain.ts'
 
@@ -45,20 +46,27 @@ export function apply(ctx: ClientContext): void {
   const ai=new StoryAiBridge(connection.api,window.localStorage)
   const hostProjections=new HostProjectionStorage()
   const localProjections=createLocalProjectionStorage(window.localStorage)
+  const transactionJournal=new HostTransactionJournal()
   const coreReconciler=new CoreTransactionReconciler(new HostCoreReceiptReader(),new DshToolEvidenceReader(connection.api))
-  const playerTransactions=new PlayerTransactionCoordinator(new HostTransactionJournal(),hostProjections,ai,coreReconciler)
+  const playerTransactions=new PlayerTransactionCoordinator(transactionJournal,hostProjections,ai,coreReconciler)
   const journalLocks=new Map<string,string>()
+  const recoveryChannel=(saveId:string,channelId:string|undefined,authoritative:StorySaveProjection|undefined):string=>channelId??authoritative?.selectedChannelId??'journal-recovery'
   const syncRecoveryState=async(saveId:string,channelId?:string):Promise<void>=>{
     const authoritative=await hostProjections.load(saveId).catch(()=>undefined)
     if(authoritative!==undefined)localProjections.save(authoritative)
-    try{await playerTransactions.assertQuiescent(saveId);journalLocks.delete(saveId)}catch{if(ai.turn(saveId)===null)journalLocks.set(saveId,channelId??authoritative?.selectedChannelId??'journal-recovery')}
+    const fallbackChannel=recoveryChannel(saveId,channelId,authoritative)
+    try{
+      await playerTransactions.assertQuiescent(saveId)
+      try{await reconcileSettledLocalTurn(transactionJournal,ai,saveId);journalLocks.delete(saveId)}catch{journalLocks.set(saveId,fallbackChannel)}
+    }catch{
+      const current=ai.turn(saveId)
+      if(current===null||current.state==='cancelled')journalLocks.set(saveId,fallbackChannel)
+    }
   }
   const visibleTurn=(saveId:string):AiTurn|null=>{
-    const current=ai.turn(saveId)
-    if(current!==null)return current
-    const channelId=journalLocks.get(saveId)
-    if(channelId===undefined)return null
-    return{version:1,id:`journal-lock-${saveId}`,sessionId:'journal-recovery',baseline:-1,channelId,prompt:'journal-recovery-lock',state:'uncertain',error:'Host transaction journal 尚未收口；请恢复或完成对账后继续'}
+    const lockedChannel=journalLocks.get(saveId)
+    if(lockedChannel!==undefined)return{version:1,id:`journal-lock-${saveId}`,sessionId:'journal-recovery',baseline:-1,channelId:lockedChannel,prompt:'journal-recovery-lock',state:'uncertain',error:'Host transaction journal 尚未收口；请恢复或完成对账后继续'}
+    return ai.turn(saveId)
   }
   // One choice bridge per plugin lifetime. It only surfaces questions whose
   // session belongs to the currently active save (per-save hidden sessions),
@@ -85,9 +93,9 @@ export function apply(ctx: ClientContext): void {
         inject: () => ({
           exitGame: controller.exit,
           sendToAI:async(projection:StorySaveProjection,channelId:string,input:string)=>{try{return await playerTransactions.send(projection,channelId,input)}catch(error){await syncRecoveryState(projection.saveId,channelId);throw error}},
-          recoverAiTurn:async(projection:StorySaveProjection)=>{try{return await playerTransactions.recover(projection)}finally{await syncRecoveryState(projection.saveId,projection.selectedChannelId)}},
+          recoverAiTurn:async(projection:StorySaveProjection)=>{try{if(await reconcileSettledLocalTurn(transactionJournal,ai,projection.saveId))return null;return await playerTransactions.recover(projection)}finally{await syncRecoveryState(projection.saveId,projection.selectedChannelId)}},
           cancelAiTurn:async(saveId:string)=>{try{await playerTransactions.cancel(saveId)}finally{await syncRecoveryState(saveId)}},
-          retryAiTurn:async(projection:StorySaveProjection)=>{try{return await playerTransactions.retry(projection)}catch(error){await syncRecoveryState(projection.saveId,projection.selectedChannelId);throw error}},
+          retryAiTurn:async(projection:StorySaveProjection)=>{try{if(await reconcileSettledLocalTurn(transactionJournal,ai,projection.saveId))throw new Error('上一 transaction 已终态；请作为新的玩家动作重新提交，不会绕过 journal retry');return await playerTransactions.retry(projection)}catch(error){await syncRecoveryState(projection.saveId,projection.selectedChannelId);throw error}},
           acknowledgeAiTurn:async(saveId:string,turnId:string)=>{await playerTransactions.acknowledge(saveId,turnId);await syncRecoveryState(saveId)},
           assertAiSaveQuiescent:(saveId:string)=>playerTransactions.assertQuiescent(saveId),
           aiTurn:visibleTurn,
