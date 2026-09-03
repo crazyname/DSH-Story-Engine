@@ -5,8 +5,9 @@ import{reconcileSettledLocalTurn}from'../src/client/terminal-turn-reconciliation
 async function terminalRecord(input:{status:'cancelled'|'failed'|'committed';turnState:'cancelled'|'failed'|'completed';sessionId?:string}):Promise<StoryTransactionRecord>{
  const prepared=await createPreparedTransaction({transactionId:`tx-${input.status}-${input.turnState}`,saveId:'save-terminal-cleanup',channelId:'scene-main',text:'继续',baseProjectionRevision:0})
  const planned=reviseTransaction(prepared,{hiddenTurns:[{turnId:'turn-terminal',kind:'initial',state:'planned',sessionId:input.sessionId??'session-a'}],activeTurnId:'turn-terminal'})
+ const beforeTerminal=input.turnState==='completed'?reviseTransaction(planned,{hiddenTurns:[{turnId:'turn-terminal',kind:'initial',state:'dispatched',sessionId:input.sessionId??'session-a'}],activeTurnId:'turn-terminal'}):planned
  const terminalTurn:StoryHiddenTurnRef={turnId:'turn-terminal',kind:'initial',state:input.turnState,sessionId:input.sessionId??'session-a'}
- return reviseTransaction(planned,{status:input.status,hiddenTurns:[terminalTurn],activeTurnId:undefined})
+ return reviseTransaction(beforeTerminal,{status:input.status,hiddenTurns:[terminalTurn],activeTurnId:undefined})
 }
 
 function local(state:'completed'|'failed'|'cancelled',sessionId='session-a'){return{version:1 as const,id:'turn-terminal',sessionId,baseline:0,channelId:'scene-main',prompt:'old',state}}
