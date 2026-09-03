@@ -35,4 +35,32 @@ describe('hidden transaction control context',()=>{
   expect(second).toContain('不要再次转述或提交玩家输入')
   expect(second).not.toContain('只发送一次的玩家输入')
  })
+
+ it('uses a hidden continuation prompt for partial recovery without replaying the original player input',async()=>{
+  const saveId='save-continuation'
+  const sessionId='session-continuation'
+  const values=new Map<string,string>([
+   [`dsh-story-ai-session:${saveId}`,sessionId],
+   [`dsh-story-ai-pending:${saveId}`,JSON.stringify({version:1,id:'turn-old',sessionId,baseline:0,channelId:'ch-direct-hezhou',prompt:'original player input: SECRET-PLAYER-TEXT',state:'completed',result:{raw:'{}',messages:[]}})],
+  ])
+  const prompt=vi.fn(async()=>ok({accepted:true}))
+  let history=0
+  const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"修复完成。"}]}'
+  const api={sessions:{
+   create:vi.fn(async()=>ok({sessionId})),
+   history:vi.fn(async()=>{history+=1;return history===1?ok({events:[]}):ok({events:[{event:{type:'assistant/message',seq:1,data:{message:{content:[{type:'text',text:raw}]}}}},{event:{type:'turn/end',seq:2,data:{}}}]})}),
+   prompt,
+   cancel:vi.fn(async()=>ok({accepted:true})),
+  },workspace:{archiveSession:vi.fn(async()=>ok({}))}}
+  const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}}
+  const bridge=new StoryAiBridge(api as never,storage,async()=>{})
+  const save={...createInitialProjection(),saveId,selectedChannelId:'ch-direct-hezhou'}
+
+  await expect(bridge.continueTransaction(save,save.selectedChannelId,'op-a 已 applied；仅修复 op-b。',{transactionId:'tx-continuation'})).resolves.toMatchObject({messages:[{content:'修复完成。'}]})
+  const text=prompt.mock.calls[0]![0].content[0].text
+  expect(text).toContain('当前 player transaction_id：tx-continuation')
+  expect(text).toContain('op-a 已 applied；仅修复 op-b。')
+  expect(text).toContain('不要重新发送、复述或重新解释原玩家输入')
+  expect(text).not.toContain('SECRET-PLAYER-TEXT')
+ })
 })
