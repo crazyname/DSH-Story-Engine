@@ -4,8 +4,8 @@ import{PlayerTransactionCoordinator}from'../src/client/player-transaction-coordi
 import{appendPlayerMessage}from'../src/client/story-domain.ts'
 import{createInitialProjection}from'../src/client/initial-projection.ts'
 
-function operation(operationId:string,state:'applied-or-replayed'|'failed'){return{ref:{stepKey:`step-${operationId}`,operationId},state,evidence:[]}}
-function summary(states:Array<ReturnType<typeof operation>>){const hasCanonicalEffect=states.some(item=>item.state==='applied-or-replayed');const readyForSocialCommit=states.every(item=>item.state==='applied-or-replayed');const deterministicNoEffectFailure=!hasCanonicalEffect&&states.some(item=>item.state==='failed');const repairablePartial=hasCanonicalEffect&&states.some(item=>item.state==='failed');return{operations:states,hasCanonicalEffect,readyForSocialCommit,deterministicNoEffectFailure,repairablePartial,unresolved:false}}
+function operation(operationId:string,state:'applied-or-replayed'|'failed'|'pending'|'inconsistent'){return{ref:{stepKey:`step-${operationId}`,operationId},state,evidence:[]}}
+function summary(states:Array<ReturnType<typeof operation>>){const hasCanonicalEffect=states.some(item=>item.state==='applied-or-replayed');const readyForSocialCommit=states.every(item=>item.state==='applied-or-replayed');const unresolved=states.some(item=>item.state==='pending'||item.state==='inconsistent');const deterministicNoEffectFailure=!hasCanonicalEffect&&!unresolved&&states.some(item=>item.state==='failed')&&states.every(item=>item.state==='failed');const repairablePartial=hasCanonicalEffect&&!unresolved&&states.some(item=>item.state==='failed')&&states.every(item=>item.state==='applied-or-replayed'||item.state==='failed');return{operations:states,hasCanonicalEffect,readyForSocialCommit,deterministicNoEffectFailure,repairablePartial,unresolved}}
 
 async function fixture(){
  const base={...createInitialProjection(),saveId:'save-core-retry'}
@@ -52,5 +52,23 @@ describe('core-aware retry after a failed hidden turn',()=>{
   expect(continuation).toHaveBeenCalledTimes(1)
   expect(state.record.hiddenTurns.map(turn=>turn.kind)).toEqual(['initial','continuation'])
   expect(core.reconcile).toHaveBeenCalledTimes(2)
+ })
+
+ it('blocks generic retry while core evidence remains pending',async()=>{
+  const state=await fixture()
+  const core={reconcile:vi.fn(async()=>summary([operation('op-applied','applied-or-replayed'),operation('op-failed','pending')]))}
+  const retry=vi.fn()
+  const continuation=vi.fn()
+  const ai={
+   send:vi.fn(),recover:vi.fn(),recoverFromEvidence:vi.fn(),retry,continueTransaction:continuation,cancel:vi.fn(),acknowledge:vi.fn(),
+   turn:vi.fn(()=>({version:1,id:'turn-failed',sessionId:'session-core',baseline:0,channelId:state.projection.selectedChannelId,prompt:'old',state:'failed',error:'failed'})),
+  }
+  const coordinator=new PlayerTransactionCoordinator(state.journal as never,{save:vi.fn()} as never,ai as never,core as never)
+
+  await expect(coordinator.retry(state.projection)).rejects.toThrow('core evidence 尚未收敛')
+
+  expect(retry).not.toHaveBeenCalled()
+  expect(continuation).not.toHaveBeenCalled()
+  expect(state.record.status).toBe('needs-recovery')
  })
 })
