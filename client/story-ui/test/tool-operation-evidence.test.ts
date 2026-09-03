@@ -60,4 +60,12 @@ describe('rc.2 durable tool operation evidence',()=>{
    result(3,'dup',true,{error:'late conflict'}),
   ],'tx-a',new Set(['op-a']))).toThrow('tool result identity 冲突')
  })
+
+ it('fails closed when rc.2 result source and tool-result block disagree on callId',()=>{
+  const corrupted={event:{seq:2,type:'tool/result',data:{message:{source:{kind:'tool',callId:'call-a'},content:[{type:'tool-result',toolCallId:'call-b',isError:false,content:[{type:'text',text:'{"ok":true}'}]}]}}}}
+  expect(()=>collectToolOperationEvidence([
+   call(1,'call-a','story_commit_state',{operation_id:'op-a',transaction_id:'tx-a'}),
+   corrupted,
+  ],'tx-a',new Set(['op-a']))).toThrow('call identity 冲突')
+ })
 })
