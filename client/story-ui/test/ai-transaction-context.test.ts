@@ -60,7 +60,7 @@ describe('hidden transaction control context',()=>{
   const text=prompt.mock.calls[0]![0].content[0].text
   expect(text).toContain('当前 player transaction_id：tx-continuation')
   expect(text).toContain('op-a 已 applied；仅修复 op-b。')
-  expect(text).toContain('不要重新发送、复述或重新解释原玩家输入')
+  expect(text).toContain('不要再次转述或提交原玩家输入')
   expect(text).not.toContain('SECRET-PLAYER-TEXT')
  })
 })
