@@ -40,7 +40,8 @@ export class CoreTransactionReconciler{
 
   const operations:CoreOperationResolution[]=receiptEntries.map(({ref,evidence:receiptEvidence})=>{
    const evidence=byOperation.get(ref.operationId)??[]
-   const withReceipt=receiptEvidence===undefined?{}:{receipt:receiptEvidence.receipt}
+   const receiptOwned=receiptEvidence!==undefined&&sessionSet.has(receiptEvidence.sessionId)
+   const withReceipt=receiptOwned?{receipt:receiptEvidence.receipt}:{}
    const evidenceSessions=new Set(evidence.map(item=>item.sessionId))
    if(receiptEvidence!==undefined)evidenceSessions.add(receiptEvidence.sessionId)
    if(evidenceSessions.size>1)return{ref,state:'inconsistent',...withReceipt,evidence,detail:'同一 operationId 在多个 hidden session 出现 receipt/tool evidence'}
@@ -49,8 +50,8 @@ export class CoreTransactionReconciler{
 
    const pending=evidence.filter(item=>item.resultSeq===undefined)
    if(receiptEvidence!==undefined){
+    if(!receiptOwned)return{ref,state:'inconsistent',evidence,detail:'Core receipt 来自 transaction 未登记的 hidden session'}
     const receipt=receiptEvidence.receipt
-    if(!sessionSet.has(receiptEvidence.sessionId))return{ref,state:'inconsistent',receipt,evidence,detail:'Core receipt 来自 transaction 未登记的 hidden session'}
     if(evidence.some(item=>item.toolName!==receipt.operation))return{ref,state:'inconsistent',receipt,evidence,detail:'Core receipt operation 与 durable tool identity 冲突'}
     if(pending.length>0)return{ref,state:'pending',receipt,evidence,detail:'Core receipt 已存在，但仍有 matching tool attempt 未终态'}
     return{ref,state:'applied-or-replayed',receipt,evidence}
