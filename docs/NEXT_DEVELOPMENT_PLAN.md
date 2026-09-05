@@ -7,14 +7,24 @@
 ```text
 Stage D / M3：连载玩法与事务完整性
         ↓
-Stage E / M4：公开发布质量
+Stage E / M4：个人版世界、交互、视觉与长期游玩能力
         ↓
-M5：1.0 Release Candidate
+M5：v1.0 Personal RC / Stable
         ↓
-v1.0.0 Stable
+M6：v1.x Architecture Transition
+        ↓
+M7：v2.0 Public Product RC / Stable
 ```
 
-Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5、D2a / PR #6、D2b / PR #9 及其 pre-dispatch recovery hotfix / PR #11 已合并；当前开发进入 D2c，并按 D2c-1 / D2c-2 两个小切片收口。
+版本语义：
+
+- **v1.0 Personal**：项目所有者本人长期游玩的完整个人版，继续基于认证 DSH Runtime；不作为首次对外产品发布。
+- **v1.x**：在保持 v1.0 存档/玩法可用的前提下完成 DSH adapter 化、Model Router、高级 Visual/Image Provider、Player/Creator 边界和 Native Runtime 准备。
+- **v2.0 Public Product**：第一个正式面向外部用户并在 GitHub 发布的产品级版本；Native Runtime 默认运行，DSH 为可选兼容后端。
+
+v1.0 Personal 的精确实施顺序、依赖、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。本文保留跨版本 roadmap 和阶段摘要；如果两者在 v1.0 实施顺序上发生冲突，以该实施计划为准并同步修订本文。
+
+Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
 
 ## M3：Stage D
 
@@ -81,22 +91,22 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 
 目标：把 D1 core receipts 接到 transaction coordinator。为了不把“计划了 operation”与“operation 已经产生 canonical effect”混成一个状态，D2c 分成两个顺序切片。
 
-##### D2c-1：Core preflight operation linking — 已实现并验证，待合并
+##### D2c-1：Core preflight operation linking — 已完成并合并
 
-目标：先建立不可绕过的 durable-before-body 边界。
+PR #12 已合并到 `main`。该切片建立不可绕过的 durable-before-body 边界：
 
 - 利用认证 DSH rc.2 的 `tools/execute` around-dispatch：九个 mutating `story_*` 在真正 tool body 执行前，必须先通过 Story Host transaction preflight。
 - 由 journal hidden-turn `sessionId` 反查唯一 open transaction；多个 open transaction 争用同一 DSH session 时 fail-closed。
 - 第一次 core mutation body 前持久化稳定 `stepKey + operationId`；同一 identity 的 preflight replay 不产生新 revision。
 - 同一个 `operationId` 被不同 tool/step 复用显式冲突；同一 save 的 journal 写使用短临界区串行并在最终写入前重查 operation ownership，并发不同 transaction 争用同一 `operationId` 只允许一个 owner；同 transaction 并发不同 operationRef 通过 optimistic reread/retry 追加。
 - active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在 body 前拒绝，使 D1 receipt fingerprint transaction-bound。没有 open player transaction 且未声明 transaction identity 的 standalone Story mutation 仍可运行。
-- `PlayerTransactionCoordinator` 必须把 durable journal `transactionId` 作为 hidden control context 传给 initial/retry AI prompt，使模型在第一次 mutating `story_*` 调用前就能提供正确 `transaction_id`；不能把故意触发一次缺失-ID错误再从错误文本学习 identity 当成正常流程，retry 也必须继续使用同一 transaction identity。
-- preflight 持久化失败必须阻止 tool body 执行。
-- `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
+- `PlayerTransactionCoordinator` 把 durable journal `transactionId` 作为 hidden control context 传给 initial/retry AI prompt；retry 继续使用同一 transaction identity，同一 atomic mutation retry 复用原 `operation_id`。
+- preflight 持久化失败阻止 tool body 执行。
+- `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作允许存在 operationRef 而没有 Core Runtime receipt。
 
-该切片已完成两端 typecheck/test/build、tracked Client artifacts 同步、重复构建一致性和 diff 自审；认证 DSH rc.2 的真实 ToolRuntime smoke 已证明本分支 Host bundle 在实际 mutating tool body 前持久化 preflight、产生 transaction-bound D1 receipt，并在 transaction identity 错配时阻止 body。完整 `dsh web` 浏览器回合与 crash-window 矩阵尚未执行，留在后续适用验收范围。该切片只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
+PR #12 已完成两端 typecheck/test/build、tracked Client artifacts 重复构建一致性、`git diff --check` 和认证 DSH rc.2 ToolRuntime smoke。完整真实浏览器 crash-window 矩阵仍在 D2d 范围。
 
-##### D2c-2：Receipt/result reconciliation — D2c-1 后
+##### D2c-2：Receipt/result reconciliation — 当前 Draft PR #13
 
 目标：用 Core Runtime receipt 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
 
@@ -106,6 +116,8 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - 支持多个 core mutations 部分提交后的恢复；恢复时逐 operationId 对账，不依赖“最后一个网络请求是否成功”。
 - canonical effect 已存在后收到 cancel 不倒改历史，而是进入/继续 reconciliation，完成必要 projection 后收敛。
 - transaction 的最终 `committed/failed` 判断同时读取 journal、DSH durable history、core receipts/runtime 与 Host projection。
+
+PR #13 合并前仍必须完成其自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代或预先声称这些验证结果。
 
 #### D2d：Fork / restart / failure matrix
 
@@ -131,41 +143,206 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - 越界输入：产生后果前暂停 → 保存输入 → 修订 authored script → 校验 → 恢复。
 - 集末总结只基于真实 played canon，不泄露隐藏 authored branch。
 
-### D5：整集端到端验收
+### D5：Stage D 整集端到端基线
 
-至少用一个可公开分发的原创示例包完成：开场 → scene → 工作事件 → 详细剧情 → 选择/自由输入 → 越界修订 → 集末总结 → 刷新恢复 → fork 独立连续性，并验证 retry/recovery 不重复 core effect 或 social canonical messages。
+至少使用一个可重复构建的内容包完成：开场 → scene → 工作事件 → 详细剧情 → 选择/自由输入 → 越界修订 → 集末总结 → 刷新恢复 → fork 独立连续性，并验证 retry/recovery 不重复 core effect 或 social canonical messages。
 
-## M4：Stage E
+D5 只证明 Stage D canonical/recovery/gameplay 链条稳定，不等于 v1.0 Personal 完成。公开仓库继续使用原创/可再发布示例包做该基线回归。
 
-完成公开发布质量：
+## M4：Stage E — v1.0 Personal 实施阶段
 
-- 无障碍、键盘/焦点、窄屏和高缩放。
-- 长历史分页/增量加载、大存档性能基线。
-- save/projection/runtime/journal migration matrix 与未知版本 fail-closed。
-- 游戏库封面、主题、重命名、导入/导出边界。
-- 路径、Host API、同源写、输入校验、安全/隐私/许可证审计。
-- 正式安装、升级、卸载、故障排查和内容作者文档。
-- 建立 `COMPATIBILITY.md` 与 `RELEASE_CHECKLIST.md`。
-- 建立机器可读的 certified DSH runtime manifest，并在构建/发布检查中验证 version、tag、commit、必需包和能力；1.0 认证候选固定为 DSH `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
-- 清除公开构建流程对 `D:\DeepSeek-Harness` 单机绝对路径的产品级假设，改为受控依赖解析或显式 DSH root 配置。
-- 完成 DSH-specific import、Cordis、session/turn、RPC、Host WebServer 和 Client mount inventory；定义最小 Host / AI Runtime ports 与 adapter conformance test 基础，不在 1.0 前进行大规模运行时重写。
+Stage E 不再是一个笼统的“发布质量”大阶段，而按依赖顺序拆成 E1–E10。详细字段、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。
 
-## M5：1.0 RC / Stable
+### E1：World Capability + Story Time + Location / Presence
 
-RC 前冻结并评审：
+先建立权威世界基础：
 
-- `pack.json` / episode-script / `ui/story-ui.json` V1 compatibility；
-- save/projection/runtime/journal migration policy；
-- 公开 `story_*` tool contract；
-- Host API contract；
-- DSH compatibility 范围；
-- 1.x 向后兼容边界与需要 major version 的变更。
+- 内容包声明可用 communication/information/world capabilities 和 optional modules。
+- StoryTime 持久化与推进。
+- Location / character location / scene presence。
+- 后续 provenance 所需基础引用。
 
-RC 必须至少经过一次干净安装、旧存档升级、原创示例整集、插件故障隔离和发布包审计。Stable 只在 RC 阻塞问题清零后发布。
+E1 完成前不开发邮件、NPC 作息、任务过期等上层功能。
 
-## 1.x / 2.0 Runtime 方向
+### E2：Scheduler + NPC Agenda / Availability
 
-- 1.x 在不破坏 V1 contracts 的前提下，逐步把 DSH-specific code 收缩到 `adapters/dsh`；每次只迁移一个已验证边界。
+在 E1 上建立：
+
+- durable story-time event scheduler。
+- NPC goals / commitments / availability。
+- medium-specific availability。
+- NPC 离屏行动与延迟事件。
+- 可重放的非 LLM 随机 evidence/seed 基础。
+
+### E3：NPC Knowledge + Provenance + Canon Consistency
+
+建立：
+
+- confirmed / believed / suspected / false-belief knowledge model。
+- knowledge acquisition/source。
+- relationship/knowledge/objective/status 等重要状态 provenance。
+- canonical candidate deterministic conflict guard；高影响歧义可进入 consistency audit，但 audit 不自行改 canon。
+
+### E4：Communication + Information Sources
+
+在 E1–E3 基础上实现：
+
+- `channel.kind` 与 communication medium 分离。
+- `in_person / phone / sms / email / radio / letter / terminal / custom` 等通用 medium。
+- Runtime send guard：capability、location/presence、contact/access、availability、scene restrictions。
+- Email Inbox 作为 v1.0 首个正式 information source。
+- Notification Center。
+- 没有手机/email capability 的包在 UI 和 Runtime 都不能使用这些能力。
+
+### E5：Objectives / Leads + Choice Suggestions + System Meta
+
+实现：
+
+- 可忽略 Objectives/Leads；`ignored` 只停止提醒，世界继续运行。
+- deadline/expired/resolved/failed 等状态与 provenance。
+- 参考选择默认 3 项，支持 2–4 项；固定在输入框上方。
+- 点击选择、自由输入、关闭当前建议、全局关闭建议。
+- 关闭建议不改变 authored/planning 能力。
+- 独立 System Meta 对话/面板；不属于世界 channel，不进入 NPC knowledge 或 played_canon。
+
+### E6：Minimal Visual Asset + Prompt Queue
+
+v1.0 就完成：
+
+- minimal `VisualAsset` / `VisualAssetManager`。
+- avatar / portrait / background / scene-cg 稳定 ID 和绑定。
+- pack asset + personal imported asset。
+- 本地导入到受控资产存储，不保存任意源绝对路径。
+- VisualPromptBuilder。
+- Prompt Queue：用途标签、目标、Prompt、一键复制、删除、导入生成结果并自动绑定。
+- 缺失资产 fallback。
+
+v1.0 不接在线图片生成 API、Credits 或高级 reference identity。
+
+### E7：Long-term Memory + Search + Timeline + Script Buffer
+
+实现：
+
+- scene/episode/season/长期 canonical 分层 memory compaction。
+- retrieval，避免把全部历史聊天塞入 context。
+- 人物/频道/消息/已玩 scene 搜索。
+- 玩家剧情 Timeline，与 transaction journal 分离。
+- recent recap。
+- Player Notes。
+- validated authored Script Buffer / lookahead；进入下一 scene 前必须已有可用、校验通过的剧情缓冲。
+
+### E8：Personal Inspector + Controlled Repair
+
+System Meta 增加：
+
+- story time/location/scene。
+- character state/availability。
+- relationship provenance。
+- NPC knowledge/source。
+- objectives。
+- Scheduler pending events。
+- timeline/played canon。
+- checkpoint。
+- Visual Assets/Prompt Queue。
+- transaction/operation 诊断。
+
+修复必须通过正式 runtime/tool mutation，保留 repair reason/audit evidence；禁止直接编辑底层 JSON 绕过 canonical/transaction 规则。
+
+### E9：Personal Reliability / Autosave / Model Failure / Compatibility
+
+最后统一收口：
+
+- autosave/checkpoint policy。
+- partial stream 永不进入 canon。
+- model timeout/structured-output/tool failure 策略。
+- 高影响 narrative/planning/audit 不静默降级成弱模型继续写正史。
+- certified DSH manifest / compatibility guard。
+- save/projection/runtime/journal/visual/memory migration matrix。
+- long-history performance。
+- restart/disconnect/asset-missing/scheduler/knowledge-conflict failure matrix。
+
+### E10：Personal RC 长时游玩验收
+
+原创包自动/端到端回归 + 私人包本机长时真实游玩，至少覆盖：
+
+- 跨多个 scene 和 story day。
+- 不在场 NPC 通信限制。
+- 现代通信 capability 与无手机剧本对照。
+- email + notification。
+- NPC 忙碌/睡觉/失联与延迟回复。
+- ignored objective 后世界继续。
+- NPC 离屏行动。
+- knowledge secrecy。
+- avatar/background + Prompt → 外部生图 → 导回。
+- search/timeline/recap。
+- System Meta/Inspector 受控修复。
+- 模型/DSH失败后的安全恢复。
+
+私人内容、overlay、存档、图片和验收报告不进入 Git。
+
+## M5：v1.0 Personal RC / Stable
+
+Personal RC 前冻结并评审：
+
+- `PERSONAL_V1_IMPLEMENTATION_PLAN.md` 的 D2c-2 → D2d → D3 → D4 → D5 → E1–E10 是否全部达到退出条件。
+- 当前个人存档需要依赖的 `pack.json` / episode-script / `ui/story-ui.json` 语义。
+- save/projection/runtime/journal/visual/memory migration policy。
+- `story_*` tool contract 与 Host API 在认证 DSH 环境中的可恢复行为。
+- certified DSH runtime baseline。
+- WorldCapabilities / StoryTime / Location / Presence / Scheduler / Knowledge / Objectives 的长期存档边界。
+- v1.0 Visual Asset Personal workflow：Minimal VisualAsset + 本地导入 + Prompt Queue。
+- 1.x 解耦时不得破坏的长期个人存档/played canon/transaction evidence 边界。
+
+Personal Stable 的核心标准：除“把 Prompt 复制到外部图片模型生成图片”是刻意保留的人工步骤外，正常长篇游玩不需要退出 Story Engine 手工修改 JSON、管理 DSH Session、修存档、判断人物是否在场或手工追踪剧情状态。
+
+v1.0 Stable **不宣称是面向第三方用户的首次公开产品**，也不因版本号 1.0 自动承诺云服务、商业 SLA、Marketplace 或跨平台安装器。
+
+## M6：v1.x Architecture Transition
+
+目标：把 2.0 独立产品需要的可替换边界做出来，同时保持 v1.0 个人存档和玩法持续可用。
+
+### Runtime
+
+- 逐步把 DSH-specific code 收缩到 `adapters/dsh`；每次只迁移一个已验证边界。
 - DSH 新版本只在独立 compatibility branch 验证，通过完整自动与适用真实环境矩阵后才更新 certified baseline；主开发线不自动追随上游。
-- 1.x 后期可以实现默认关闭的 experimental Standalone Runtime，并与 DSH Adapter 共用正常回合、取消、waiting-choice、断连、retry、recovery、tool idempotency 和 canonical result conformance tests。
-- 只有 Standalone Runtime 的功能、恢复、安全和维护能力成熟，而且需要的变化无法继续维持 V1 兼容时，才在 2.0 评审中考虑让它成为默认、DSH 成为可选 backend。
+- 实现最小 Native / Standalone Runtime，并与 DSH Adapter 共用正常回合、取消、waiting-choice、断连、retry、recovery、tool idempotency 和 canonical result conformance tests。
+
+### Model Router
+
+- gameplay code 只选择任务 profile，不写死厂商/模型名。
+- 至少定义 `simulation`、`state`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等能力档位。
+- Provider 配置、超时、取消、structured output、tool capability 和成本策略由 router/adapter 处理。
+
+### Advanced Visual / Image Provider
+
+v1.0 已经具有 Minimal VisualAsset/Manager/PromptBuilder；1.x 不重写这些基础，而增加：
+
+- generated asset lifecycle/cache。
+- reference identity / variants / edit。
+- provider/model provenance。
+- Image Provider interface。
+- 与 Model Router 的 `image-*` profile 对接。
+- 默认在线生成可以保持关闭，直到 2.0 Product 验收。
+
+### Product Surfaces
+
+- Player / Creator 共用 Runtime、Content Pack、Save/Canon、Model Router 和 Visual Asset System。
+- 可以继续同一应用双模式，但代码结构允许未来拆成不同前端入口。
+- Creator 必须可以从编辑上下文直接进入 Player 测试视图。
+
+## M7：v2.0 Public Product RC / Stable
+
+v2.0 是第一个正式面向外部用户并在 GitHub 发布的产品级大版本。
+
+发布门槛：
+
+- Native Runtime 成为默认，普通用户无需安装/clone DSH；DSH Adapter 作为可选兼容 backend。
+- Player 默认安装后直接可玩，不要求理解 DSH、tool/session、源码目录或手动准备视觉素材。
+- 正式 Player + Creator/Studio 产品表面，共享一个 Core；是否物理拆成两个应用由 2.0 UI/分发评审决定，不允许复制 Runtime。
+- Image Provider 接入：内容包已有授权/原创 canonical 视觉资产时直接复用；没有时可自动生成并缓存默认头像、背景或剧情图。
+- 普通 Player UI 移除 v1.0 的“个人本地图片导入”常规入口；Creator/Studio 继续允许导入原创或具备授权的素材。
+- 图片重画/变体、额度/Credits 属于可选商业产品层；核心规范只定义能力和资产来源，不固定价格或支付策略。
+- 完成对外安装、升级、卸载、兼容/迁移、安全、隐私、Provider key 管理、第三方许可证、原创示例、故障排查与完整 `RELEASE_CHECKLIST.md`。
+- v2.0 RC 前重新评审开源/闭源/服务边界；除非另有明确许可证 PR，仓库现有 MIT 许可不因本路线自动改变。
+
+2.0 Stable 必须通过 Native Runtime 与 DSH Adapter 的 conformance matrix、全套 Story transaction/canon recovery、长时存档、Player 首次启动、Creator 内容制作/测试、Visual Asset 自动生成/缓存和无私人资料泄漏的发布审计。
