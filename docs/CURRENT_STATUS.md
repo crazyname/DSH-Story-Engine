@@ -8,8 +8,8 @@
 - 当前阶段：v0.8 阶段 A、B、C 已完成；Stage D 开发中；Stage E 未开始。
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
-- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator，以及 PR #11 / D2b pre-dispatch recovery hotfix。
-- 当前开发重点：D2c core step journal + cross-domain reconciliation；当前工作分支先交付 D2c-1 / core preflight operation linking，不宣称完整 D2c。
+- 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator、PR #11 / D2b pre-dispatch recovery hotfix，以及 PR #12 / D2c-1 core preflight operation linking。
+- 当前开发重点：D2c-2 / receipt-result reconciliation；工作分支为 `codex/stage-d-receipt-result-reconciliation`。PR #13 的实现、本机自动验证、真实构建产物与适用认证 DSH smoke 已收口，待合并；完整浏览器 crash/restart matrix 仍属于 D2d。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -25,51 +25,60 @@
 - AI canonical social messages 按稳定 Story Engine `turnId` 幂等提交；宿主保存成功后才 acknowledge pending completed turn。
 - PR #5 / D1 已合并：九个会修改 canonical runtime state 的公开 mutation 接受稳定 `operation_id`；matching receipt 在 optimistic version 检查前 replay；同 ID 不同 fingerprint 显式冲突；receipt 与 mutation 原子落盘；checkpoint restore 保留已消费 receipt evidence。
 - PR #9 / D2b 与 PR #11 hotfix 已合并：玩家 submit/retry/recover 接入 Host transaction journal；submit 前保存 `prepared` intent 和 Story Engine hidden `turnId`；accepted response 后绑定 `dshRequestId`；按 rc.2 真实 `user/message.source.rpcId` 与数字 turn 进行分页对账；retry 不重复玩家输入，Host projection 保存后再 acknowledge/journal commit。Host 玩家 projection 可能已落盘、但 hidden evidence 尚未产生的前置失败会保持 `needs-recovery`，浏览器 projection 回滚后仍可按同一 transaction 恢复且不重复玩家输入。
+- PR #12 / D2c-1 已合并：九个 mutating `story_*` 在真实 tool body 前先把 `stepKey + operationId` 持久化到 transaction journal；active player transaction 强制 exact `transaction_id`，错配在 body 前拒绝；同 save operation ownership 与 stale journal reread/retry fail-closed。
 
-## 当前开发重点：Stage D / D2c
+## 当前开发重点：Stage D / D2c-2
 
-D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。
+D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。D2a、D2b、D2c-1 已进入已合并基线；D2c-2 已完成实现与合并前验证、PR #13 待合并，之后只剩 D2d 产品/真实故障矩阵。
 
-已合并基线包含 D2a foundation：
+### 已合并 foundation
 
-1. `StoryTransactionRecord` 与 schema v1：保存 `transactionId`、规范化玩家 input + fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
-2. transaction 状态最低语义：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态，且终态 record 本身不能含 active/nonterminal hidden evidence。
-3. hidden turn evidence 单向推进：新增 turn 必须从 `planned` 开始；`planned/uncertain` 不能携带 native `dshTurn`；一旦 `dispatched` 已确认 dispatch/turn 存在就不能降级回 `uncertain`；`completed/failed/cancelled` 不可倒写。
-4. hidden identity 明确拆成三层：
-   - Story Engine `turnId`：稳定逻辑 hidden-turn identity，也是 social canonical commit key，并遵守 Story UI stable-ID 格式；
-   - `dshRequestId`：认证 rc.2 在 accepted response 后可取得并一次性绑定的 DSH request correlation identity，独立于 Story/social ID；
-   - `dshTurn`：从 DSH durable history 对账得到的原生数字 turn。
-5. `StoryTransactionStore`：按 save/transaction 隔离、进程内串行、原子 temp+rename、optimistic revision、identical replay、collision conflict、损坏/语义非法记录 fail-closed；新建 journal 只能是 revision 0 的 `prepared` 空证据 intent，持久化和读取时会重算 input fingerprint。
-6. transaction input `channelId` 使用现有 Story UI stable-ID 契约；Story `turnId`、`dshRequestId` 与 native `(sessionId,dshTurn)` 在同一 transaction 中执行格式/唯一性/引用约束；`activeTurnId` 与 `canonicalResultTurnId` 只允许引用合法 lifecycle 状态。
-7. Windows-safe journal 文件名：transactionId 使用有界 base64url 编码，不直接暴露 `:` 或设备保留名，也不会因最大长度 ID 超出单文件名限制。
-8. Host transaction API 与浏览器 persistence primitive 已加入；transaction journal 不提供删除路径，恢复证据当前只增不删。browser bridge 会拒绝跨 save/transaction path identity 的响应以及不匹配的 save acknowledgement。
-9. contract/store/client bridge/Host API 自动测试覆盖 deterministic fingerprint、input collision、终态/hidden lifecycle、backward transition、identity duplication、bootstrap bypass、并发 revision、restart persistence、atomic temp+rename、跨存档、JSON/semantic corruption、Windows 文件名、Host GET/list/PUT、optimistic/collision 409、坏 path/percent decode 400、同源写，以及 browser bridge load/save/list/response identity。
-10. Client tracked artifacts 已由真实 bundler 同步：`lib/index.js` 随 Node/Host entry 变化更新，`lib/client.js` 与 `lib/client.js.map` 保持不变；重复构建后 worktree 保持干净。
+1. `StoryTransactionRecord` schema v1 保存 `transactionId`、规范化玩家 input + fingerprint、base projection revision、transaction status、hidden-turn references、child `operationId` references、diagnostic 和 journal revision。
+2. transaction 状态：`prepared`、`needs-recovery`、`committed`、`cancelled`、`failed`；`committed/cancelled/failed` 为不可改写终态，终态 record 不能含 active/nonterminal hidden evidence。
+3. hidden turn evidence 单向推进：新增 turn 从 `planned` 开始；`planned/uncertain` 不携带 native `dshTurn`；已确认 `dispatched` 不降级回 `uncertain`；`completed/failed/cancelled` 不可倒写。
+4. hidden identity 分层：Story Engine `turnId`、DSH `dshRequestId`、DSH numeric `dshTurn`。
+5. `StoryTransactionStore` 按 save/transaction 隔离、进程内串行、temp+rename 原子持久化、optimistic revision、identical replay、collision conflict、损坏/语义非法记录 fail-closed。
+6. Host transaction API 与 browser `HostTransactionJournal` 已接入 submit/retry/recover；browser bridge 会验证完整 canonical PUT acknowledgement。
+7. D2c-1 在 mutating tool body 前持久化 child operation identity，并把 durable transactionId 注入 hidden AI control context；同一原子 mutation retry 保持 transaction/operation identity。
+8. D1 receipt 与 D2c-1 operationRef 的语义明确分离：operationRef 证明“body 前已登记这一步”，不证明 canonical effect 已发生。
 
-D2b 已把该 foundation 接入玩家 submit/retry/recover 和 hidden DSH history correlation。D2 整体仍未完成：core operation receipts 尚未完成顶层 reconciliation，cancel 后 canonical-effect reconciliation、fork/restart 产品策略及完整真实浏览器故障矩阵仍待 D2c/D2d。
+### D2c-1：Core preflight operation linking — 已完成并合并
 
-### D2c-1：Core preflight operation linking — 当前工作分支，已验证待合并
+PR #12 已合并。主要保证：
 
-当前分支 `codex/stage-d-core-step-reconciliation` 先建立 core mutation 的 durable-before-body 边界：
+- 认证 DSH rc.2 的 `tools/execute` around-dispatch 在最终 `dispatchToolBody()` 前执行 Story Host preflight。
+- active transaction 从 durable hidden `sessionId` 反查；同一 session 多 open transaction fail-closed。
+- 每个 mutating call 在 body 前追加稳定 `stepKey + operationId`；相同 identity replay 不增加 journal revision，同 operationId 被不同 core step/tool 复用显式冲突。
+- active player transaction 的 mutating `story_*` 必须携带 exact `transaction_id`；缺失/错配在 body 前拒绝，D1 receipt fingerprint 因此与顶层 transaction 绑定。
+- same-save operation ownership 在最终 journal 写临界区重查；并发 transaction 争用同 operationId 只能有一个 owner。
+- operationRef 不等于 effect receipt；高影响 `story_record_work_event` 可合法产生 operationRef 但不写 Runtime receipt。
 
-- 认证 DSH rc.2 的 `tools/execute` around-dispatch 在最终 `dispatchToolBody()` 之前执行；Story Host 只拦截九个 mutating `story_*`，先完成 transaction journal preflight，成功后才调用 `next()` 进入工具 body。
-- active transaction 由 journal 中 hidden turn 的 durable `sessionId` 反查，而不是依赖浏览器内存；同一个 DSH session 若同时映射多个 open transaction 会 fail-closed。
-- 每个 mutating call 在 body 前把稳定 `stepKey + operationId` 追加到 `operationRefs`；相同 identity replay 不增加 journal revision，同一 `operationId` 被不同 core step/tool 复用显式冲突。
-- active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在工具 body 前拒绝，确保 D1 operation fingerprint / receipt 与顶层 transaction 绑定。没有 open player transaction、也没有声明 `transaction_id` 的独立 Story mutation 仍保持可用。
-- `PlayerTransactionCoordinator` 把 durable `transactionId` 作为 hidden control context 交给 `StoryAiBridge`；initial/retry prompt 在模型第一次 mutating tool call 前就要求携带完全相同的 `transaction_id`，同一原子 mutation retry 仍复用原 `operation_id`。该控制上下文只存在于隐藏 DSH prompt/pending turn，不进入 social canonical messages。
-- 同一 save 的 journal 写使用本地短临界区串行；不同 transaction 并发争用同一 `operationId` 时在最终写入前重新检查 ownership，只允许一个 owner 成功。终态历史 transaction 的 operation ownership 在 journal 保留期间仍阻止后续 transaction 重用同一 ID。
-- 同一 transaction 内并发不同 core step 使用 optimistic reread/retry 合并追加；真实 step/operation identity 冲突在重读后仍拒绝。
-- `operationRef` 只证明“该 core step identity 已在工具 body 前持久化”，不证明 canonical mutation 已经发生。是否 applied 必须由匹配的 Core Runtime receipt 证明；这一区分也覆盖 `story_record_work_event` 高影响升级而不落盘的合法 no-op 路径。
+### D2c-2：Receipt/result reconciliation — 已完成验证，待合并
 
-该切片目前尚未执行本机 Client typecheck/test/build，也尚未由真实 bundler 同步本分支的 tracked Client artifacts；因此不属于已验证/可合并基线。D2c-2 仍需把 tool result / core receipt 与 social projection reconciliation 接起来，才能解决 core→social crash window、partial multi-operation 和 late cancel after canonical effect。
+当前分支已实现以下 repo-side 逻辑：
+
+- `StoryRuntimeStore.readReceipt()` 只读 Runtime schema v3 `_engine.operationReceipts`；schema v2 不作为 D1 receipt 来源，未知/损坏 schema fail-closed。
+- Host `GET /story-engine/api/core-receipts/{saveId}/{transactionId}/{operationId}` 只允许读取 transaction-owned operation、Host projection 所属 pack 与 journal-owned hidden sessions；receipt 的 transaction identity、operation 名称和由 `transactionId + operation + operationId` 重算的 `stepKey` 都必须与 journal 一致，跨 transaction/session/operation receipt 冲突显式拒绝。
+- browser `HostCoreReceiptReader` 对 receipt 结构、operationId、transactionId 再校验。
+- `DshToolEvidenceReader` 分页读取认证 rc.2 append-only history；`tool/call` 与 `tool/result` 按 call identity 配对。terminal result 必须同时拥有一致的 `message.source.callId` 与 `tool-result.toolCallId`，缺一侧保持 pending，互相冲突 fail-closed。
+- durable tool arguments 使用 D1 语义 identity：忽略不参与 fingerprint 的 `expected_version`，并归一化 wrapper 注入的默认值；duplicate result 的 seq、isError 与 canonical content 也必须一致。
+- matching receipt 仍是 applied/replayed 权威证据，但 receipt 不会掩盖 durable tool identity 漂移：同 operationId 后续被不同 tool/semantic arguments 复用、跨 hidden session 出现冲突 evidence，仍判 `inconsistent` 并阻止 social commit。
+- `CoreTransactionReconciler` 区分 `applied-or-replayed`、`skipped`、`failed`、`pending`、`inconsistent`。当前明确允许的无 receipt success 是高影响 `story_record_work_event` 的 `{ escalated: true, recorded: false }`；其它成功 mutating result 缺 receipt fail-closed。
+- `StoryTransactionStore` 进一步要求任一 durable transaction revision 最多一个非终态 hidden turn；历史 refs 可以保留多个，但 retry/continuation 必须等上一 attempt 收敛为 `completed` / `failed` / `cancelled`，第二个未完成 turn 的 journal 写在 prompt 发送前被拒绝。
+- normal dispatch 和 restart/recover 在外部 hidden/model 等待结束后重新读取 Host journal，避免 D2c-1 preflight 在等待期间推进 revision 后，被 stale browser record 覆盖或丢失 `operationRefs`。
+- hidden result 在交给 social commit 路径前先做 Core reconciliation；已 durable 的 social projection 在 recover 与最终 acknowledge 时也会再次核对 Core evidence。Core evidence 在最后一道 acknowledge barrier 重新变成 pending/inconsistent 时不得 commit。
+- 无 canonical effect 且 core attempts 明确失败可收敛 `failed`；terminal `failed` journal 必须先持久化成功，随后才允许 acknowledge 本地 AI pending result。pending/inconsistent 保持 `needs-recovery`。
+- 多 operation partial commit 被识别为 `repairablePartial`：已 receipt-confirmed operation 不重做；恢复动作只启动一个 continuation hidden turn；不重发玩家输入；明确 failed 的同一原子 mutation retry 必须复用原 `operation_id`。
+- 已存在 core `operationRefs` 的 failed hidden retry 会先重新 Core reconcile；unresolved evidence 禁止 generic retry，只有 ready/repairable/deterministic outcome 才进入受控 continuation，不会重新发送原玩家输入。
+- canonical effect 已存在后 cancel 不倒改 canonical history；进入 `needs-recovery` 并通过 reconciliation/continuation 补齐必要结果。只有无 canonical effect 且无 unresolved evidence 才能进入 `cancelled`。
+
+本分支自动测试覆盖 receipt store/API、receipt/session/operation identity、认证 rc.2 tool evidence 与 call identity、reconciler 状态表和 receipt-backed identity drift、single-nonterminal journal guard、stale-journal dispatch/recover、Core-aware retry、partial/failed continuation、core→social crash recovery、最终 acknowledge barrier、deterministic no-effect finalization 与 late cancel。本机最终验证为 Root 9 个测试文件 / 38 项测试、Client 49 个测试文件 / 228 项测试全部通过，两端 typecheck/build 通过。
 
 ## D2 尚未完成
 
-- D2c-1 当前只实现了 child core step identity / `operationId` 在 mutation body 前的 journal preflight 与 hidden transaction control context；本机自动验证、tracked Client artifact 同步和认证 DSH ToolRuntime smoke 已完成，合并仍待完成。
-- D2c-2：core receipt / tool result → social projection 的跨域恢复协调器，以及多个 core mutation 部分提交后的 applied/skipped 判定。
-- canonical effect 已发生后的 cancel/reconciliation 语义落地。
-- 非终态 transaction 与 Save As / fork 的正式产品策略。
-- restart、partial commit、hidden retry/continuation、core→social crash-window 的完整自动与真实浏览器矩阵。
+- D2c-2 已完成本机自动验证、真实 bundler artifact 同步和适用的 certified DSH `0.1.1-rc.2` ToolRuntime/Fixture-history shape smoke；PR #13 尚待合并，因此已合并公开基线仍停留在 D2c-1。
+- D2d：非终态 transaction 与 Save As / fork 的正式产品策略。
+- D2d：完整真实浏览器 restart/crash-window 矩阵，包括 hidden ambiguity、core→social、partial commit、late cancel、cross-save isolation。
 
 正式事务语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`，当前开发顺序见 `NEXT_DEVELOPMENT_PLAN.md`，实现/验证映射见 `TRACEABILITY.md`。
 
@@ -118,16 +127,23 @@ D2b / PR #11 pre-dispatch recovery hotfix 自动验证（HEAD `ee0f507303f979255
 - tracked Client artifacts 已由真实 build 同步，重复构建 hash 一致；`git diff --check` 通过。
 - 未执行真实 certified DSH/browser pre-dispatch crash-window；该项仍归入 D2d 完整故障矩阵。
 
-D2c-1 当前工作分支最终验证：
+D2c-1 / PR #12 最终验证：
 
 - 根项目 typecheck/build 通过；9 个测试文件、38 项测试全部通过。
 - Client typecheck/build 通过；30 个测试文件、154 项测试全部通过。
 - 真实 bundler 已同步 `client/story-ui/lib/index.js`、`lib/client.js` 与 `lib/client.js.map`；连续构建 SHA-256 一致且第二次构建没有产生新增 diff。
-- 在认证 DSH `0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` 的真实 `ToolRuntime` 上加载本分支 Host bundle：core preflight 在实际工具 body 前落盘，真实 D1 receipt 保留同一 `transactionId`，transaction identity 错配在 body 前拒绝且未改变 Runtime/journal。
+- 在认证 DSH `0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` 的真实 `ToolRuntime` 上加载 Host bundle：core preflight 在实际工具 body 前落盘，真实 D1 receipt 保留同一 `transactionId`，transaction identity 错配在 body 前拒绝且未改变 Runtime/journal。
 - `git diff --check` 通过；原项目工作目录和 `D:\DeepSeek-Harness` 工作树保持干净。
-- 本切片没有运行完整 `dsh web` 浏览器回合或浏览器 crash-window 矩阵；这些不能由 ToolRuntime smoke 代替，仍在后续 D2c-2/D2d 适用验收范围内。
+- 本切片没有运行完整 `dsh web` 浏览器回合或浏览器 crash-window 矩阵；这些不能由 ToolRuntime smoke 代替，仍在 D2d 适用验收范围内。
 
-本文件后续的 docs-only 状态同步不改变上述已验证代码或 tracked artifact 内容，无需把文档提交冒充一次新的代码验证。
+D2c-2 / PR #13 合并前最终验证：
+
+- Root typecheck/build 通过；9 个测试文件、38 项测试通过。
+- Client typecheck/build 通过；49 个测试文件、228 项测试通过。
+- `client/story-ui/lib/client.js`、`client.js.map`、`index.js` 由真实 bundler 生成；连续三次 Client build 的各文件 SHA-256 完全一致。
+- certified DSH `0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` smoke 使用真实 ToolRuntime 生成 transaction-bound `story_commit_state` receipt，并通过 rc.2 `FixtureApiClient` 的真实 RPC/history envelope、`tool/call` 与双 call-id `tool/result` 形态完成 parser 配对。
+- `git diff --check` 通过；临时 smoke 文件与 runtime 已清理，`D:\DeepSeek-Harness` 未修改。
+- 尚未执行完整浏览器 crash/restart matrix；该完整矩阵仍属于 D2d，不能由本次 ToolRuntime/Fixture-history shape smoke 代替。
 
 ## 文档优先级
 

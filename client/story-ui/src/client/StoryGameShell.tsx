@@ -19,6 +19,7 @@ import { appendAiMessages, appendChoiceRecord, appendPlayerMessage, updateDraft,
 import { createInitialProjection } from './initial-projection.ts'
 import { createLocalProjectionStorage } from './persistence.ts'
 import { HostProjectionStorage, type SaveSummary } from './host-persistence.ts'
+import { projectionAfterFailedSubmission } from './submission-failure-reconciliation.ts'
 import { ChoiceCard } from './ChoiceCard.tsx'
 import { StoryGameLibrary } from './StoryGameLibrary.tsx'
 import { INSTALLED_PACKS, cloneSave, createNewGame, newSaveId } from './game-library.ts'
@@ -213,8 +214,11 @@ export function StoryGameShell({ exitGame, sendToAI, recoverAiTurn, cancelAiTurn
     setGeneratingSaves(current=>new Set(current).add(saveId))
     void sendToAI(submitted,selected.id,text).then(result=>{
       commitAiResult(saveId,selected.id,result,result.turnId,submitted)
-    },error=>{
-      if(aiTurn(saveId)===null){storage.save(beforeSubmit);setProjection(current=>current.saveId===saveId?beforeSubmit:current);setView(state=>({...state,selectedChannelId:beforeSubmit.selectedChannelId,drafts:beforeSubmit.drafts}))}
+    },async error=>{
+      const reconciled=await projectionAfterFailedSubmission(hostStorage,saveId,beforeSubmit,submitted,aiTurn(saveId)!==null)
+      storage.save(reconciled)
+      setProjection(current=>current.saveId===saveId?reconciled:current)
+      setView(state=>({...state,selectedChannelId:reconciled.selectedChannelId,drafts:reconciled.drafts}))
       setSaveSyncError(saveId,error instanceof Error?error.message:String(error))
     }).finally(()=>{
       setGeneratingSaves(current=>{const next=new Set(current);next.delete(saveId);return next})

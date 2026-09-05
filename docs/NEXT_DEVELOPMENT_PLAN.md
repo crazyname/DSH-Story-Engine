@@ -24,7 +24,7 @@ M7：v2.0 Public Product RC / Stable
 
 v1.0 Personal 的精确实施顺序、依赖、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。本文保留跨版本 roadmap 和阶段摘要；如果两者在 v1.0 实施顺序上发生冲突，以该实施计划为准并同步修订本文。
 
-Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
+Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。D2c-2 / PR #13 已完成实现与合并前验证，待合并；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
 
 ## M3：Stage D
 
@@ -104,20 +104,38 @@ PR #12 已合并到 `main`。该切片建立不可绕过的 durable-before-body 
 - preflight 持久化失败阻止 tool body 执行。
 - `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作允许存在 operationRef 而没有 Core Runtime receipt。
 
-PR #12 已完成两端 typecheck/test/build、tracked Client artifacts 重复构建一致性、`git diff --check` 和认证 DSH rc.2 ToolRuntime smoke。完整真实浏览器 crash-window 矩阵仍在 D2d 范围。
+PR #12 最终验证：Root 9 个测试文件 / 38 项通过，Client 30 个测试文件 / 154 项通过，两端 typecheck/build 通过，tracked artifacts 由真实构建同步且连续 build hash 一致；认证 DSH `0.1.1-rc.2` ToolRuntime smoke 验证 preflight 在真实工具 body 前落盘、D1 receipt 保留正确 `transactionId`、transaction 错配在 body 前拒绝且不污染 Runtime/journal。完整浏览器 crash-window 矩阵仍留给 D2d。
 
-##### D2c-2：Receipt/result reconciliation — 当前 Draft PR #13
+##### D2c-2：Receipt/result reconciliation — 已完成验证，PR #13 待合并
 
-目标：用 Core Runtime receipt 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
+目标：用 Core Runtime receipt 与认证 rc.2 durable tool result 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
 
-- 从 tool result 与 Runtime `_engine.operationReceipts` 区分 planned、skipped/no-op、applied/replayed core step，不能把 operationRef 本身当成成功证据。
-- 已有 matching core receipt 的 step 只 replay 原结果；没有 receipt 且确定需要执行的 step 才允许继续执行。
-- core effect 需要 social 可见结果时：先确认 matching core receipt，再补 social projection。
-- 支持多个 core mutations 部分提交后的恢复；恢复时逐 operationId 对账，不依赖“最后一个网络请求是否成功”。
-- canonical effect 已存在后收到 cancel 不倒改历史，而是进入/继续 reconciliation，完成必要 projection 后收敛。
-- transaction 的最终 `committed/failed` 判断同时读取 journal、DSH durable history、core receipts/runtime 与 Host projection。
+当前分支 `codex/stage-d-receipt-result-reconciliation` 已实现：
 
-PR #13 合并前仍必须完成其自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代或预先声称这些验证结果。
+- Host 只读 Core receipt 查询：从 authoritative Host projection 取得 `packId`，只在 transaction-owned hidden sessions 中读取 Runtime schema v3 `_engine.operationReceipts`；operation/transaction/session identity 冲突 fail-closed。
+- `operationRef` 与事实状态分离：matching D1 receipt 证明 `applied/replayed`；没有 receipt 时读取认证 rc.2 append-only `tool/call` + `tool/result`，区分 known `skipped/no-op`、明确 `failed`、`pending` 与 `inconsistent`。
+- 当前明确允许的无 receipt 成功 no-op 是高影响 `story_record_work_event` 返回 `{ escalated: true, recorded: false }`；其它成功 mutating result 缺 receipt 不被猜成成功。
+- 同 operationId 跨 hidden session、不同 tool/arguments、pending retry、损坏 `source.callId/toolCallId` identity 均 fail-closed。
+- hidden/model 外部等待期间 Host preflight 可独立推进 journal revision；normal dispatch 与 restart/recover 在外部调用返回后都会重新读取 durable journal，避免 stale browser revision 覆盖 `operationRefs`。
+- hidden result 在返回 UI/social commit 路径前先完成 Core reconciliation；Host projection 已经 survived crash 时，recover/acknowledge 也会再次核对 Core evidence。
+- 没有 canonical effect 且所有相关 core attempt 明确失败时可收敛为 `failed`，不伪造 social canonical result。
+- 多 operation partial commit：已有 receipt 的 operation 不重做，明确 failed 的 operation 进入 `repairablePartial`；恢复动作只启动一个 continuation hidden turn，不能重发玩家输入；同一原子 mutation retry 必须复用原 `operation_id`。
+- canonical effect 已存在后的 cancel 不得倒改为 `cancelled`；进入 `needs-recovery`，必要时通过 continuation 补齐 Core/social 后再收敛。无 effect 且无 unresolved evidence 才允许真正 `cancelled`。
+- pending/inconsistent evidence 不启动 continuation，也不提交 social projection。
+
+本分支已完成 Windows 本机验证：Root 9 个测试文件 / 38 项、Client 49 个测试文件 / 228 项全部通过，两端 typecheck/build 通过；tracked `client/story-ui/lib/*` 已由真实 bundler 同步，连续三次 Client build hash 一致。适用的认证 DSH `0.1.1-rc.2` ToolRuntime/Fixture-history shape smoke 验证了 transaction-bound receipt、真实 RPC/history envelope 以及 `tool/call`/双 call-id `tool/result` parser 配对。完整浏览器 crash/restart 矩阵仍属于 D2d。
+
+D2c-2 收口条件：
+
+1. Root / Client typecheck、test、build 全部通过。
+2. 真实 build 同步 tracked artifacts，连续 build 无新增 diff。
+3. 至少完成适用的 certified DSH `0.1.1-rc.2` ToolRuntime/history smoke，确认 receipt/tool-result 形态与当前 parser 一致。
+4. `git diff --check` 通过，branch worktree 干净。
+5. 文档、traceability、Host API 与实际实现一致。
+
+以上 D2c-2 收口条件已经满足。PR #13 合并后即可把 D2c 标记为已合并完成；完整真实浏览器 restart/crash-window 矩阵、fork 产品策略仍属于 D2d。
+
+PR #13 已完成自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代这些验证结果。
 
 #### D2d：Fork / restart / failure matrix
 

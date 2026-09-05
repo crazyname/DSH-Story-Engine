@@ -55,7 +55,7 @@ v1.0.0 Personal Stable
 
 ### D2c-2：Receipt/result reconciliation
 
-当前由 PR #13 负责。该阶段只解决已经计划的 transaction/core/social reconciliation，不因本文新增产品需求扩张范围。
+当前由 PR #13 负责；实现与合并前验证已经完成，等待合并。该阶段只解决已经计划的 transaction/core/social reconciliation，不因本文新增产品需求扩张范围。
 
 完成条件：
 
@@ -64,7 +64,7 @@ v1.0.0 Personal Stable
 - 多个 core operation 部分提交后按 operationId 对账，不重复 canonical mutation。
 - late cancel 在 canonical effect 已存在时不伪造“未发生”，而是继续 reconciliation。
 - transaction 最终状态同时基于 journal、hidden DSH、core receipt/runtime、Host projection 收敛。
-- 完成 PR #13 自己声明的 typecheck/test/build、tracked artifacts、适用 DSH smoke 和文档收口。
+- 完成 PR #13 自己声明的 typecheck/test/build、tracked artifacts、适用 DSH smoke 和文档收口。（已满足）
 
 ### D2d：Fork / restart / failure matrix
 

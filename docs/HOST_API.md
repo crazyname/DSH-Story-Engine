@@ -7,7 +7,7 @@
 - 写操作要求同源；请求体上限 2 MB。
 - `saveId` 使用 1–100 位字母、数字、`_`、`-`。
 - transaction / operation stable ID 的正式语义见 `TRANSACTION_AND_RECOVERY_SPEC.md`。
-- 当前 Host transaction API 是 durable journal primitive，不等于完整跨域 transaction coordinator；玩家 submit/recover 接线属于 D2 后续片段。
+- Host transaction / receipt API 提供 durable journal 与只读 reconciliation primitives；D2b/D2c 的浏览器 coordinator 消费这些 primitive，但 Host API 本身仍不等于分布式 ACID transaction service。
 
 ## Social projection
 
@@ -123,6 +123,7 @@ transaction.revision == expectedRevision + 1
 - `committed` / `cancelled` / `failed` 为不可产生后续 revision 的终态；终态 record 本身也不得保留 `activeTurnId` 或任何非终态 hidden turn，重启读取时同样 fail-closed；
 - hidden evidence 只增不删；已有 hidden identity 不可替换；
 - 新增 hidden turn 必须从 `planned` 开始；`planned` / `uncertain` 不能携带 native `dshTurn`；
+- 同一 durable transaction record 最多允许一个 `planned` / `dispatched` / `uncertain` 非终态 hidden turn；若更新或重启读取发现两个以上非终态 hidden turns，Host Store fail-closed。这样新的 retry/continuation 必须等待上一 hidden turn 收敛为 `completed` / `failed` / `cancelled` 后才能持久化，不能在同一 transaction 中并行派发两个未完成 hidden turns；
 - 一旦 `dispatched` 已确认 dispatch/turn 存在，就不能再降级为 `uncertain`；对账应让 `uncertain` 向 `dispatched` / 结果态收敛，而不是反向抹掉已确认 evidence；
 - `completed` / `failed` / `cancelled` hidden turn 不可被 late result 改写；
 - `dshTurn` 一旦存在必须同时有 `sessionId`，同一 record 中 `(sessionId, dshTurn)` 不得重复；
@@ -135,12 +136,49 @@ transaction.revision == expectedRevision + 1
 不要把三个身份混为一谈：
 
 - Story Engine `turnId`：stable logical hidden-turn identity，并作为 social canonical message commit key；
-- `dshRequestId`：DSH prompt request correlation identity，完整 coordinator 必须在 dispatch 前持久化；DSH 会把它写入 durable `user/message.source.rpcId`；
+- `dshRequestId`：DSH prompt request correlation identity；D2b 在 accepted response 后一次性绑定，并用认证 rc.2 durable `user/message.source.rpcId` 对账；
 - `dshTurn`：DSH `turn/start` / `turn/end` 中的原生数字 turn，对账后才写入 journal。
 
-D2 foundation 只提供能够保存这些 evidence 的 Store/API。如何调用 DSH、如何把 `rpcId` 对应到数字 turn、如何从 `needs-recovery` 收敛，属于 coordinator/reconciliation 层。
+D2a foundation 提供这些 evidence 的 Store/API；D2b 已接入 submit/retry/recover 与 hidden correlation；D2c 在此基础上使用 child operation refs、Core receipts 与 durable tool results 决定 transaction 是否能够进入 social canonical commit。
 
 浏览器侧 `HostTransactionJournal` 对 `load/list/save` 返回值再次做 record validation，并核对返回的 `saveId` / `transactionId` 与请求 path identity；list 还会拒绝重复 `transactionId`。PUT 成功响应必须返回与本次提交**完整 canonical record 完全一致**的 transaction（不仅是相同 revision 或 fingerprint）；任何同 identity/revision 但 status、hidden/operation evidence、diagnostic、timestamp 等内容不同的 acknowledgement 都 fail-closed，不会被接受为持久化确认。
+
+## Core operation receipt reconciliation
+
+### `GET /story-engine/api/core-receipts/{saveId}/{transactionId}/{operationId}`
+
+这是 D2c 的只读 reconciliation endpoint，不提供 PUT/DELETE。Host 不接受浏览器自行声明 `packId` 或任意 Runtime session：
+
+1. `transactionId` 必须解析到指定 `saveId` 下的 durable journal；不存在时返回 `204`。
+2. `operationId` 必须已经存在于该 transaction 的 `operationRefs`；否则为 identity conflict（`409`）。
+3. `packId` 从该 save 的 authoritative Host projection 读取。
+4. 可查询的 `sessionId` 只能来自该 transaction 已持久化的 hidden-turn evidence。
+5. Host 只读取 Story Runtime schema v3 的 `_engine.operationReceipts`；schema v2 不被当作 D1 receipt 来源，未知/损坏 runtime schema fail-closed。
+6. 找不到 matching receipt 返回 `204`；同一 operationId 若在多个 transaction-owned hidden session 中都存在 receipt，视为冲突而不是任选一个。
+7. receipt 内 `operationId` 与 path、`transactionId` 与 journal 必须完全匹配；receipt `operation` 必须属于 mutating `story_*` 集合，并且用 `transactionId + receipt.operation + operationId` 重算的 `coreStepKey` 必须与 journal 中该 operationRef 的 `stepKey` 一致，否则为 operation identity conflict。
+
+成功响应：
+
+```json
+{
+  "sessionId": "hidden-session-id",
+  "receipt": {
+    "operationId": "op-...",
+    "transactionId": "tx-...",
+    "operation": "story_commit_state",
+    "fingerprint": "...sha256...",
+    "stateVersion": 12,
+    "committedAt": "2026-09-03T00:00:00.000Z",
+    "result": {}
+  }
+}
+```
+
+浏览器 `HostCoreReceiptReader` 会再次校验 receipt 结构、operation identity 与 transaction identity。`operationRef` 本身仍**不证明 mutation 已发生**：matching D1 receipt 才证明 applied/replayed。
+
+D2c coordinator 同时读取认证 DSH rc.2 append-only history，将 transaction-owned `tool/call` 与 `tool/result` 按 call identity 对账。缺少 receipt 时，这些 durable tool results 用于区分 known skipped/no-op、明确 failed、pending 与 inconsistent；即使 matching receipt 已存在，也仍检查同一 operationId 的 durable tool identity，防止旧 receipt 掩盖后续不同 tool/arguments 的错误复用。认证 rc.2 的 terminal `tool/result` 必须同时携带相同的 `message.source.callId` 与 `tool-result.toolCallId`；缺少其中一侧不能作为 terminal evidence，两者冲突则 fail-closed。
+
+当前允许确认的无 receipt 成功 no-op 是 `story_record_work_event` 的高影响升级 `{ escalated: true, recorded: false }`；其它成功 mutating tool result 缺少 matching receipt 一律 fail-closed。pending call、跨 session 重复 receipt/tool evidence、同 operationId 不同 tool/semantic arguments 或损坏 call identity 都不得被猜成成功。`expected_version` 不属于 D1 operation fingerprint，因此 durable tool identity 对账忽略该字段；wrapper 会补入 D1 payload 的默认值（当前包括 `branch_id: "main"` 与 `relationship_changes: []`）必须在比较前归一化。
 
 ## 内容包目录
 
@@ -164,11 +202,11 @@ D2 foundation 只提供能够保存这些 evidence 的 Store/API。如何调用 
 
 把源会话 Story Runtime 原子复制到目标会话目录，并重写指向源 runtime 目录的内部路径。已属于 inherited canonical history 的 core operation receipts 随 runtime 保留。
 
-未来新玩家 workflow 必须使用新的 transaction / operation identities。非终态 journal 与 Save As / fork 的产品策略由 D2 coordinator 明确定义；在该策略落地前，Host runtime clone 本身不声称已经安全迁移 incomplete transaction。
+未来新玩家 workflow 必须使用新的 transaction / operation identities。非终态 journal 与 Save As / fork 的正式产品策略由 D2d 明确定义；在该策略落地前，Host runtime clone 本身不声称已经安全迁移 incomplete transaction。
 
 ## 跨域边界
 
-Host API 不提供分布式 ACID 或 network exactly-once。完整恢复必须依据 durable evidence：
+Host API 不提供分布式 ACID 或 network exactly-once。D2c coordinator 依据 durable evidence：
 
 ```text
 transaction journal
@@ -177,4 +215,6 @@ transaction journal
 + social projection
 ```
 
-matching core receipt 返回原结果；matching social/transaction identical replay 返回已保存内容。hidden dispatch 无法可靠判断时进入 `needs-recovery`，不能盲目创建新 turn 假装 exactly-once。
+matching core receipt 返回原结果；matching social/transaction identical replay 返回已保存内容。hidden dispatch 或 core outcome 无法可靠判断时进入 `needs-recovery`，不能盲目创建新 turn 假装 exactly-once。
+
+当前 D2c 自动测试覆盖 receipt/tool-result reconciliation、partial multi-operation continuation、core→social crash recovery 与 late cancel 语义；PR #13 合并前本机验证为 Root 38/38、Client 228/228 通过，两端 typecheck/build 通过，并完成认证 DSH ToolRuntime/Fixture-history shape smoke。完整真实浏览器 restart/crash-window 矩阵仍属于 D2d，不在 Host API 文档中提前声称完成。

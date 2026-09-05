@@ -7,12 +7,13 @@ import{StoryRuntimeStore}from'./runtime-store.ts'
 import{StoryCatalogStore}from'./catalog-store.ts'
 import{StoryTransactionStore}from'./transaction-store.ts'
 import{assertSaveId,assertTransactionId}from'./transaction-journal.ts'
-import{CoreStepJournalPreflight,isMutatingStoryTool}from'./core-step-journal.ts'
+import{CoreStepJournalPreflight,coreStepKey,isMutatingStoryTool}from'./core-step-journal.ts'
 
 export const inject=['webServer','tools']
 export interface Config{runtimeRoot?:string;storyRuntimeRoot?:string;packsRoot?:string}
 const SAVE_BASE='/story-engine/api/saves/'
 const TRANSACTION_BASE='/story-engine/api/transactions/'
+const CORE_RECEIPT_BASE='/story-engine/api/core-receipts/'
 const RUNTIME_CLONE='/story-engine/api/runtime/clone'
 const CATALOG='/story-engine/api/catalog'
 
@@ -90,6 +91,34 @@ export function apply(ctx:Context,config:Config={}):void{
       res.setHeader('allow','GET, PUT');json(res,405,{error:'方法不允许'})
     }catch(error){json(res,statusFor(error),{error:message(error)})}
   }}),'story-ui: transaction journal API')
+
+  ctx.effect(()=>ctx.webServer.register({kind:'prefix',path:CORE_RECEIPT_BASE.slice(0,-1),async handler(req,res){
+    try{
+      if(req.method!=='GET'){res.setHeader('allow','GET');json(res,405,{error:'方法不允许'});return}
+      const url=new URL(req.url??'/','http://localhost')
+      if(!url.pathname.startsWith(CORE_RECEIPT_BASE)){json(res,400,{error:'Core receipt 路径无效'});return}
+      const encodedParts=url.pathname.slice(CORE_RECEIPT_BASE.length).split('/')
+      if(encodedParts.length!==3||encodedParts.some(part=>part==='')){json(res,400,{error:'Core receipt 路径无效'});return}
+      const[saveId,transactionId,operationId]=encodedParts.map(part=>decodeURIComponent(part))as[string,string,string]
+      assertSaveId(saveId);assertTransactionId(transactionId);assertTransactionId(operationId,'operationId')
+      const transaction=await transactions.read(saveId,transactionId)
+      if(transaction===undefined){res.writeHead(204,{'cache-control':'no-store'});res.end();return}
+      const operationRef=transaction.operationRefs.find(ref=>ref.operationId===operationId)
+      if(operationRef===undefined)throw new Error(`transaction identity 冲突：operationId ${operationId} 不属于 ${transactionId}`)
+      const projection=await saves.read(saveId)
+      if(projection===undefined||typeof projection.packId!=='string')throw new Error(`transaction ${transactionId} 缺少可验证的 Host projection/pack identity`)
+      const sessionIds=[...new Set(transaction.hiddenTurns.map(turn=>turn.sessionId).filter((value):value is string=>value!==undefined))]
+      if(sessionIds.length===0)throw new Error(`transaction ${transactionId} 缺少 hidden session evidence`)
+      const receipts=[]
+      for(const sessionId of sessionIds){const found=await runtime.readReceipt(projection.packId,sessionId,operationId);if(found!==undefined)receipts.push({sessionId,receipt:found})}
+      if(receipts.length===0){res.writeHead(204,{'cache-control':'no-store'});res.end();return}
+      if(receipts.length>1)throw new Error(`Core receipt 冲突：operationId ${operationId} 在多个 hidden session 中存在`)
+      const found=receipts[0]!
+      if(found.receipt.transactionId!==transactionId)throw new Error(`Core receipt transaction identity 冲突：${operationId}`)
+      if(!isMutatingStoryTool(found.receipt.operation)||coreStepKey(transactionId,found.receipt.operation,operationId)!==operationRef.stepKey)throw new Error(`Core receipt operation identity 冲突：${operationId}`)
+      json(res,200,{sessionId:found.sessionId,receipt:found.receipt})
+    }catch(error){json(res,statusFor(error),{error:message(error)})}
+  }}),'story-ui: core receipt API')
 
   ctx.effect(()=>ctx.webServer.register({kind:'exact',path:RUNTIME_CLONE,async handler(req,res){
     try{

@@ -132,6 +132,8 @@ receipt 与其保护的 canonical mutation 必须在同一次持久化提交中�
 8. coordinator 根据 receipt 继续其他 operation 或 social projection；
 9. 所有必要域完成后再把 transaction 收敛到 `committed`。
 
+任何第 4 步这类跨模型、网络或用户等待返回后，协调器在再次修改 transaction journal 或据此判断 core/social 状态前，必须重新读取该 transaction 的 durable 最新 revision，并验证 `transactionId` 未发生变化。等待期间由 Host core preflight 或其它合法 writer 新增的 `operationRefs`、hidden evidence 与 journal revision 必须被保留；浏览器内存中的 stale record 不得覆盖这些 durable facts。无法唯一重新取得同一 open transaction 时 fail-closed，不能继续用旧 revision 猜测。
+
 ## 5. Transaction Journal
 
 ### 5.1 最小持久字段
@@ -150,6 +152,8 @@ journal 至少保存：
 journal 是恢复协调证据，不替代 core receipt 或 social projection。
 
 `operationRefs` 中的 `stepKey + operationId` 只证明某个 core step identity 已经被 transaction 计划/预登记，并且可以安全用于后续调用或对账；它**不证明**对应 canonical mutation 已发生。只有 Runtime 中 matching operation receipt 才能证明该 mutation 已 applied/replayed。某些工具允许在进入 mutation 路径前根据领域规则返回合法 no-op/upgrade 结果，因此可以存在 operationRef 而没有 receipt；恢复器不得把“缺少 receipt”一律解释为崩溃、失败或尚待无条件重放。
+
+恢复器对 durable tool/result 的 identity 校验不因 matching receipt 已存在而关闭。receipt 证明该 canonical effect 已 applied/replayed，但不能授权后续 hidden turn 用同一 `operationId` 配合不同 tool 或不同语义 arguments 再调用；这类 identity drift 即使 Core Runtime 依靠旧 receipt 阻止了重复 mutation，也必须阻止新的 social canonical commit。所有被采用的 tool evidence 必须属于同一 `transactionId` 和 transaction-owned hidden session，并与该 `operationId` 的 tool identity/规范化 arguments 一致。仍存在未终态 matching tool call 时，不能因为更早出现过成功结果就提前宣称 skipped；跨 hidden session 的重复 receipt/tool evidence、同一 operationId 被不同 tool/arguments 复用、call/result identity 自相矛盾或结构损坏都必须 fail-closed。认证 rc.2 terminal `tool/result` 只有在 `message.source.callId` 与 `tool-result.toolCallId` 都存在且相等时才能作为 terminal evidence。`expected_version` 不属于 D1 fingerprint，因此 tool identity 对账忽略它；wrapper 注入的 D1 语义默认值必须先规范化。只有领域契约明确允许的成功 no-op/upgrade result 才能在无 receipt 时判定为 skipped；其它成功 mutating tool result 缺少 matching receipt 仍属于不一致 evidence。
 
 ### 5.2 Transaction 状态
 
@@ -178,6 +182,8 @@ journal 至少支持 `planned`、`dispatched`、`uncertain`、`completed`、`fai
 - `uncertain`：请求可能已被 DSH 接受，当前尚不能证明；
 - `completed` / `failed` / `cancelled`：hidden turn 终态，不得被后续轮询倒改。
 
+同一 transaction 可以保留多个历史 hidden turn references，但任何一个 durable revision 中最多只能有一个 `planned` / `dispatched` / `uncertain` 非终态 hidden turn。新的 retry/continuation 只有在上一 hidden turn 已收敛为 `completed` / `failed` / `cancelled` 后才能进入 `planned`；不得通过浏览器并发操作或 crash/restart 状态漂移让两个 hidden turns 同时处于未完成状态。
+
 `dshRequestId` 一旦绑定、`dshTurn` 一旦从 DSH durable history 对账得到，都不得在后续 revision 中换成另一身份。
 
 ### 5.4 Journal 写入语义
@@ -186,6 +192,7 @@ journal 至少支持 `planned`、`dispatched`、`uncertain`、`completed`、`fai
 - 同 revision、内容完全相同的重放可以作为 already-applied replay 返回原记录；
 - 同 revision、内容不同必须冲突；
 - 同 `transactionId` 不同 input identity 必须显式冲突；
+- 同一 transaction 的 durable record 同时包含两个以上非终态 hidden turns 时必须 fail-closed，Host 不得把第二个 planned turn 持久化后再依赖 UI 层清理；
 - 同一 save 中不同 transaction 不能持有相同 `operationId`；ownership 在最终 journal 写临界区再次校验，不能只依赖锁外预查；
 - journal 文件损坏或身份不一致时恢复流程 fail-closed，不得静默跳过一条可能非终态的 recovery evidence；
 - 首版可以不主动删除/压缩 journal；删除与 compaction 见第 12 节。
@@ -283,6 +290,8 @@ Checkpoint 不得成为释放已消费 operation identity 的手段。
 
 同一 transaction 可增加新的 logical hidden `turnId`。旧 references 保留；retry/control turn 不重新追加原始玩家输入。只有最终实际产生 canonical result 的 completed turn 被设置为 `canonicalResultTurnId`。
 
+hidden attempts 在同一 transaction 内必须串行：任意时刻最多一个 hidden turn 可以保持 `planned` / `dispatched` / `uncertain`。只有上一 attempt 已持久化为 `completed` / `failed` / `cancelled` 后，才能为 retry/continuation 新增下一条 `planned` reference。若 Host journal 已经存在另一个非终态 turn，新的 `beforeDispatch` 必须在 DSH prompt 发送前失败。
+
 ### 9.4 模型结果已完成，canonical commit 尚未开始
 
 恢复重新读取 completed hidden evidence，以原 `transactionId`、canonical-result `turnId` 和已持久化 child operation identities 进入提交路径。
@@ -371,18 +380,19 @@ fork 后的新 save/session scope：
 11. journal 文件损坏 fail-closed；跨 save 隔离；Windows-safe journal 路径；
 12. hidden dispatch 前 Story Engine `turnId` 与 session evidence 已 durable；caller-controlled `dshRequestId` 在支持时也必须 pre-dispatch durable，carrier-generated identity 则验证 accepted 后一次性绑定与 response-loss `needs-recovery`；
 13. hidden dispatch 不确定窗口通过真实 DSH `dshRequestId/rpcId` correlation 对账出 native `dshTurn`，或明确进入 `needs-recovery`；
-14. 同 transaction 多 hidden retry/continuation turns 不重发原始玩家 input，只提交 canonical-result turn；
+14. 同 transaction 多 hidden retry/continuation turns 不重发原始玩家 input，只提交 canonical-result turn；任何 durable revision 最多一个非终态 hidden turn，第二个 dispatch 在发送 prompt 前被 journal 拒绝；
 15. active player transaction 的 hidden initial/retry control context 在第一次 mutating tool call 前携带正确 `transaction_id`；mutating core call 缺失/错配该 ID 在 body 前失败，Core receipt fingerprint 必须 transaction-bound；
 16. mutating core tool body 前 `stepKey + operationId` 已 durable，journal preflight 失败时 body 未执行，并发不同 step 不丢失 identity；
 17. 同一 save 的两个 transaction 并发争用同一 `operationId` 时只能有一个 journal owner；终态历史 owner 在 journal 保留期间仍阻止后续重用；
-18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；
-19. core commit 后、social commit 前崩溃恢复；
-20. 多 operation transaction 中间崩溃只补未完成步骤；
-21. social host save 后、AI acknowledge 前恢复；
-22. cancelled 后晚到 completed result 不提交；
-23. canonical effect 已提交后才收到 cancel 时不倒改历史；
-24. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
-25. deterministic build 与 tracked artifacts 一致。
+18. operationRef 无 receipt 的 planned/no-op 与 matching receipt 的 applied/replayed 能被区分；durable tool evidence 的 transaction/session/tool/semantic-arguments/call identity 冲突及 pending attempt 必须 fail-closed，而且 matching receipt 不得掩盖后续同 operationId 的不同 tool/arguments 复用；
+19. model/network/recovery 等外部等待期间 journal revision 被 Host preflight 推进后，返回路径重新读取 durable record并保留新增 operationRefs/evidence；
+20. core commit 后、social commit 前崩溃恢复；
+21. 多 operation transaction 中间崩溃只补未完成步骤；
+22. social host save 后、AI acknowledge 前恢复；
+23. cancelled 后晚到 completed result 不提交；
+24. canonical effect 已提交后才收到 cancel 时不倒改历史；
+25. fork 后历史 receipts 有效、新 identities 独立，非终态 fork 策略有测试；
+26. deterministic build 与 tracked artifacts 一致。
 
 单个阶段切片只能宣称其实际覆盖的子集，不能因为 core receipt 或 journal primitive 测试通过就宣称完整跨域 recovery 已完成。
 

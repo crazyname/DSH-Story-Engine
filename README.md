@@ -6,7 +6,7 @@
 
 已经实现 V1 内容包加载、DSH 外置插件、动态主持规则、全文与人物检索、逐记录无损读取、独立会话存档、版本锁、检查点、场景推进、原生选择界面、内容包安全安装、本地图形化管理页面、零代码内容包制作向导、连载式可执行剧本（v0.7），以及独立文字游戏界面（v0.8 阶段 A/B/C 完成）：五类频道、结构化消息、宿主存档持久化、真实模型端到端闭环、选择卡、动态内容包目录、多存档、长回合刷新恢复，以及基于 DSH 会话分叉和 Runtime 克隆的真正另存为。
 
-Stage D 已完成 AI canonical social commit 幂等、D1 core operation receipts、D2a durable transaction journal、D2b player transaction coordinator 和 D2c-1 core preflight operation linking；当前进入 D2c-2 core receipt / tool result → social projection 跨域 reconciliation。
+Stage D 已完成 AI canonical social commit 幂等、D1 core operation receipts、D2a durable transaction journal、D2b player transaction coordinator 和 D2c-1 core preflight operation linking；D2c-2 core receipt / tool result → social projection 跨域 reconciliation 已完成实现与合并前验证，PR #13 待合并，下一阶段为 D2d fork / restart / failure matrix。
 
 私人 Dispatch 验证线只存在于被忽略的本地目录；商业游戏内容、存档、最终化 overlay 和具体校验结果不会进入公开仓库。私人内容可以用于 v1.0 Personal 的本机长时游玩验收，但不构成 v2.0 Public Product 的发布内容或依赖。
 
