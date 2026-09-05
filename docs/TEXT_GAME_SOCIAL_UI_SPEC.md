@@ -2,18 +2,21 @@
 
 ## 1. 文档状态
 
-本文定义 DSH Story Engine 图形界面的正式产品边界、交互结构、数据模型和阶段性能力边界。它与 `SERIAL_GAMEPLAY_SPEC.md`、`TRANSACTION_AND_RECOVERY_SPEC.md` 共同构成开发契约：前者规定游戏怎样运行，本文规定玩家怎样进入和操作游戏，事务规范规定 retry、幂等和跨域恢复怎样成立。
+本文定义 DSH Story Engine 图形界面的正式 Player Surface 边界、交互结构、数据模型和阶段性能力边界。它与 `SERIAL_GAMEPLAY_SPEC.md`、`TRANSACTION_AND_RECOVERY_SPEC.md` 共同构成开发契约：前者规定游戏怎样运行，本文规定玩家怎样进入和操作游戏，事务规范规定 retry、幂等和跨域恢复怎样成立。
 
 本文是长期 normative contract，不记录短期完成度。当前实现状态与下一步任务分别以 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 为准。
 
+本文中的 Stage A–E 是 Player Surface 的能力分组，不再等同于产品版本/公开发布节点。v1.0 Personal、v1.x Architecture Transition 与 v2.0 Public Product 的版本语义以 `DEVELOPMENT.md` / `NEXT_DEVELOPMENT_PLAN.md` 为准。Creator/Studio 不由本文定义；作者产品表面和视觉资产长期边界分别见 `DEVELOPMENT.md` 与 `VISUAL_ASSET_SYSTEM_SPEC.md`。
+
 本文确认以下决策：
 
-- DSH 启动后直接显示原有普通 AI 聊天，不增加启动模式选择页。
+- v1.0 Personal 的 DSH 运行形态仍保持：DSH 启动后直接显示原有普通 AI 聊天，不增加启动模式选择页。
 - 文字游戏是独立完整界面，不是普通聊天窗口中的标签页或换皮。
 - 普通聊天与文字游戏通过 DSH 侧边栏中的固定入口切换。
 - 普通会话、游戏频道、消息列表、草稿和存档不得在界面上混用。
 - 文字游戏可以在后台复用 DSH 的模型、工具、流式响应和会话能力。
 - DSH 原版业务源码保持不修改；界面及适配代码在 Story Engine 项目中开发。
+- v2.0 Native Runtime 成为默认后，不再要求保留“先进入普通 DSH 聊天”的产品入口；2.0 Player 的启动/导航由 Public Product 设计重新评审，但不得破坏本规范定义的频道、消息、存档和玩家控制权语义。
 
 ## 2. 产品目标
 
@@ -174,6 +177,8 @@ interface StoryParticipant {
 - 身份未知的角色不能因界面元数据泄露本名。
 
 人物死亡、失踪或退出不会删除人物和历史聊天，只改变状态及可继续互动能力。
+
+长期视觉实现不得把 `avatar?: string` 解释为必须永久保存本机路径或厂商 URL。v1.x 起应通过稳定 Visual Asset 引用承载导入/生成素材，具体见 `VISUAL_ASSET_SYSTEM_SPEC.md`。
 
 ## 8. 消息模型
 
@@ -372,7 +377,7 @@ Story Engine 宿主插件负责：
 
 ## 14. 实施阶段定义
 
-本节定义阶段能力边界，不作为进度看板。阶段完成状态只在 `CURRENT_STATUS.md` 中维护。
+本节定义 Player Surface 的阶段能力边界，不作为版本/发布进度看板。阶段完成状态只在 `CURRENT_STATUS.md` 中维护；这些阶段如何映射到 v1.0 Personal、v1.x 和 v2.0 Public Product 以 `NEXT_DEVELOPMENT_PLAN.md` 为准。
 
 ### 阶段 A：界面壳与模式切换
 
@@ -409,13 +414,13 @@ Story Engine 宿主插件负责：
 - 越界暂停、剧本修订、校验和恢复。
 - 集末选择总结及下一集连续性。
 
-### 阶段 E：公开发布质量
+### 阶段 E：Player Surface 质量收口
 
 - 主题、头像资源、响应式布局和键盘操作。
 - 无障碍、性能、长历史分页和存档迁移测试。
 - 原创示例内容包和插件开发文档。
-- 第三方许可证清单和发布审计。
-- V1 兼容、升级迁移和 release gate 文档。
+- 必要的许可证与素材来源检查。
+- v1.0 Personal 所需的稳定性/迁移/release gate；完整对外发布、安装和 Public Product 审计属于 v2.0 路线。
 
 ## 15. 首版验收标准
 
@@ -435,7 +440,7 @@ Story Engine 宿主插件负责：
 ## 16. 后续但非首版功能
 
 - 频道搜索、消息搜索、收藏和引用回复。
-- 动态头像、表情、图片、语音和视频。
+- 动态头像、表情、图片、语音和视频；视觉素材的 v1.0/v1.x/v2.0 演进见 `VISUAL_ASSET_SYSTEM_SPEC.md`。
 - 剧情内定时消息和真正的后台异步事件。
 - 多套布局主题与内容包自定义皮肤。
 - 存档云同步或多人联机。
