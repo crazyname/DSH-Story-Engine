@@ -5,7 +5,8 @@ import{appendPlayerMessage}from'../src/client/story-domain.ts'
 import{createInitialProjection}from'../src/client/initial-projection.ts'
 
 async function fixture(){
- const save=appendPlayerMessage({...createInitialProjection(),saveId:'save-recover-refresh'},'scene-main','继续')
+ const initial={...createInitialProjection(),saveId:'save-recover-refresh'}
+ const save=appendPlayerMessage(initial,initial.selectedChannelId,'继续')
  const prepared=await createPreparedTransaction({transactionId:'tx-recover-refresh',saveId:save.saveId,channelId:save.selectedChannelId,text:'继续',baseProjectionRevision:0,now:new Date('2026-09-03T00:00:00.000Z')})
  const planned=reviseTransaction(prepared,{hiddenTurns:[{turnId:'turn-recover',kind:'initial',state:'planned',sessionId:'session-recover',dshRequestId:'rpc-recover'}],activeTurnId:'turn-recover'})
  let record=reviseTransaction(planned,{hiddenTurns:[{turnId:'turn-recover',kind:'initial',state:'dispatched',sessionId:'session-recover',dshRequestId:'rpc-recover'}],activeTurnId:'turn-recover'})

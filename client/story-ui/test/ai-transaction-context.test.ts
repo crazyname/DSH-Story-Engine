@@ -41,9 +41,9 @@ describe('hidden transaction control context',()=>{
   const sessionId='session-continuation'
   const values=new Map<string,string>([
    [`dsh-story-ai-session:${saveId}`,sessionId],
-   [`dsh-story-ai-pending:${saveId}`,JSON.stringify({version:1,id:'turn-old',sessionId,baseline:0,channelId:'ch-direct-hezhou',prompt:'original player input: SECRET-PLAYER-TEXT',state:'completed',result:{raw:'{}',messages:[]}})],
+   [`dsh-story-ai-pending:${saveId}`,JSON.stringify({version:1,id:'turn-old',sessionId,baseline:0,channelId:'c-direct-hezhou',prompt:'original player input: SECRET-PLAYER-TEXT',state:'completed',result:{raw:'{}',messages:[]}})],
   ])
-  const prompt=vi.fn(async()=>ok({accepted:true}))
+  const prompt=vi.fn(async(_payload:any)=>ok({accepted:true}))
   let history=0
   const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"修复完成。"}]}'
   const api={sessions:{
@@ -54,7 +54,7 @@ describe('hidden transaction control context',()=>{
   },workspace:{archiveSession:vi.fn(async()=>ok({}))}}
   const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}}
   const bridge=new StoryAiBridge(api as never,storage,async()=>{})
-  const save={...createInitialProjection(),saveId,selectedChannelId:'ch-direct-hezhou'}
+  const save={...createInitialProjection(),saveId,selectedChannelId:'c-direct-hezhou'}
 
   await expect(bridge.continueTransaction(save,save.selectedChannelId,'op-a 已 applied；仅修复 op-b。',{transactionId:'tx-continuation'})).resolves.toMatchObject({messages:[{content:'修复完成。'}]})
   const text=prompt.mock.calls[0]![0].content[0].text
@@ -67,7 +67,7 @@ describe('hidden transaction control context',()=>{
  it('can continue from the persisted hidden session after local pending state is lost',async()=>{
   const saveId='save-continuation-restart';const sessionId='session-continuation-restart'
   const values=new Map<string,string>([[`dsh-story-ai-session:${saveId}`,sessionId]])
-  const prompt=vi.fn(async()=>ok({accepted:true}));let history=0
+  const prompt=vi.fn(async(_payload:any)=>ok({accepted:true}));let history=0
   const raw='{"messages":[{"senderId":"p-hezhou","kind":"dialogue","content":"重启恢复完成。"}]}'
   const api={sessions:{
    create:vi.fn(async()=>ok({sessionId})),
@@ -76,7 +76,7 @@ describe('hidden transaction control context',()=>{
   },workspace:{archiveSession:vi.fn(async()=>ok({}))}}
   const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value)}}
   const bridge=new StoryAiBridge(api as never,storage,async()=>{})
-  const save={...createInitialProjection(),saveId,selectedChannelId:'ch-direct-hezhou'}
+  const save={...createInitialProjection(),saveId,selectedChannelId:'c-direct-hezhou'}
 
   await expect(bridge.continueTransaction(save,save.selectedChannelId,'只补齐 durable core 已证明后的 social 结果。',{transactionId:'tx-restart'})).resolves.toMatchObject({messages:[{content:'重启恢复完成。'}]})
 

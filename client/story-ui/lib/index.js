@@ -96,10 +96,42 @@ var StoryProjectionStore = class {
 	}
 };
 //#endregion
+//#region src/core-receipt.ts
+const STABLE_ID$1 = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+const SHA256 = /^[a-f0-9]{64}$/;
+function object$4(value, label) {
+	if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 损坏`);
+	return value;
+}
+function validateCoreReceipt(value, expectedOperationId) {
+	const raw = object$4(value, "Core operation receipt");
+	const operationId = raw.operationId;
+	if (typeof operationId !== "string" || !STABLE_ID$1.test(operationId) || expectedOperationId !== void 0 && operationId !== expectedOperationId || typeof raw.operation !== "string" || raw.operation.length === 0 || typeof raw.fingerprint !== "string" || !SHA256.test(raw.fingerprint) || !Number.isSafeInteger(raw.stateVersion) || Number(raw.stateVersion) < 0 || typeof raw.committedAt !== "string" || Number.isNaN(Date.parse(raw.committedAt)) || !Object.prototype.hasOwnProperty.call(raw, "result")) throw new Error(`Core operation receipt 损坏${expectedOperationId === void 0 ? "" : `：${expectedOperationId}`}`);
+	const transactionId = raw.transactionId;
+	if (transactionId !== void 0 && (typeof transactionId !== "string" || !STABLE_ID$1.test(transactionId))) throw new Error(`Core operation receipt transactionId 损坏：${operationId}`);
+	return {
+		operationId,
+		...transactionId === void 0 ? {} : { transactionId },
+		operation: raw.operation,
+		fingerprint: raw.fingerprint,
+		stateVersion: Number(raw.stateVersion),
+		committedAt: raw.committedAt,
+		result: structuredClone(raw.result)
+	};
+}
+//#endregion
 //#region src/runtime-store.ts
 const SAFE_ID = /^[a-zA-Z0-9_-]{1,100}$/;
+const STABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 function assertId(value, label) {
 	if (!SAFE_ID.test(value)) throw new Error(`${label} 无效`);
+}
+function assertStableId(value, label) {
+	if (!STABLE_ID.test(value)) throw new Error(`${label} 无效`);
+}
+function object$3(value, label) {
+	if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 损坏`);
+	return value;
 }
 function replacePaths(value, source, target) {
 	if (typeof value === "string") return value.replaceAll(source, target).replaceAll(source.replaceAll("\\", "/"), target.replaceAll("\\", "/"));
@@ -115,6 +147,29 @@ var StoryRuntimeStore = class {
 	}
 	directory(packId, sessionId) {
 		return join(this.root, packId, sessionId);
+	}
+	statePath(packId, sessionId) {
+		return join(this.directory(packId, sessionId), "state.json");
+	}
+	/** Reads one authoritative D1 receipt without mutating or normalizing Runtime state. */
+	async readReceipt(packId, sessionId, operationId) {
+		assertId(packId, "内容包 ID");
+		assertId(sessionId, "会话 ID");
+		assertStableId(operationId, "operationId");
+		let state;
+		try {
+			state = JSON.parse(await readFile(this.statePath(packId, sessionId), "utf8"));
+		} catch (error) {
+			if (error.code === "ENOENT") return void 0;
+			throw error;
+		}
+		const engine = object$3(object$3(state, "Story Runtime state")._engine, "Story Runtime _engine");
+		const schemaVersion = Number(engine.schemaVersion);
+		if (schemaVersion === 2) return void 0;
+		if (schemaVersion !== 3) throw new Error(`Story Runtime schemaVersion 不受支持：${String(engine.schemaVersion)}`);
+		if (engine.operationReceipts === void 0) return void 0;
+		const found = object$3(engine.operationReceipts, "Story Runtime operationReceipts")[operationId];
+		return found === void 0 ? void 0 : validateCoreReceipt(found, operationId);
 	}
 	async clone(packId, sourceSessionId, targetSessionId) {
 		assertId(packId, "内容包 ID");
@@ -723,6 +778,15 @@ const TERMINAL_TRANSACTION$1 = new Set([
 	"cancelled",
 	"failed"
 ]);
+const TERMINAL_HIDDEN = new Set([
+	"completed",
+	"failed",
+	"cancelled"
+]);
+function assertSingleNonterminalHidden(record) {
+	const pending = record.hiddenTurns.filter((turn) => !TERMINAL_HIDDEN.has(turn.state));
+	if (pending.length > 1) throw new Error(`transaction 同时包含多个非终态 hidden turn：${pending.map((turn) => turn.turnId).join(", ")}`);
+}
 var StoryTransactionStore = class {
 	root;
 	queues = /* @__PURE__ */ new Map();
@@ -758,6 +822,7 @@ var StoryTransactionStore = class {
 	}
 	async validate(value) {
 		const record = validateTransactionRecord(value);
+		assertSingleNonterminalHidden(record);
 		const fingerprint = await fingerprintTransactionInput(record.saveId, record.input.channelId, record.input.text);
 		if (record.inputFingerprint !== fingerprint) throw new Error("inputFingerprint 与 transaction input 不一致");
 		return record;
@@ -989,6 +1054,7 @@ var CoreStepJournalPreflight = class {
 const inject = ["webServer", "tools"];
 const SAVE_BASE = "/story-engine/api/saves/";
 const TRANSACTION_BASE = "/story-engine/api/transactions/";
+const CORE_RECEIPT_BASE = "/story-engine/api/core-receipts/";
 const RUNTIME_CLONE = "/story-engine/api/runtime/clone";
 const CATALOG = "/story-engine/api/catalog";
 async function body(req) {
@@ -1156,6 +1222,68 @@ function apply(ctx, config = {}) {
 			}
 		}
 	}), "story-ui: transaction journal API");
+	ctx.effect(() => ctx.webServer.register({
+		kind: "prefix",
+		path: CORE_RECEIPT_BASE.slice(0, -1),
+		async handler(req, res) {
+			try {
+				if (req.method !== "GET") {
+					res.setHeader("allow", "GET");
+					json(res, 405, { error: "方法不允许" });
+					return;
+				}
+				const url = new URL(req.url ?? "/", "http://localhost");
+				if (!url.pathname.startsWith(CORE_RECEIPT_BASE)) {
+					json(res, 400, { error: "Core receipt 路径无效" });
+					return;
+				}
+				const encodedParts = url.pathname.slice(32).split("/");
+				if (encodedParts.length !== 3 || encodedParts.some((part) => part === "")) {
+					json(res, 400, { error: "Core receipt 路径无效" });
+					return;
+				}
+				const [saveId, transactionId, operationId] = encodedParts.map((part) => decodeURIComponent(part));
+				assertSaveId(saveId);
+				assertTransactionId(transactionId);
+				assertTransactionId(operationId, "operationId");
+				const transaction = await transactions.read(saveId, transactionId);
+				if (transaction === void 0) {
+					res.writeHead(204, { "cache-control": "no-store" });
+					res.end();
+					return;
+				}
+				const operationRef = transaction.operationRefs.find((ref) => ref.operationId === operationId);
+				if (operationRef === void 0) throw new Error(`transaction identity 冲突：operationId ${operationId} 不属于 ${transactionId}`);
+				const projection = await saves.read(saveId);
+				if (projection === void 0 || typeof projection.packId !== "string") throw new Error(`transaction ${transactionId} 缺少可验证的 Host projection/pack identity`);
+				const sessionIds = [...new Set(transaction.hiddenTurns.map((turn) => turn.sessionId).filter((value) => value !== void 0))];
+				if (sessionIds.length === 0) throw new Error(`transaction ${transactionId} 缺少 hidden session evidence`);
+				const receipts = [];
+				for (const sessionId of sessionIds) {
+					const found = await runtime.readReceipt(projection.packId, sessionId, operationId);
+					if (found !== void 0) receipts.push({
+						sessionId,
+						receipt: found
+					});
+				}
+				if (receipts.length === 0) {
+					res.writeHead(204, { "cache-control": "no-store" });
+					res.end();
+					return;
+				}
+				if (receipts.length > 1) throw new Error(`Core receipt 冲突：operationId ${operationId} 在多个 hidden session 中存在`);
+				const found = receipts[0];
+				if (found.receipt.transactionId !== transactionId) throw new Error(`Core receipt transaction identity 冲突：${operationId}`);
+				if (!isMutatingStoryTool(found.receipt.operation) || coreStepKey(transactionId, found.receipt.operation, operationId) !== operationRef.stepKey) throw new Error(`Core receipt operation identity 冲突：${operationId}`);
+				json(res, 200, {
+					sessionId: found.sessionId,
+					receipt: found.receipt
+				});
+			} catch (error) {
+				json(res, statusFor(error), { error: message(error) });
+			}
+		}
+	}), "story-ui: core receipt API");
 	ctx.effect(() => ctx.webServer.register({
 		kind: "exact",
 		path: RUNTIME_CLONE,

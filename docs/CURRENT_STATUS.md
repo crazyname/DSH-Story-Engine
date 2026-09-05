@@ -9,7 +9,7 @@
 - DSH 原版目录：`D:\DeepSeek-Harness`，只作为依赖与运行环境，不修改源码；当前 1.0 认证候选固定为 DSH `0.1.1-rc.2` / tag `dsh-v0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`，主开发线不自动追随上游最新版。
 - 项目目录：`D:\DSH-Story-Engine`。
 - 当前已合并公开基线：`main`，包含 PR #5 / D1 Core Runtime operation idempotency、PR #6 / D2a transaction journal foundation、PR #9 / D2b player transaction coordinator、PR #11 / D2b pre-dispatch recovery hotfix，以及 PR #12 / D2c-1 core preflight operation linking。
-- 当前开发重点：D2c-2 / receipt-result reconciliation；工作分支为 `codex/stage-d-receipt-result-reconciliation`。本分支 repo-side implementation 与测试源码已形成，但尚未执行 Windows 本机验证，也尚未同步本分支真实构建产物，因此不能标记为已完成。
+- 当前开发重点：D2c-2 / receipt-result reconciliation；工作分支为 `codex/stage-d-receipt-result-reconciliation`。PR #13 的实现、本机自动验证、真实构建产物与适用认证 DSH smoke 已收口，待合并；完整浏览器 crash/restart matrix 仍属于 D2d。
 
 内容包、剧本和 UI 描述 Schema 独立演进：`pack.json`、`episode-script`、`ui/story-ui.json` 当前均使用 `schemaVersion: 1`。Story Runtime state 已在 D1 升到 schema v3，以 `_engine.operationReceipts` 保存 operation receipts。
 
@@ -29,7 +29,7 @@
 
 ## 当前开发重点：Stage D / D2c-2
 
-D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。D2a、D2b、D2c-1 已进入已合并基线；当前只剩 D2c-2 收口与 D2d 产品/真实故障矩阵。
+D2 负责在 D1 的 core operation receipts 之上建立顶层 transaction journal 和跨域恢复。D2a、D2b、D2c-1 已进入已合并基线；D2c-2 已完成实现与合并前验证、PR #13 待合并，之后只剩 D2d 产品/真实故障矩阵。
 
 ### 已合并 foundation
 
@@ -53,7 +53,7 @@ PR #12 已合并。主要保证：
 - same-save operation ownership 在最终 journal 写临界区重查；并发 transaction 争用同 operationId 只能有一个 owner。
 - operationRef 不等于 effect receipt；高影响 `story_record_work_event` 可合法产生 operationRef 但不写 Runtime receipt。
 
-### D2c-2：Receipt/result reconciliation — 当前工作分支
+### D2c-2：Receipt/result reconciliation — 已完成验证，待合并
 
 当前分支已实现以下 repo-side 逻辑：
 
@@ -72,12 +72,11 @@ PR #12 已合并。主要保证：
 - 已存在 core `operationRefs` 的 failed hidden retry 会先重新 Core reconcile；unresolved evidence 禁止 generic retry，只有 ready/repairable/deterministic outcome 才进入受控 continuation，不会重新发送原玩家输入。
 - canonical effect 已存在后 cancel 不倒改 canonical history；进入 `needs-recovery` 并通过 reconciliation/continuation 补齐必要结果。只有无 canonical effect 且无 unresolved evidence 才能进入 `cancelled`。
 
-本分支已新增对应自动测试源码，覆盖 receipt store/API、receipt/session/operation identity、认证 rc.2 tool evidence 与 call identity、reconciler 状态表和 receipt-backed identity drift、single-nonterminal journal guard、stale-journal dispatch/recover、Core-aware retry、partial/failed continuation、core→social crash recovery、最终 acknowledge barrier、deterministic no-effect finalization 与 late cancel。但**这些新增测试尚未在本机执行**，因此当前没有本分支“通过 X 项”的验证数字。
+本分支自动测试覆盖 receipt store/API、receipt/session/operation identity、认证 rc.2 tool evidence 与 call identity、reconciler 状态表和 receipt-backed identity drift、single-nonterminal journal guard、stale-journal dispatch/recover、Core-aware retry、partial/failed continuation、core→social crash recovery、最终 acknowledge barrier、deterministic no-effect finalization 与 late cancel。本机最终验证为 Root 9 个测试文件 / 38 项测试、Client 49 个测试文件 / 228 项测试全部通过，两端 typecheck/build 通过。
 
 ## D2 尚未完成
 
-- D2c-2 尚需 Windows Root/Client typecheck、test、build，以及真实 bundler 同步 tracked `client/story-ui/lib/index.js`、`lib/client.js`、`lib/client.js.map`；源码变更已经触及 Host 与 browser entry，不能手工伪造 artifact。
-- D2c-2 尚需适用的 certified DSH `0.1.1-rc.2` ToolRuntime/history smoke，确认当前 receipt/tool-result parser 与真实运行形态一致。
+- D2c-2 已完成本机自动验证、真实 bundler artifact 同步和适用的 certified DSH `0.1.1-rc.2` ToolRuntime/Fixture-history shape smoke；PR #13 尚待合并，因此已合并公开基线仍停留在 D2c-1。
 - D2d：非终态 transaction 与 Save As / fork 的正式产品策略。
 - D2d：完整真实浏览器 restart/crash-window 矩阵，包括 hidden ambiguity、core→social、partial commit、late cancel、cross-save isolation。
 
@@ -137,14 +136,14 @@ D2c-1 / PR #12 最终验证：
 - `git diff --check` 通过；原项目工作目录和 `D:\DeepSeek-Harness` 工作树保持干净。
 - 本切片没有运行完整 `dsh web` 浏览器回合或浏览器 crash-window 矩阵；这些不能由 ToolRuntime smoke 代替，仍在 D2d 适用验收范围内。
 
-D2c-2 当前工作分支验证状态：
+D2c-2 / PR #13 合并前最终验证：
 
-- 尚未执行 Root typecheck/test/build。
-- 尚未执行 Client typecheck/test/build。
-- 尚未生成/提交本分支真实 tracked build artifacts。
-- 尚未执行 certified DSH `0.1.1-rc.2` receipt/tool-result history smoke。
-- 尚未执行完整浏览器 crash/restart matrix；该完整矩阵仍属于 D2d。
-- 因此任何新增测试数量、构建通过或 smoke 通过都必须等本机实际执行后再填写。
+- Root typecheck/build 通过；9 个测试文件、38 项测试通过。
+- Client typecheck/build 通过；49 个测试文件、228 项测试通过。
+- `client/story-ui/lib/client.js`、`client.js.map`、`index.js` 由真实 bundler 生成；连续三次 Client build 的各文件 SHA-256 完全一致。
+- certified DSH `0.1.1-rc.2` / commit `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e` smoke 使用真实 ToolRuntime 生成 transaction-bound `story_commit_state` receipt，并通过 rc.2 `FixtureApiClient` 的真实 RPC/history envelope、`tool/call` 与双 call-id `tool/result` 形态完成 parser 配对。
+- `git diff --check` 通过；临时 smoke 文件与 runtime 已清理，`D:\DeepSeek-Harness` 未修改。
+- 尚未执行完整浏览器 crash/restart matrix；该完整矩阵仍属于 D2d，不能由本次 ToolRuntime/Fixture-history shape smoke 代替。
 
 ## 文档优先级
 

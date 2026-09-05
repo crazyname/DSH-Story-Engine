@@ -217,4 +217,4 @@ transaction journal
 
 matching core receipt 返回原结果；matching social/transaction identical replay 返回已保存内容。hidden dispatch 或 core outcome 无法可靠判断时进入 `needs-recovery`，不能盲目创建新 turn 假装 exactly-once。
 
-当前 D2c 已加入自动测试源码，覆盖 receipt/tool-result reconciliation、partial multi-operation continuation、core→social crash recovery 与 late cancel 语义；这些新增测试尚未执行本机验证。完整真实浏览器 restart/crash-window 矩阵仍属于 D2d，不在 Host API 文档中提前声称完成。
+当前 D2c 自动测试覆盖 receipt/tool-result reconciliation、partial multi-operation continuation、core→social crash recovery 与 late cancel 语义；PR #13 合并前本机验证为 Root 38/38、Client 228/228 通过，两端 typecheck/build 通过，并完成认证 DSH ToolRuntime/Fixture-history shape smoke。完整真实浏览器 restart/crash-window 矩阵仍属于 D2d，不在 Host API 文档中提前声称完成。

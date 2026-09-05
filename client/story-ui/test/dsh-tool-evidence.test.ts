@@ -7,9 +7,9 @@ function result(seq:number,callId:string){return{event:{seq,type:'tool/result',d
 describe('DSH durable tool evidence reader',()=>{
  it('walks rc.2 history backward until call and result evidence can be paired',async()=>{
   const history=vi.fn(async(payload:any)=>{
-   if(payload.beforeSeq===undefined)return{ok:true,value:{events:[result(20,'call-a')],hasMore:true}}
+   if(payload.beforeSeq===undefined)return{result:{ok:true as const,value:{events:[result(20,'call-a')],hasMore:true}}}
    expect(payload.beforeSeq).toBe(20)
-   return{ok:true,value:{events:[call(10,'call-a')],hasMore:false}}
+   return{result:{ok:true as const,value:{events:[call(10,'call-a')],hasMore:false}}}
   })
   const reader=new DshToolEvidenceReader({sessions:{history}} as never)
   await expect(reader.load(['session-a'],'tx-a',['op-a'])).resolves.toEqual([{
@@ -19,14 +19,14 @@ describe('DSH durable tool evidence reader',()=>{
  })
 
  it('preserves evidence from distinct hidden sessions for conflict detection upstream',async()=>{
-  const history=vi.fn(async(payload:any)=>({ok:true,value:{events:[call(1,`call-${payload.sessionId}`),result(2,`call-${payload.sessionId}`)],hasMore:false}}))
+  const history=vi.fn(async(payload:any)=>({result:{ok:true as const,value:{events:[call(1,`call-${payload.sessionId}`),result(2,`call-${payload.sessionId}`)],hasMore:false}}}))
   const reader=new DshToolEvidenceReader({sessions:{history}} as never)
   const evidence=await reader.load(['session-a','session-b'],'tx-a',['op-a'])
   expect(evidence.map(item=>item.sessionId)).toEqual(['session-a','session-b'])
  })
 
  it('fails closed when a paginated page cannot provide a valid seq boundary',async()=>{
-  const history=vi.fn(async()=>({ok:true,value:{events:[{event:{type:'tool/result',data:{}}}],hasMore:true}}))
+  const history=vi.fn(async()=>({result:{ok:true as const,value:{events:[{event:{type:'tool/result',data:{}}}],hasMore:true}}}))
   const reader=new DshToolEvidenceReader({sessions:{history}} as never)
   await expect(reader.load(['session-a'],'tx-a',['op-a'])).rejects.toThrow('分页缺少有效 seq')
  })

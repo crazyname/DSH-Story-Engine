@@ -633,6 +633,27 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
+		//#region src/client/submission-failure-reconciliation.ts
+		/**
+		* Reconcile the projection after sendToAI rejects.
+		*
+		* The player projection is persisted to Host before hidden dispatch. A later
+		* deterministic terminal failure can therefore clear the local AI turn while
+		* the Host still durably owns the submitted player message. Never infer
+		* rollback from `aiTurn === null`; re-read Host first. If Host availability is
+		* itself uncertain, keep the submitted local projection rather than erasing a
+		* write that may already be durable.
+		*/
+		async function projectionAfterFailedSubmission(host, saveId, beforeSubmit, submitted, hasPendingOrRecoveryTurn) {
+			try {
+				const authoritative = await host.load(saveId);
+				if (authoritative !== void 0) return authoritative;
+			} catch {
+				return submitted;
+			}
+			return hasPendingOrRecoveryTurn ? submitted : beforeSubmit;
+		}
+		//#endregion
 		//#region \0dsh-css:src/client/ChoiceCard.module.css.mjs
 		const css$2 = ".RZQ40W_overlay{z-index:20;background:#0a0e168c;justify-content:center;align-items:center;padding:24px;display:flex;position:absolute;inset:0}.RZQ40W_card{color:#1b2430;background:#fff;border-radius:14px;flex-direction:column;gap:12px;width:min(560px,100%);max-height:85%;padding:20px 22px;display:flex;overflow:auto;box-shadow:0 18px 50px #00000059}.RZQ40W_headerRow{justify-content:space-between;align-items:center;gap:12px;display:flex}.RZQ40W_eyebrow{letter-spacing:.08em;color:#667085;text-transform:uppercase;font-size:12px;font-weight:600}.RZQ40W_dismiss{color:#667085;cursor:pointer;background:0 0;border:none;border-radius:6px;padding:2px 6px;font-size:18px;line-height:1}.RZQ40W_dismiss:hover{color:#1b2430;background:#f2f4f7}.RZQ40W_question{color:#1b2430;font-size:16px;font-weight:600;line-height:1.5}.RZQ40W_detail{color:#475467;font-size:13px;line-height:1.6}.RZQ40W_options{flex-direction:column;gap:8px;display:flex}.RZQ40W_option,.RZQ40W_optionActive{text-align:left;cursor:pointer;background:#fff;border:1px solid #d0d5dd;border-radius:10px;flex-direction:column;gap:2px;padding:10px 12px;display:flex}.RZQ40W_option:hover{border-color:#98a2b3}.RZQ40W_optionActive{background:#eef4ff;border-color:#2f6fed;box-shadow:inset 0 0 0 1px #2f6fed}.RZQ40W_optionLabel{color:#1b2430;font-size:14px;font-weight:500}.RZQ40W_optionDesc{color:#475467;font-size:12px;line-height:1.5}.RZQ40W_composer{gap:8px;margin-top:2px;display:flex}.RZQ40W_input{color:#1b2430;background:#fff;border:1px solid #d0d5dd;border-radius:8px;flex:1;padding:8px 10px;font-size:13px}.RZQ40W_input:focus{border-color:#2f6fed;outline:none;box-shadow:0 0 0 2px #2f6fed26}.RZQ40W_send{color:#fff;cursor:pointer;background:#2f6fed;border:none;border-radius:8px;padding:0 16px;font-size:13px;font-weight:600}.RZQ40W_send:disabled{cursor:default;background:#b2c3f0}";
 		const tagId$2 = "dsh-story-client/846fbcd8f2fe.css";
@@ -1272,16 +1293,15 @@ window.__ModuleLoader__.load({
 				setGeneratingSaves((current) => new Set(current).add(saveId));
 				sendToAI(submitted, selected.id, text).then((result) => {
 					commitAiResult(saveId, selected.id, result, result.turnId, submitted);
-				}, (error) => {
-					if (aiTurn(saveId) === null) {
-						storage.save(beforeSubmit);
-						setProjection((current) => current.saveId === saveId ? beforeSubmit : current);
-						setView((state) => ({
-							...state,
-							selectedChannelId: beforeSubmit.selectedChannelId,
-							drafts: beforeSubmit.drafts
-						}));
-					}
+				}, async (error) => {
+					const reconciled = await projectionAfterFailedSubmission(hostStorage, saveId, beforeSubmit, submitted, aiTurn(saveId) !== null);
+					storage.save(reconciled);
+					setProjection((current) => current.saveId === saveId ? reconciled : current);
+					setView((state) => ({
+						...state,
+						selectedChannelId: reconciled.selectedChannelId,
+						drafts: reconciled.drafts
+					}));
 					setSaveSyncError(saveId, error instanceof Error ? error.message : String(error));
 				}).finally(() => {
 					setGeneratingSaves((current) => {
@@ -1812,12 +1832,12 @@ window.__ModuleLoader__.load({
 			const value = Number(event?.data?.turn);
 			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
 		}
-		function eventSeq(event) {
+		function eventSeq$1(event) {
 			const value = Number(event?.seq);
 			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
 		}
 		function nativeTurnForRequest(events, afterSeq, requestId) {
-			const ordered = events.map((entry) => entry.event).filter((event) => eventSeq(event) !== void 0 && Number(event.seq) > afterSeq).sort((left, right) => Number(left.seq) - Number(right.seq));
+			const ordered = events.map((entry) => entry.event).filter((event) => eventSeq$1(event) !== void 0 && Number(event.seq) > afterSeq).sort((left, right) => Number(left.seq) - Number(right.seq));
 			const turns = /* @__PURE__ */ new Set();
 			let activeTurn;
 			for (const event of ordered) {
@@ -2003,7 +2023,11 @@ window.__ModuleLoader__.load({
 			}
 			acknowledge(saveId, turnId) {
 				const turn = this.readTurn(saveId);
-				if (turn?.id === turnId && turn.state === "completed") {
+				if (turn?.id === turnId && [
+					"completed",
+					"failed",
+					"cancelled"
+				].includes(turn.state)) {
 					this.storage.setItem(this.pendingKey(saveId), "");
 					this.previews.delete(saveId);
 				}
@@ -2117,7 +2141,7 @@ window.__ModuleLoader__.load({
 						events,
 						dshTurn
 					};
-					const seqs = page.events.map((entry) => eventSeq(entry.event)).filter((seq) => seq !== void 0);
+					const seqs = page.events.map((entry) => eventSeq$1(entry.event)).filter((seq) => seq !== void 0);
 					const first = seqs.length === 0 ? void 0 : Math.min(...seqs);
 					if (first === void 0 || first <= turn.baseline + 1 || page.hasMore !== true) return {
 						events,
@@ -2282,6 +2306,12 @@ window.__ModuleLoader__.load({
 				if (channel === void 0) throw new Error("频道不存在");
 				return `继续刚才未完成的文字游戏回合。不要再次转述或提交玩家输入、选择或已提交的剧情消息。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。\n${this.transactionInstruction(transactionId)}只在通过必要的 story_* 工具后输出新的结构化 JSON 回复。`;
 			}
+			continuationPrompt(projection, channelId, instruction, transactionId) {
+				const channel = projection.channels.find((c) => c.id === channelId);
+				if (channel === void 0) throw new Error("频道不存在");
+				if (instruction.trim() === "") throw new Error("transaction continuation 指令不能为空");
+				return `继续同一 player transaction 的恢复回合。不要再次转述或提交原玩家输入，也不要重复已经由 Core receipt 确认 applied/replayed 的 canonical mutation。当前频道：${channel.title}；当前进度：${projection.frame.seasonLabel} ${projection.frame.episodeLabel} ${projection.frame.sceneLabel}。\n${this.transactionInstruction(transactionId)}恢复要求：${instruction}\n需要重试的同一原子 mutation 必须复用原 operation_id。完成必要修复后，仅输出这一轮新的结构化 JSON 回复。`;
+			}
 			async start(projection, channelId, prompt, hooks = {}) {
 				const sessionId = await this.session(projection.saveId, projection.agentPreset ?? `story-${projection.packId}`);
 				const before = unwrap(await this.api.sessions.history({
@@ -2377,6 +2407,20 @@ window.__ModuleLoader__.load({
 				const prior = this.readTurn(projection.saveId);
 				if (prior === null || !["failed", "cancelled"].includes(prior.state) || prior.prompt === "") throw new Error("当前 AI 回合不可安全重试");
 				const completed = await this.start(projection, prior.channelId, this.retryPrompt(projection, prior.channelId, hooks.transactionId), hooks);
+				return {
+					...completed.result,
+					turnId: completed.turnId
+				};
+			}
+			async continueTransaction(projection, channelId, instruction, hooks = {}) {
+				const prior = this.readTurn(projection.saveId);
+				if (prior !== null && ![
+					"completed",
+					"failed",
+					"cancelled"
+				].includes(prior.state)) throw new Error(`当前 AI 回合状态为 ${prior.state}，不能启动 transaction continuation`);
+				if (prior === null && this.currentSessionId(projection.saveId) === null) throw new Error("transaction continuation 缺少可恢复 hidden session");
+				const completed = await this.start(projection, channelId, this.continuationPrompt(projection, channelId, instruction, hooks.transactionId), hooks);
 				return {
 					...completed.result,
 					turnId: completed.turnId
@@ -2496,7 +2540,7 @@ window.__ModuleLoader__.load({
 		const SAVE_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/u;
 		const STORY_UI_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
 		const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/u;
-		function object(value, label) {
+		function object$1(value, label) {
 			if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 必须是对象`);
 			return value;
 		}
@@ -2532,12 +2576,12 @@ window.__ModuleLoader__.load({
 			return raw;
 		}
 		function validateTransactionRecord(value) {
-			const raw = object(value, "transaction");
+			const raw = object$1(value, "transaction");
 			if (raw.schemaVersion !== 1) throw new Error("transaction.schemaVersion 必须为 1");
 			const transactionId = stableString(raw.transactionId, "transactionId");
 			const saveId = text(raw.saveId, "saveId");
 			assertSaveId(saveId);
-			const inputRaw = object(raw.input, "input");
+			const inputRaw = object$1(raw.input, "input");
 			const channelId = storyUiId(inputRaw.channelId, "input.channelId");
 			const inputText = text(inputRaw.text, "input.text");
 			if (inputText.trim() !== inputText) throw new Error("input.text 必须是已规范化的非空字符串");
@@ -2557,7 +2601,7 @@ window.__ModuleLoader__.load({
 			const requestIds = /* @__PURE__ */ new Set();
 			const nativeTurns = /* @__PURE__ */ new Set();
 			const hiddenTurns = raw.hiddenTurns.map((item, index) => {
-				const entry = object(item, `hiddenTurns[${index}]`);
+				const entry = object$1(item, `hiddenTurns[${index}]`);
 				const turnId = storyUiId(entry.turnId, `hiddenTurns[${index}].turnId`);
 				const dshRequestId = entry.dshRequestId === void 0 ? void 0 : stableString(entry.dshRequestId, `hiddenTurns[${index}].dshRequestId`);
 				if (turnIds.has(turnId)) throw new Error(`hidden turnId 重复：${turnId}`);
@@ -2604,7 +2648,7 @@ window.__ModuleLoader__.load({
 			const stepKeys = /* @__PURE__ */ new Set();
 			const operationIds = /* @__PURE__ */ new Set();
 			const operationRefs = raw.operationRefs.map((item, index) => {
-				const entry = object(item, `operationRefs[${index}]`);
+				const entry = object$1(item, `operationRefs[${index}]`);
 				const stepKey = stableString(entry.stepKey, `operationRefs[${index}].stepKey`);
 				const operationId = stableString(entry.operationId, `operationRefs[${index}].operationId`);
 				if (stepKeys.has(stepKey)) throw new Error(`operation stepKey 重复：${stepKey}`);
@@ -2647,7 +2691,7 @@ window.__ModuleLoader__.load({
 			}
 			let diagnostic;
 			if (raw.diagnostic !== void 0) {
-				const entry = object(raw.diagnostic, "diagnostic");
+				const entry = object$1(raw.diagnostic, "diagnostic");
 				diagnostic = {
 					code: text(entry.code, "diagnostic.code"),
 					message: text(entry.message, "diagnostic.message")
@@ -2677,7 +2721,7 @@ window.__ModuleLoader__.load({
 				updatedAt
 			};
 		}
-		const TERMINAL_TRANSACTION = new Set([
+		const TERMINAL_TRANSACTION$1 = new Set([
 			"committed",
 			"cancelled",
 			"failed"
@@ -2699,7 +2743,7 @@ window.__ModuleLoader__.load({
 				"failed"
 			])
 		};
-		const TERMINAL_TURN = new Set([
+		const TERMINAL_TURN$1 = new Set([
 			"completed",
 			"failed",
 			"cancelled"
@@ -2735,7 +2779,7 @@ window.__ModuleLoader__.load({
 		function assertTransactionUpdate(current, next) {
 			if (next.transactionId !== current.transactionId || next.saveId !== current.saveId) conflict("identity 不可修改");
 			if (next.inputFingerprint !== current.inputFingerprint || next.input.channelId !== current.input.channelId || next.input.text !== current.input.text || next.baseProjectionRevision !== current.baseProjectionRevision || next.createdAt !== current.createdAt) conflict("input identity 不可修改");
-			if (TERMINAL_TRANSACTION.has(current.status)) conflict(`终态 ${current.status} 不可产生新 revision`);
+			if (TERMINAL_TRANSACTION$1.has(current.status)) conflict(`终态 ${current.status} 不可产生新 revision`);
 			if (!TRANSACTION_TRANSITIONS[current.status].has(next.status)) conflict(`transaction 状态不能从 ${current.status} 迁移到 ${next.status}`);
 			if (next.hiddenTurns.length < current.hiddenTurns.length) conflict("hidden turn evidence 不可删除");
 			for (let index = 0; index < current.hiddenTurns.length; index += 1) {
@@ -2745,7 +2789,7 @@ window.__ModuleLoader__.load({
 				if (before.dshRequestId !== void 0 && after.dshRequestId !== before.dshRequestId) conflict("DSH request identity 不可修改");
 				if (before.sessionId !== void 0 && after.sessionId !== before.sessionId) conflict("hidden session identity 不可修改");
 				if (before.dshTurn !== void 0 && after.dshTurn !== before.dshTurn) conflict("DSH native turn 不可修改");
-				if (TERMINAL_TURN.has(before.state)) {
+				if (TERMINAL_TURN$1.has(before.state)) {
 					if (after.state !== before.state) conflict(`终态 hidden turn 不可改写：${before.turnId}`);
 				} else if (!TURN_TRANSITIONS[before.state].has(after.state)) conflict(`hidden turn ${before.turnId} 不能从 ${before.state} 迁移到 ${after.state}`);
 			}
@@ -2761,9 +2805,9 @@ window.__ModuleLoader__.load({
 				if (after.stepKey !== before.stepKey || after.operationId !== before.operationId) conflict("operation identity evidence 不可修改");
 			}
 			if (current.canonicalResultTurnId !== void 0 && next.canonicalResultTurnId !== current.canonicalResultTurnId) conflict("canonicalResultTurnId 不可修改");
-			if (TERMINAL_TRANSACTION.has(next.status)) {
+			if (TERMINAL_TRANSACTION$1.has(next.status)) {
 				if (next.activeTurnId !== void 0) conflict(`终态 ${next.status} 不能保留 activeTurnId`);
-				const pending = next.hiddenTurns.find((turn) => !TERMINAL_TURN.has(turn.state));
+				const pending = next.hiddenTurns.find((turn) => !TERMINAL_TURN$1.has(turn.state));
 				if (pending !== void 0) conflict(`终态 ${next.status} 不能包含非终态 hidden turn：${pending.turnId}`);
 			}
 		}
@@ -2910,33 +2954,404 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
+		//#region src/core-receipt.ts
+		const STABLE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
+		const SHA256 = /^[a-f0-9]{64}$/;
+		function object(value, label) {
+			if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} 损坏`);
+			return value;
+		}
+		function validateCoreReceipt(value, expectedOperationId) {
+			const raw = object(value, "Core operation receipt");
+			const operationId = raw.operationId;
+			if (typeof operationId !== "string" || !STABLE_ID.test(operationId) || expectedOperationId !== void 0 && operationId !== expectedOperationId || typeof raw.operation !== "string" || raw.operation.length === 0 || typeof raw.fingerprint !== "string" || !SHA256.test(raw.fingerprint) || !Number.isSafeInteger(raw.stateVersion) || Number(raw.stateVersion) < 0 || typeof raw.committedAt !== "string" || Number.isNaN(Date.parse(raw.committedAt)) || !Object.prototype.hasOwnProperty.call(raw, "result")) throw new Error(`Core operation receipt 损坏${expectedOperationId === void 0 ? "" : `：${expectedOperationId}`}`);
+			const transactionId = raw.transactionId;
+			if (transactionId !== void 0 && (typeof transactionId !== "string" || !STABLE_ID.test(transactionId))) throw new Error(`Core operation receipt transactionId 损坏：${operationId}`);
+			return {
+				operationId,
+				...transactionId === void 0 ? {} : { transactionId },
+				operation: raw.operation,
+				fingerprint: raw.fingerprint,
+				stateVersion: Number(raw.stateVersion),
+				committedAt: raw.committedAt,
+				result: structuredClone(raw.result)
+			};
+		}
+		//#endregion
+		//#region src/client/host-core-receipts.ts
+		var HostCoreReceiptReader = class {
+			fetcher;
+			constructor(fetcher = (input, init) => fetch(input, init)) {
+				this.fetcher = fetcher;
+			}
+			endpoint(saveId, transactionId, operationId) {
+				assertSaveId(saveId);
+				assertTransactionId(transactionId);
+				assertTransactionId(operationId, "operationId");
+				return `/story-engine/api/core-receipts/${encodeURIComponent(saveId)}/${encodeURIComponent(transactionId)}/${encodeURIComponent(operationId)}`;
+			}
+			async load(saveId, transactionId, operationId) {
+				const response = await this.fetcher(this.endpoint(saveId, transactionId, operationId), { headers: { accept: "application/json" } });
+				if (response.status === 204) return void 0;
+				if (!response.ok) {
+					const detail = await response.json().catch(() => ({}));
+					throw new Error(detail.error ?? `读取 Core receipt 失败：${response.status}`);
+				}
+				const body = await response.json();
+				if (typeof body.sessionId !== "string" || body.sessionId.trim() === "") throw new Error("Core receipt 响应缺少 sessionId");
+				assertTransactionId(body.sessionId, "sessionId");
+				const receipt = validateCoreReceipt(body.receipt, operationId);
+				if (receipt.transactionId !== transactionId) throw new Error(`Core receipt transaction identity 冲突：${operationId}`);
+				return {
+					sessionId: body.sessionId,
+					receipt
+				};
+			}
+		};
+		//#endregion
+		//#region src/client/tool-operation-evidence.ts
+		function seq(event) {
+			const value = Number(event?.seq);
+			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+		}
+		function args(value) {
+			if (typeof value !== "string") return void 0;
+			try {
+				const parsed = JSON.parse(value);
+				return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : void 0;
+			} catch {
+				return;
+			}
+		}
+		function canonical(value) {
+			if (Array.isArray(value)) return value.map(canonical);
+			if (value !== null && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+			return value;
+		}
+		function canonicalIdentity(value) {
+			const encoded = JSON.stringify(canonical(value));
+			return encoded === void 0 ? "undefined" : encoded;
+		}
+		function semanticArgs(toolName, value) {
+			const { expected_version: _expectedVersion, ...semantic } = value;
+			if (toolName === "story_enter_episode_scene" && semantic.branch_id === void 0) semantic.branch_id = "main";
+			if (toolName === "story_record_episode_summary" && semantic.relationship_changes === void 0) semantic.relationship_changes = [];
+			return semantic;
+		}
+		function canonicalArgs(toolName, value) {
+			return canonicalIdentity(semanticArgs(toolName, value));
+		}
+		function resultBlock(event) {
+			const blocks = event?.data?.message?.content;
+			if (!Array.isArray(blocks)) return void 0;
+			return blocks.find((block) => block?.type === "tool-result");
+		}
+		function resultCallId(event, block) {
+			const source = event?.data?.message?.source;
+			const sourceId = source?.kind === "tool" && typeof source.callId === "string" ? source.callId : void 0;
+			const blockId = block?.type === "tool-result" && typeof block.toolCallId === "string" ? block.toolCallId : void 0;
+			if (sourceId !== void 0 && blockId !== void 0 && sourceId !== blockId) throw new Error(`DSH tool result call identity 冲突：${sourceId} != ${blockId}`);
+			if (sourceId === void 0 || blockId === void 0) return void 0;
+			return sourceId;
+		}
+		function parseCanonicalResult(block) {
+			const content = block?.content;
+			if (!Array.isArray(content)) return void 0;
+			const text = content.filter((item) => item?.type === "text" && typeof item.text === "string").map((item) => item.text).join("\n").trim();
+			if (text === "") return void 0;
+			try {
+				return JSON.parse(text);
+			} catch {
+				return text;
+			}
+		}
+		/** Pair rc.2 durable tool/call and tool/result events for transaction-owned operation ids. */
+		function collectToolOperationEvidence(entries, transactionId, operationIds) {
+			const calls = /* @__PURE__ */ new Map();
+			const ordered = entries.map((entry) => entry.event).filter((event) => seq(event) !== void 0).sort((left, right) => Number(left.seq) - Number(right.seq));
+			for (const event of ordered) {
+				if (event?.type !== "tool/call") continue;
+				const callId = event?.data?.callId, name = event?.data?.name, parsed = args(event?.data?.arguments), callSeq = seq(event);
+				if (typeof callId !== "string" || typeof name !== "string" || callSeq === void 0 || parsed === void 0) continue;
+				const operationId = parsed.operation_id, claimedTransaction = parsed.transaction_id;
+				if (typeof operationId !== "string" || !operationIds.has(operationId) || claimedTransaction !== transactionId) continue;
+				const existing = calls.get(callId);
+				const next = {
+					operationId,
+					transactionId,
+					toolName: name,
+					argumentsCanonical: canonicalArgs(name, parsed),
+					callId,
+					callSeq
+				};
+				if (existing !== void 0 && (existing.operationId !== next.operationId || existing.transactionId !== next.transactionId || existing.toolName !== next.toolName || existing.argumentsCanonical !== next.argumentsCanonical || existing.callSeq !== next.callSeq)) throw new Error(`DSH tool call identity 冲突：${callId}`);
+				calls.set(callId, existing ?? next);
+			}
+			for (const event of ordered) {
+				if (event?.type !== "tool/result") continue;
+				const block = resultBlock(event), resultSeq = seq(event);
+				const callId = resultCallId(event, block);
+				if (callId === void 0 || resultSeq === void 0) continue;
+				const call = calls.get(callId);
+				if (call === void 0) continue;
+				if (block === void 0 || typeof block.isError !== "boolean") throw new Error(`DSH tool result 结构无效：${callId}`);
+				const parsedResult = parseCanonicalResult(block);
+				if (call.resultSeq !== void 0) {
+					if (call.resultSeq !== resultSeq || call.isError !== block.isError || canonicalIdentity(call.result) !== canonicalIdentity(parsedResult)) throw new Error(`DSH tool result identity 冲突：${callId}`);
+					continue;
+				}
+				call.resultSeq = resultSeq;
+				call.isError = block.isError;
+				call.result = parsedResult;
+			}
+			return [...calls.values()].sort((left, right) => left.callSeq - right.callSeq);
+		}
+		function isKnownSkippedStoryResult(evidence) {
+			if (evidence.isError !== false || evidence.toolName !== "story_record_work_event") return false;
+			const value = evidence.result;
+			return value !== null && typeof value === "object" && !Array.isArray(value) && value.escalated === true && value.recorded === false;
+		}
+		//#endregion
+		//#region src/client/dsh-tool-evidence.ts
+		function eventSeq(event) {
+			const value = Number(event?.seq);
+			return Number.isSafeInteger(value) && value >= 0 ? value : void 0;
+		}
+		/** Reads rc.2 append-only session history to recover transaction-owned tool outcomes. */
+		var DshToolEvidenceReader = class {
+			api;
+			constructor(api) {
+				this.api = api;
+			}
+			async load(sessionIds, transactionId, operationIds) {
+				const targets = new Set(operationIds);
+				if (targets.size === 0) return [];
+				const all = [];
+				for (const sessionId of [...new Set(sessionIds)]) {
+					let page = unwrap(await this.api.sessions.history({
+						sessionId,
+						maxMessages: 50
+					}), "读取 Core tool evidence");
+					let events = [...page.events];
+					for (let pages = 0; page.hasMore === true; pages += 1) {
+						if (pages >= 127) throw new Error(`DSH tool evidence 历史回溯超过安全页数：${sessionId}`);
+						const seqs = page.events.map((entry) => eventSeq(entry.event)).filter((value) => value !== void 0);
+						const first = seqs.length === 0 ? void 0 : Math.min(...seqs);
+						if (first === void 0) throw new Error(`DSH tool evidence 分页缺少有效 seq：${sessionId}`);
+						page = unwrap(await this.api.sessions.history({
+							sessionId,
+							beforeSeq: first,
+							maxMessages: 50
+						}), "读取 Core tool evidence");
+						events = [...page.events, ...events];
+					}
+					all.push(...collectToolOperationEvidence(events, transactionId, targets).map((evidence) => ({
+						...evidence,
+						sessionId
+					})));
+				}
+				return all.sort((left, right) => left.callSeq - right.callSeq);
+			}
+		};
+		//#endregion
+		//#region src/client/core-reconciliation.ts
+		function crossOperationSemanticIdentity(evidence) {
+			const parsed = JSON.parse(evidence.argumentsCanonical);
+			if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return `${evidence.toolName}\u0000${evidence.argumentsCanonical}`;
+			const semantic = { ...parsed };
+			delete semantic.operation_id;
+			return `${evidence.toolName}\u0000${JSON.stringify(semantic)}`;
+		}
+		var CoreTransactionReconciler = class {
+			receipts;
+			tools;
+			constructor(receipts, tools) {
+				this.receipts = receipts;
+				this.tools = tools;
+			}
+			async reconcile(record) {
+				if (record.operationRefs.length === 0) return {
+					operations: [],
+					hasCanonicalEffect: false,
+					readyForSocialCommit: true,
+					deterministicNoEffectFailure: false,
+					repairablePartial: false,
+					unresolved: false
+				};
+				const sessionIds = [...new Set(record.hiddenTurns.map((turn) => turn.sessionId).filter((value) => value !== void 0))];
+				if (sessionIds.length === 0) throw new Error(`transaction ${record.transactionId} 有 operationRef 但缺少 hidden session evidence`);
+				const sessionSet = new Set(sessionIds);
+				const receiptEntries = await Promise.all(record.operationRefs.map(async (ref) => ({
+					ref,
+					evidence: await this.receipts.load(record.saveId, record.transactionId, ref.operationId)
+				})));
+				const operationIds = record.operationRefs.map((ref) => ref.operationId);
+				const toolEvidence = await this.tools.load(sessionIds, record.transactionId, operationIds);
+				const byOperation = /* @__PURE__ */ new Map();
+				const semanticOwners = /* @__PURE__ */ new Map();
+				for (const evidence of toolEvidence) {
+					const list = byOperation.get(evidence.operationId) ?? [];
+					list.push(evidence);
+					byOperation.set(evidence.operationId, list);
+					const semanticKey = crossOperationSemanticIdentity(evidence);
+					const owners = semanticOwners.get(semanticKey) ?? /* @__PURE__ */ new Set();
+					owners.add(evidence.operationId);
+					semanticOwners.set(semanticKey, owners);
+				}
+				const crossOperationConflicts = /* @__PURE__ */ new Set();
+				for (const owners of semanticOwners.values()) if (owners.size > 1) for (const operationId of owners) crossOperationConflicts.add(operationId);
+				const operations = receiptEntries.map(({ ref, evidence: receiptEvidence }) => {
+					const evidence = byOperation.get(ref.operationId) ?? [];
+					const receiptOwned = receiptEvidence !== void 0 && sessionSet.has(receiptEvidence.sessionId);
+					const withReceipt = receiptOwned ? { receipt: receiptEvidence.receipt } : {};
+					const evidenceSessions = new Set(evidence.map((item) => item.sessionId));
+					if (receiptEvidence !== void 0) evidenceSessions.add(receiptEvidence.sessionId);
+					if (evidenceSessions.size > 1) return {
+						ref,
+						state: "inconsistent",
+						...withReceipt,
+						evidence,
+						detail: "同一 operationId 在多个 hidden session 出现 receipt/tool evidence"
+					};
+					if (new Set(evidence.map((item) => `${item.toolName}\u0000${item.argumentsCanonical}`)).size > 1) return {
+						ref,
+						state: "inconsistent",
+						...withReceipt,
+						evidence,
+						detail: "同一 operationId 被不同 tool 或 arguments 复用"
+					};
+					if (crossOperationConflicts.has(ref.operationId)) return {
+						ref,
+						state: "inconsistent",
+						...withReceipt,
+						evidence,
+						detail: "同一语义 mutation 被不同 operationId 复用"
+					};
+					const pending = evidence.filter((item) => item.resultSeq === void 0);
+					if (receiptEvidence !== void 0) {
+						if (!receiptOwned) return {
+							ref,
+							state: "inconsistent",
+							evidence,
+							detail: "Core receipt 来自 transaction 未登记的 hidden session"
+						};
+						const receipt = receiptEvidence.receipt;
+						if (evidence.some((item) => item.toolName !== receipt.operation)) return {
+							ref,
+							state: "inconsistent",
+							receipt,
+							evidence,
+							detail: "Core receipt operation 与 durable tool identity 冲突"
+						};
+						if (pending.length > 0) return {
+							ref,
+							state: "pending",
+							receipt,
+							evidence,
+							detail: "Core receipt 已存在，但仍有 matching tool attempt 未终态"
+						};
+						return {
+							ref,
+							state: "applied-or-replayed",
+							receipt,
+							evidence
+						};
+					}
+					if (evidence.length === 0) return {
+						ref,
+						state: "pending",
+						evidence,
+						detail: "尚未在 DSH durable history 找到 matching tool outcome"
+					};
+					const successful = evidence.filter((item) => item.resultSeq !== void 0 && item.isError === false);
+					const failed = evidence.filter((item) => item.resultSeq !== void 0 && item.isError === true);
+					if (pending.length > 0) return {
+						ref,
+						state: "pending",
+						evidence,
+						detail: "tool/call 已持久化但仍有未终态 attempt"
+					};
+					if (successful.length > 0) {
+						if (successful.every(isKnownSkippedStoryResult)) return {
+							ref,
+							state: "skipped",
+							evidence
+						};
+						return {
+							ref,
+							state: "inconsistent",
+							evidence,
+							detail: "成功 mutating tool result 缺少 matching Core receipt，且不是已知 no-op"
+						};
+					}
+					if (failed.length > 0) return {
+						ref,
+						state: "failed",
+						evidence,
+						detail: "matching mutating tool attempt 已明确失败且无 Core receipt"
+					};
+					return {
+						ref,
+						state: "pending",
+						evidence,
+						detail: "matching tool evidence 尚未形成可判定 terminal outcome"
+					};
+				});
+				const hasCanonicalEffect = operations.some((item) => item.receipt !== void 0 || item.state === "applied-or-replayed");
+				const readyForSocialCommit = operations.every((item) => item.state === "applied-or-replayed" || item.state === "skipped");
+				const deterministicNoEffectFailure = !hasCanonicalEffect && operations.some((item) => item.state === "failed") && operations.every((item) => item.state === "failed" || item.state === "skipped");
+				const unresolved = operations.some((item) => item.state === "pending" || item.state === "inconsistent");
+				return {
+					operations,
+					hasCanonicalEffect,
+					readyForSocialCommit,
+					deterministicNoEffectFailure,
+					repairablePartial: hasCanonicalEffect && !unresolved && operations.some((item) => item.state === "failed") && operations.every((item) => item.state === "applied-or-replayed" || item.state === "skipped" || item.state === "failed"),
+					unresolved
+				};
+			}
+		};
+		//#endregion
 		//#region src/client/player-transaction-coordinator.ts
+		const SOCIAL_ONLY_CORE = { async reconcile(record) {
+			if (record.operationRefs.length !== 0) throw new Error(`transaction ${record.transactionId} 含 core operation，但 Core reconciler 未配置`);
+			return {
+				operations: [],
+				hasCanonicalEffect: false,
+				readyForSocialCommit: true,
+				deterministicNoEffectFailure: false,
+				repairablePartial: false,
+				unresolved: false
+			};
+		} };
 		function detail(error) {
 			return error instanceof Error ? error.message : String(error);
 		}
 		function hiddenTerminal(state) {
 			return state === "completed" || state === "failed" || state === "cancelled";
 		}
-		/**
-		* Browser coordinator for one player transaction's hidden/social flow.
-		* DSH rc.2 persists its carrier rpcId into durable message source metadata,
-		* but its public client mints that id internally and only echoes it after the
-		* response. Ambiguous dispatch therefore still degrades to recovery instead
-		* of pretending the caller had a pre-dispatch exactly-once identity.
-		*/
+		/** Browser coordinator for hidden, core-reconciliation, and social commit ordering. */
 		var PlayerTransactionCoordinator = class {
 			journal;
 			projections;
 			ai;
-			constructor(journal, projections, ai) {
+			core;
+			constructor(journal, projections, ai, core = SOCIAL_ONLY_CORE) {
 				this.journal = journal;
 				this.projections = projections;
 				this.ai = ai;
+				this.core = core;
 			}
 			async open(saveId) {
 				const records = await this.journal.listOpen(saveId);
 				if (records.length > 1) throw new Error(`存档存在多个未完成 transaction，必须先恢复：${records.map((record) => record.transactionId).join(", ")}`);
 				return records[0];
+			}
+			async refresh(state) {
+				const current = await this.open(state.record.saveId);
+				if (current === void 0) throw new Error(`transaction ${state.record.transactionId} 在外部调用后不再是 open journal`);
+				if (current.transactionId !== state.record.transactionId) throw new Error(`transaction identity 在外部调用后发生变化：${state.record.transactionId} != ${current.transactionId}`);
+				state.record = current;
 			}
 			findHidden(record, turnId) {
 				const index = record.hiddenTurns.findIndex((turn) => turn.turnId === turnId);
@@ -3093,7 +3508,6 @@ window.__ModuleLoader__.load({
 					found = this.findHidden(state.record, turnId);
 				}
 				if (found.turn.state === "completed") {
-					if (state.record.canonicalResultTurnId !== void 0 && state.record.canonicalResultTurnId !== turnId) throw new Error(`transaction canonical result 冲突：${state.record.canonicalResultTurnId}`);
 					if (dshTurn !== void 0) {
 						if (found.turn.dshTurn !== void 0 && found.turn.dshTurn !== dshTurn) throw new Error(`hidden turn ${turnId} 的 DSH native turn 冲突：${found.turn.dshTurn} != ${dshTurn}`);
 						if (found.turn.dshTurn === void 0) await this.save(state, { hiddenTurns: this.replaceHidden(state.record, found.index, {
@@ -3103,7 +3517,7 @@ window.__ModuleLoader__.load({
 					}
 					return;
 				}
-				if (found.turn.state !== "dispatched" && found.turn.state !== "uncertain") throw new Error(`hidden turn ${turnId} 不能作为 canonical result：${found.turn.state}`);
+				if (found.turn.state !== "dispatched" && found.turn.state !== "uncertain") throw new Error(`hidden turn ${turnId} 不能完成：${found.turn.state}`);
 				await this.save(state, {
 					hiddenTurns: this.replaceHidden(state.record, found.index, {
 						...found.turn,
@@ -3111,18 +3525,86 @@ window.__ModuleLoader__.load({
 						...dshTurn === void 0 ? {} : { dshTurn }
 					}),
 					activeTurnId: void 0,
+					diagnostic: void 0
+				});
+			}
+			async selectCanonical(state, turnId) {
+				const { turn } = this.findHidden(state.record, turnId);
+				if (turn.state !== "completed") throw new Error(`canonical hidden turn 尚未完成：${turnId}`);
+				if (state.record.canonicalResultTurnId !== void 0) {
+					if (state.record.canonicalResultTurnId !== turnId) throw new Error(`transaction canonical result 冲突：${state.record.canonicalResultTurnId}`);
+					return;
+				}
+				await this.save(state, {
 					canonicalResultTurnId: turnId,
 					diagnostic: void 0
 				});
 			}
-			async dispatch(state, projection, channelId, input, kind) {
-				const turnId = `turn-${crypto.randomUUID()}`;
+			coreDetail(summary) {
+				return summary.operations.map((item) => `${item.ref.operationId}:${item.state}${item.detail ? `(${item.detail})` : ""}`).join(", ") || "无 core operation";
+			}
+			repairInstruction(summary) {
+				const ids = (state) => summary.operations.filter((item) => item.state === state).map((item) => item.ref.operationId);
+				const applied = ids("applied-or-replayed"), skipped = ids("skipped"), failed = ids("failed");
+				return [
+					`已由 Core receipt 确认 applied/replayed 的 operation_id：${applied.join(", ") || "无"}；不得以新 operation_id 重复这些 canonical mutation。`,
+					`已确认 skipped/no-op 的 operation_id：${skipped.join(", ") || "无"}；不得为了制造 receipt 再执行。`,
+					`需要修复的明确 failed operation_id：${failed.join(", ") || "无"}；若重试同一原子 mutation 必须复用对应 operation_id。`,
+					`不要重发或转述原玩家输入；完成必要 core 修复后再输出最终结构化 social JSON。`
+				].join(" ");
+			}
+			async coreReady(state, turnId, allowTerminalFailure) {
+				let summary;
 				try {
-					const result = kind === "retry" ? await this.ai.retry(projection, this.hooks(state, turnId, kind)) : await this.ai.send(projection, channelId, input, this.hooks(state, turnId, kind));
-					if (result.turnId !== turnId) throw new Error(`AI hidden turn identity 不匹配：expected ${turnId}, got ${result.turnId ?? "missing"}`);
-					await this.complete(state, turnId, result.dshTurn);
-					return result;
+					summary = await this.core.reconcile(state.record);
 				} catch (error) {
+					await this.save(state, {
+						status: "needs-recovery",
+						diagnostic: {
+							code: "core-evidence-read-failed",
+							message: detail(error)
+						}
+					});
+					throw error;
+				}
+				if (summary.readyForSocialCommit) {
+					if (turnId !== void 0) await this.selectCanonical(state, turnId);
+					return summary;
+				}
+				const message = this.coreDetail(summary);
+				if (summary.deterministicNoEffectFailure && allowTerminalFailure && turnId !== void 0) {
+					await this.save(state, {
+						status: "failed",
+						activeTurnId: void 0,
+						diagnostic: {
+							code: "core-operation-failed-no-effect",
+							message
+						}
+					});
+					this.ai.acknowledge(state.record.saveId, turnId);
+					throw new Error(`Core mutation 明确失败且没有 canonical effect：${message}`);
+				}
+				await this.save(state, {
+					status: "needs-recovery",
+					diagnostic: {
+						code: summary.repairablePartial ? "core-partial-commit-repairable" : "core-reconciliation-required",
+						message
+					}
+				});
+				throw new Error(`Core transaction 尚不能安全提交 social projection：${message}`);
+			}
+			async dispatch(state, projection, channelId, inputOrInstruction, kind) {
+				const turnId = `turn-${crypto.randomUUID()}`;
+				let result;
+				try {
+					const hooks = this.hooks(state, turnId, kind);
+					result = kind === "initial" ? await this.ai.send(projection, channelId, inputOrInstruction, hooks) : kind === "retry" ? await this.ai.retry(projection, hooks) : await this.ai.continueTransaction(projection, channelId, inputOrInstruction, hooks);
+				} catch (error) {
+					try {
+						await this.refresh(state);
+					} catch (refreshError) {
+						throw new Error(`hidden dispatch 失败后无法刷新 transaction journal：${detail(refreshError)}；原错误：${detail(error)}`);
+					}
 					if (state.record.hiddenTurns.some((turn) => turn.turnId === turnId)) {
 						const local = this.ai.turn(projection.saveId);
 						if (!await this.recordFailedHidden(state, turnId, error, local)) {
@@ -3138,10 +3620,19 @@ window.__ModuleLoader__.load({
 					} else await this.recoverBeforeHiddenDispatch(state, error);
 					throw error;
 				}
+				await this.refresh(state);
+				if (result.turnId !== turnId) {
+					const error = /* @__PURE__ */ new Error(`AI hidden turn identity 不匹配：expected ${turnId}, got ${result.turnId ?? "missing"}`);
+					await this.needsRecovery(state, turnId, error, "hidden-identity-mismatch");
+					throw error;
+				}
+				await this.complete(state, turnId, result.dshTurn);
+				await this.coreReady(state, turnId, true);
+				return result;
 			}
 			async recoverAi(projection, state) {
 				if (this.ai.turn(projection.saveId) !== null) return this.ai.recover(projection);
-				const targetId = state.record.activeTurnId ?? state.record.canonicalResultTurnId;
+				const targetId = state.record.activeTurnId ?? state.record.canonicalResultTurnId ?? [...state.record.hiddenTurns].reverse().find((turn) => turn.state === "completed" || turn.state === "dispatched" || turn.state === "uncertain" || turn.state === "planned")?.turnId;
 				if (targetId === void 0) return this.ai.recover(projection);
 				const { turn } = this.findHidden(state.record, targetId);
 				if (turn.sessionId === void 0 || turn.dshRequestId === void 0) return this.ai.recover(projection);
@@ -3152,6 +3643,50 @@ window.__ModuleLoader__.load({
 					dshRequestId: turn.dshRequestId,
 					...turn.dshTurn === void 0 ? {} : { dshTurn: turn.dshTurn }
 				});
+			}
+			async maybeContinueCoreRecovery(state, projection) {
+				if (state.record.canonicalResultTurnId !== void 0) return null;
+				const latest = state.record.hiddenTurns.at(-1);
+				if (latest === void 0 || ![
+					"completed",
+					"failed",
+					"cancelled"
+				].includes(latest.state)) return null;
+				let summary;
+				try {
+					summary = await this.core.reconcile(state.record);
+				} catch (error) {
+					await this.save(state, {
+						status: "needs-recovery",
+						diagnostic: {
+							code: "core-evidence-read-failed",
+							message: detail(error)
+						}
+					});
+					throw error;
+				}
+				if ((latest.state === "failed" || latest.state === "cancelled") && summary.deterministicNoEffectFailure) {
+					const message = this.coreDetail(summary);
+					await this.save(state, {
+						status: "failed",
+						activeTurnId: void 0,
+						diagnostic: {
+							code: "core-operation-failed-no-effect",
+							message
+						}
+					});
+					this.ai.acknowledge(state.record.saveId, latest.turnId);
+					return null;
+				}
+				const repairCompleted = latest.state === "completed" && summary.repairablePartial;
+				const recoverTerminalEffect = (latest.state === "failed" || latest.state === "cancelled") && summary.hasCanonicalEffect && (summary.readyForSocialCommit || summary.repairablePartial);
+				if (!repairCompleted && !recoverTerminalEffect) return null;
+				const result = await this.dispatch(state, projection, state.record.input.channelId, this.repairInstruction(summary), "continuation");
+				return {
+					channelId: state.record.input.channelId,
+					result,
+					turnId: result.turnId
+				};
 			}
 			async send(projection, channelId, input) {
 				if (projection.revision < 1) throw new Error("玩家提交后的 projection revision 无效");
@@ -3177,6 +3712,7 @@ window.__ModuleLoader__.load({
 				const state = { record };
 				const persistedCanonical = this.persistedCanonical(record, projection);
 				if (persistedCanonical !== void 0) {
+					await this.coreReady(state, persistedCanonical, false);
 					await this.projections.save(projection);
 					this.ai.acknowledge(projection.saveId, persistedCanonical);
 					await this.save(state, {
@@ -3196,10 +3732,18 @@ window.__ModuleLoader__.load({
 						turnId: result.turnId
 					};
 				}
+				const continuation = await this.maybeContinueCoreRecovery(state, projection);
+				if (continuation !== null) return continuation;
+				if (state.record.status === "failed" || state.record.status === "cancelled" || state.record.status === "committed") return null;
 				let recovered;
 				try {
 					recovered = await this.recoverAi(projection, state);
 				} catch (error) {
+					try {
+						await this.refresh(state);
+					} catch (refreshError) {
+						throw new Error(`hidden recovery 失败后无法刷新 transaction journal：${detail(refreshError)}；原错误：${detail(error)}`);
+					}
 					const active = state.record.activeTurnId;
 					if (active !== void 0 && !hiddenTerminal(this.findHidden(state.record, active).turn.state)) {
 						const local = this.ai.turn(projection.saveId);
@@ -3207,6 +3751,7 @@ window.__ModuleLoader__.load({
 					}
 					throw error;
 				}
+				await this.refresh(state);
 				if (recovered === null) {
 					const local = this.ai.turn(projection.saveId);
 					const active = state.record.activeTurnId;
@@ -3225,6 +3770,7 @@ window.__ModuleLoader__.load({
 					throw new Error(`恢复得到的 AI turn 不属于当前 transaction：${recovered.turnId}`);
 				}
 				await this.complete(state, recovered.turnId, recovered.result.dshTurn);
+				await this.coreReady(state, recovered.turnId, true);
 				return recovered;
 			}
 			async retry(projection) {
@@ -3233,8 +3779,12 @@ window.__ModuleLoader__.load({
 				const state = { record: existing };
 				if (existing.canonicalResultTurnId !== void 0) throw new Error(`transaction ${existing.transactionId} 已有 canonical hidden turn ${existing.canonicalResultTurnId}；必须先完成 projection reconciliation`);
 				const local = this.ai.turn(projection.saveId);
-				if (local === null) throw new Error(`transaction ${existing.transactionId} 缺少本地 failed hidden turn；必须先恢复，禁止盲目 retry`);
-				if (local.state === "cancelled") throw new Error(`transaction ${existing.transactionId} 的 hidden turn 已取消；D2c 完成 core-effect reconciliation 前不允许 retry`);
+				if (local === null) throw new Error(`transaction ${existing.transactionId} 缺少本地 failed/cancelled hidden turn；必须先恢复，禁止盲目 retry`);
+				if (local.state === "cancelled") {
+					const summary = await this.core.reconcile(existing);
+					if (!summary.hasCanonicalEffect || !summary.readyForSocialCommit && !summary.repairablePartial) throw new Error(`transaction ${existing.transactionId} 的 cancelled turn 尚不能安全 continuation`);
+					return this.dispatch(state, projection, state.record.input.channelId, this.repairInstruction(summary), "continuation");
+				}
 				if (local.state !== "failed") throw new Error(`transaction ${existing.transactionId} 的 hidden turn 状态为 ${local.state}；只有明确 failed 才允许同 transaction retry`);
 				if (existing.activeTurnId !== void 0 && existing.activeTurnId !== local.id) throw new Error(`transaction active hidden turn 与本地 failed turn 不匹配：${existing.activeTurnId} != ${local.id}`);
 				const otherPending = existing.hiddenTurns.find((turn) => !hiddenTerminal(turn.state) && turn.turnId !== local.id);
@@ -3262,6 +3812,24 @@ window.__ModuleLoader__.load({
 					found = this.findHidden(state.record, local.id);
 				}
 				if (found.turn.state !== "failed") throw new Error(`hidden turn ${local.id} 未能收敛到 failed`);
+				if (state.record.operationRefs.length > 0) {
+					let summary;
+					try {
+						summary = await this.core.reconcile(state.record);
+					} catch (error) {
+						await this.save(state, {
+							status: "needs-recovery",
+							diagnostic: {
+								code: "core-evidence-read-failed",
+								message: detail(error)
+							}
+						});
+						throw error;
+					}
+					if (summary.unresolved) throw new Error(`transaction ${state.record.transactionId} 的 core evidence 尚未收敛，禁止 generic retry：${this.coreDetail(summary)}`);
+					if (summary.readyForSocialCommit || summary.repairablePartial || summary.deterministicNoEffectFailure) return this.dispatch(state, projection, state.record.input.channelId, this.repairInstruction(summary), "continuation");
+					throw new Error(`transaction ${state.record.transactionId} 的 core evidence 不能安全 retry：${this.coreDetail(summary)}`);
+				}
 				return this.dispatch(state, projection, state.record.input.channelId, state.record.input.text, "retry");
 			}
 			async cancel(saveId) {
@@ -3279,16 +3847,41 @@ window.__ModuleLoader__.load({
 				}
 				const { index, turn } = this.findHidden(record, active);
 				if (hiddenTerminal(turn.state)) return;
+				const cancelled = this.replaceHidden(state.record, index, {
+					...turn,
+					state: "cancelled"
+				});
+				let summary;
+				try {
+					summary = await this.core.reconcile(state.record);
+				} catch (error) {
+					await this.save(state, {
+						status: "needs-recovery",
+						hiddenTurns: cancelled,
+						activeTurnId: void 0,
+						diagnostic: {
+							code: "cancel-core-evidence-read-failed",
+							message: detail(error)
+						}
+					});
+					throw error;
+				}
+				if (!summary.hasCanonicalEffect && !summary.unresolved) {
+					await this.save(state, {
+						status: "cancelled",
+						hiddenTurns: cancelled,
+						activeTurnId: void 0,
+						diagnostic: void 0
+					});
+					return;
+				}
 				await this.save(state, {
 					status: "needs-recovery",
-					hiddenTurns: this.replaceHidden(state.record, index, {
-						...turn,
-						state: "cancelled"
-					}),
+					hiddenTurns: cancelled,
 					activeTurnId: void 0,
 					diagnostic: {
-						code: "cancelled-after-hidden-dispatch",
-						message: "隐藏回合已取消，但 D2c 尚未核对可能已经发生的 core canonical effect"
+						code: summary.hasCanonicalEffect ? "cancelled-after-core-effect" : "cancel-core-outcome-uncertain",
+						message: this.coreDetail(summary)
 					}
 				});
 			}
@@ -3303,6 +3896,7 @@ window.__ModuleLoader__.load({
 					const state = { record };
 					const { turn } = this.findHidden(record, turnId);
 					if (turn.state !== "completed") throw new Error(`canonical hidden turn 尚未完成：${turnId}`);
+					await this.coreReady(state, turnId, false);
 					this.ai.acknowledge(saveId, turnId);
 					await this.save(state, {
 						status: "committed",
@@ -3314,6 +3908,40 @@ window.__ModuleLoader__.load({
 				this.ai.acknowledge(saveId, turnId);
 			}
 		};
+		//#endregion
+		//#region src/client/terminal-turn-reconciliation.ts
+		const TERMINAL_TRANSACTION = new Set([
+			"committed",
+			"cancelled",
+			"failed"
+		]);
+		const TERMINAL_TURN = new Set([
+			"completed",
+			"failed",
+			"cancelled"
+		]);
+		/**
+		* Clear a local terminal AI artifact only when the durable Host journal proves
+		* that the same hidden turn already belongs to a terminal transaction.
+		*
+		* This closes the crash window between terminal journal persistence and local
+		* pending-turn cleanup without treating an unjournaled/legacy terminal turn as
+		* settled. Identity disagreement is corruption and therefore fails closed.
+		*/
+		async function reconcileSettledLocalTurn(journal, ai, saveId) {
+			const local = ai.turn(saveId);
+			if (local === null || !TERMINAL_TURN.has(local.state)) return false;
+			const owners = (await journal.list(saveId)).filter((record) => TERMINAL_TRANSACTION.has(record.status) && record.hiddenTurns.some((turn) => turn.turnId === local.id));
+			if (owners.length > 1) throw new Error(`terminal hidden turn ${local.id} 同时属于多个 transaction：${owners.map((record) => record.transactionId).join(", ")}`);
+			const owner = owners[0];
+			if (owner === void 0) return false;
+			const durable = owner.hiddenTurns.find((turn) => turn.turnId === local.id);
+			const requestConflict = durable.dshRequestId !== void 0 && local.dshRequestId !== void 0 && durable.dshRequestId !== local.dshRequestId;
+			const nativeTurnConflict = durable.dshTurn !== void 0 && local.dshTurn !== void 0 && durable.dshTurn !== local.dshTurn;
+			if (durable.sessionId !== local.sessionId || durable.state !== local.state || requestConflict || nativeTurnConflict) throw new Error(`terminal hidden turn identity 冲突：${local.id}`);
+			ai.acknowledge(saveId, local.id);
+			return true;
+		}
 		//#endregion
 		//#region src/client/index.ts
 		/** Required services: the slot registry (declaration lifetimes + registration). */
@@ -3328,33 +3956,40 @@ window.__ModuleLoader__.load({
 			const ai = new StoryAiBridge(connection.api, window.localStorage);
 			const hostProjections = new HostProjectionStorage();
 			const localProjections = createLocalProjectionStorage(window.localStorage);
-			const playerTransactions = new PlayerTransactionCoordinator(new HostTransactionJournal(), hostProjections, ai);
+			const transactionJournal = new HostTransactionJournal();
+			const playerTransactions = new PlayerTransactionCoordinator(transactionJournal, hostProjections, ai, new CoreTransactionReconciler(new HostCoreReceiptReader(), new DshToolEvidenceReader(connection.api)));
 			const journalLocks = /* @__PURE__ */ new Map();
+			const recoveryChannel = (channelId, authoritative) => channelId ?? authoritative?.selectedChannelId ?? "journal-recovery";
 			const syncRecoveryState = async (saveId, channelId) => {
 				const authoritative = await hostProjections.load(saveId).catch(() => void 0);
 				if (authoritative !== void 0) localProjections.save(authoritative);
+				const fallbackChannel = recoveryChannel(channelId, authoritative);
 				try {
 					await playerTransactions.assertQuiescent(saveId);
-					journalLocks.delete(saveId);
+					try {
+						await reconcileSettledLocalTurn(transactionJournal, ai, saveId);
+						journalLocks.delete(saveId);
+					} catch {
+						journalLocks.set(saveId, fallbackChannel);
+					}
 				} catch {
-					if (ai.turn(saveId) === null) journalLocks.set(saveId, channelId ?? authoritative?.selectedChannelId ?? "journal-recovery");
+					const current = ai.turn(saveId);
+					if (current === null || current.state === "cancelled") journalLocks.set(saveId, fallbackChannel);
 				}
 			};
 			const visibleTurn = (saveId) => {
-				const current = ai.turn(saveId);
-				if (current !== null) return current;
-				const channelId = journalLocks.get(saveId);
-				if (channelId === void 0) return null;
-				return {
+				const lockedChannel = journalLocks.get(saveId);
+				if (lockedChannel !== void 0) return {
 					version: 1,
 					id: `journal-lock-${saveId}`,
 					sessionId: "journal-recovery",
 					baseline: -1,
-					channelId,
+					channelId: lockedChannel,
 					prompt: "journal-recovery-lock",
 					state: "uncertain",
 					error: "Host transaction journal 尚未收口；请恢复或完成对账后继续"
 				};
+				return ai.turn(saveId);
 			};
 			const choices = createStoryChoiceBridge(connection.api, (saveId) => ai.currentSessionId(saveId));
 			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
@@ -3380,6 +4015,7 @@ window.__ModuleLoader__.load({
 					},
 					recoverAiTurn: async (projection) => {
 						try {
+							if (await reconcileSettledLocalTurn(transactionJournal, ai, projection.saveId)) return null;
 							return await playerTransactions.recover(projection);
 						} finally {
 							await syncRecoveryState(projection.saveId, projection.selectedChannelId);
@@ -3394,6 +4030,7 @@ window.__ModuleLoader__.load({
 					},
 					retryAiTurn: async (projection) => {
 						try {
+							if (await reconcileSettledLocalTurn(transactionJournal, ai, projection.saveId)) throw new Error("上一 transaction 已终态；请作为新的玩家动作重新提交，不会绕过 journal retry");
 							return await playerTransactions.retry(projection);
 						} catch (error) {
 							await syncRecoveryState(projection.saveId, projection.selectedChannelId);

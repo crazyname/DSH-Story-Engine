@@ -29,7 +29,7 @@ describe('same transaction hidden retry',()=>{
   expect(acknowledge).toHaveBeenCalledWith(projection.saveId,result.turnId)
  })
 
- it('does not treat a cancelled hidden turn as retryable before D2c reconciliation',async()=>{
+  it('does not treat a cancelled hidden turn as retryable without reconciled core evidence',async()=>{
   const projection={...createInitialProjection(),saveId:'save-cancelled-retry'}
   const prepared=await createPreparedTransaction({transactionId:'tx-cancelled-retry',saveId:projection.saveId,channelId:projection.selectedChannelId,text:'继续',baseProjectionRevision:0})
   const planned=reviseTransaction(prepared,{hiddenTurns:[{turnId:'turn-cancelled',kind:'initial',state:'planned',sessionId:'session-cancelled'}],activeTurnId:'turn-cancelled'})
@@ -37,7 +37,7 @@ describe('same transaction hidden retry',()=>{
   const retry=vi.fn()
   const ai={send:vi.fn(),recover:vi.fn(),retry,cancel:vi.fn(),acknowledge:vi.fn(),turn:vi.fn(()=>({version:1,id:'turn-cancelled',sessionId:'session-cancelled',baseline:1,channelId:projection.selectedChannelId,prompt:'original',state:'cancelled' as const}))}
   const coordinator=new PlayerTransactionCoordinator({listOpen:vi.fn(async()=>[record]),prepare:vi.fn(),save:vi.fn(async(next:StoryTransactionRecord)=>{record=next;return next})} as never,{save:vi.fn()} as never,ai as never)
-  await expect(coordinator.retry(projection)).rejects.toThrow('D2c')
+   await expect(coordinator.retry(projection)).rejects.toThrow('尚不能安全 continuation')
   expect(retry).not.toHaveBeenCalled()
   expect(record.hiddenTurns).toHaveLength(1)
  })

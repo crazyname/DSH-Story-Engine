@@ -24,7 +24,7 @@ M7：v2.0 Public Product RC / Stable
 
 v1.0 Personal 的精确实施顺序、依赖、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。本文保留跨版本 roadmap 和阶段摘要；如果两者在 v1.0 实施顺序上发生冲突，以该实施计划为准并同步修订本文。
 
-Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
+Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。D2c-2 / PR #13 已完成实现与合并前验证，待合并；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
 
 ## M3：Stage D
 
@@ -106,7 +106,7 @@ PR #12 已合并到 `main`。该切片建立不可绕过的 durable-before-body 
 
 PR #12 最终验证：Root 9 个测试文件 / 38 项通过，Client 30 个测试文件 / 154 项通过，两端 typecheck/build 通过，tracked artifacts 由真实构建同步且连续 build hash 一致；认证 DSH `0.1.1-rc.2` ToolRuntime smoke 验证 preflight 在真实工具 body 前落盘、D1 receipt 保留正确 `transactionId`、transaction 错配在 body 前拒绝且不污染 Runtime/journal。完整浏览器 crash-window 矩阵仍留给 D2d。
 
-##### D2c-2：Receipt/result reconciliation — 当前 Draft PR #13
+##### D2c-2：Receipt/result reconciliation — 已完成验证，PR #13 待合并
 
 目标：用 Core Runtime receipt 与认证 rc.2 durable tool result 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
 
@@ -123,7 +123,7 @@ PR #12 最终验证：Root 9 个测试文件 / 38 项通过，Client 30 个测�
 - canonical effect 已存在后的 cancel 不得倒改为 `cancelled`；进入 `needs-recovery`，必要时通过 continuation 补齐 Core/social 后再收敛。无 effect 且无 unresolved evidence 才允许真正 `cancelled`。
 - pending/inconsistent evidence 不启动 continuation，也不提交 social projection。
 
-本分支已经加入对应自动测试源码，但尚未执行本机 Windows typecheck/test/build，也尚未由真实 bundler 同步本分支 tracked `client/story-ui/lib/*`。认证 DSH ToolRuntime/history smoke 与完整浏览器 crash/restart 矩阵也尚未在本分支执行。因此 D2c-2 当前是“repo-side implementation + tests 已形成，待本地验证”，不能提前标记为完成。
+本分支已完成 Windows 本机验证：Root 9 个测试文件 / 38 项、Client 49 个测试文件 / 228 项全部通过，两端 typecheck/build 通过；tracked `client/story-ui/lib/*` 已由真实 bundler 同步，连续三次 Client build hash 一致。适用的认证 DSH `0.1.1-rc.2` ToolRuntime/Fixture-history shape smoke 验证了 transaction-bound receipt、真实 RPC/history envelope 以及 `tool/call`/双 call-id `tool/result` parser 配对。完整浏览器 crash/restart 矩阵仍属于 D2d。
 
 D2c-2 收口条件：
 
@@ -133,9 +133,9 @@ D2c-2 收口条件：
 4. `git diff --check` 通过，branch worktree 干净。
 5. 文档、traceability、Host API 与实际实现一致。
 
-满足以上后即可把 D2c 整体标记完成；完整真实浏览器 restart/crash-window 矩阵、fork 产品策略仍属于 D2d。
+以上 D2c-2 收口条件已经满足。PR #13 合并后即可把 D2c 标记为已合并完成；完整真实浏览器 restart/crash-window 矩阵、fork 产品策略仍属于 D2d。
 
-PR #13 合并前仍必须完成其自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代或预先声称这些验证结果。
+PR #13 已完成自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代这些验证结果。
 
 #### D2d：Fork / restart / failure matrix
 
