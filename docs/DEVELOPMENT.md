@@ -4,7 +4,13 @@
 
 ## 1. 目标
 
-构建一个与具体作品无关的 DSH 外置文字游戏插件。用户可以导入自己的背景、人物、机制、剧情资料和初始状态；引擎提供检索、主持规则、选择交互、状态持久化与检查点。
+构建一个与具体作品无关的 AI 连载文字游戏引擎。当前阶段先作为 DSH 外置插件完成可靠玩法、内容包、状态、事务恢复和独立游戏界面；长期把 DSH 收缩为可替换 Runtime Adapter，并在 2.0 形成无需安装 DSH 的独立对外产品。
+
+版本定位明确区分：
+
+- **v1.0 Personal**：面向项目所有者本人长期游玩的完整个人版，继续使用认证 DSH Runtime，不承担首次公开产品发布义务。
+- **v1.x Architecture Transition**：保持 1.0 存档和核心玩法可用，逐步完成 DSH adapter 化、Model Router、Visual Asset abstraction 和 Player / Creator 产品表面分离。
+- **v2.0 Public Product**：第一个正式面向外部用户并在 GitHub 发布的产品级大版本；默认使用 Story Engine Native Runtime，DSH 降为可选兼容后端。
 
 ## 2. 不做什么
 
@@ -13,8 +19,11 @@
 - AI 不直接获得通用 Shell 或任意文件写入权限。
 - 内容包不能通过相对路径读取包目录之外的文件。
 - 不为了跨域恢复假装存在浏览器、DSH 和 Story Runtime 之间的分布式 ACID / exactly-once transaction。
+- v1.0 不为了提前模拟商业产品而引入账号、支付、Credits、云存档或图片生成 API。
 
 ## 3. 分层
+
+当前 DSH 运行形态：
 
 ```text
 DSH Preset / UI
@@ -28,9 +37,38 @@ Content API：人物、世界、机制、事件查询
 Content Pack：用户导入的 Markdown / JSON / TXT
 ```
 
+长期产品分层：
+
+```text
+Story Engine
+├── Player Surface
+├── Creator / Studio Surface
+├── Gameplay Runtime
+├── Transaction Engine
+├── Save / Social Projection
+├── Content Pack / Authoring
+├── Model Router
+├── Visual Asset System
+└── Host / AI Runtime Ports
+    ├── Native Runtime（2.0 默认）
+    └── DSH Adapter（兼容后端）
+```
+
 核心层只认识通用概念：`entity`、`document`、`scene`、`choice`、`state`、`module`。关系、任务、资源、战斗、前作继承均为可选模块。
 
 UI/宿主集成额外包含 social projection、隐藏 DSH Session 和事务协调层；它们不能绕过 Game Runtime 的 canonical state 规则。顶层可恢复工作流使用 `transactionId`，其中每个可重试 core canonical mutation 使用独立 `operationId` 和 receipt。跨域 retry/recovery 见 `docs/TRANSACTION_AND_RECOVERY_SPEC.md`。
+
+### 3.1 Player / Creator 产品表面
+
+首阶段不维护两套重复应用。Player 和 Creator 共用同一个 Story Engine Core、Runtime、Content Pack、Save/Canon、Model Router 和 Visual Asset System。
+
+- **Player Surface**：面向游玩，提供游戏库、继续/新游戏、剧情频道、人物、关系、选择、存档和必要设置。普通玩家不需要理解 DSH Session、tool trace、prompt 或内部事务。
+- **Creator / Studio Surface**：面向内容制作，负责内容包、世界观、人物、剧本、素材、校验、AI 辅助创作、测试运行和发布准备。
+- v1.0 可以继续以当前管理页/制作向导承担作者能力，并优先完成个人游玩体验；不要求先做完整 Studio IDE。
+- 1.x 起代码结构必须允许 Player / Creator 独立演进；可以先在一个应用内作为两个模式，后续如产品需求成立再拆为不同前端入口，但不得复制或分叉核心 Runtime。
+- Creator 做完内容后必须能直接进入 Player 视图测试当前场景/存档，避免导出—重开应用—再导入的低效闭环。
+
+视觉资产方向见 `docs/VISUAL_ASSET_SYSTEM_SPEC.md`。
 
 ## 4. 公开 API 方向
 
@@ -140,7 +178,7 @@ V1 使用 `pack.json` 作为规范入口，支持 Markdown、JSON、JSONL/NDJSON
 
 ### v0.8：独立文字游戏界面、社交叙事与连载玩法集成
 
-v0.8 产品线的长期目标：
+v0.8 产品线目标：
 
 - DSH 启动后保持普通 AI 聊天为默认界面。
 - 通过侧边栏入口切换到独立文字游戏界面，不增加启动选择页，也不混入普通聊天标签页。
@@ -150,25 +188,27 @@ v0.8 产品线的长期目标：
 - 每个游戏存档使用独立隐藏 DSH Session，后台复用模型、工具和会话能力，但原始技术轨迹不直接成为游戏正史。
 - 使用 transaction journal、隐藏 `turnId`、core `operationId` receipts 与 social projection 幂等使 retry/recovery 可对账恢复。
 - 将 v0.7 的季/集/场景、工作内/外、选择、越界修订和集末总结完整呈现在游戏界面。
-- 达到公开发布所需的无障碍、性能、迁移、安全、许可证和文档质量。
+- 达到个人长期游玩所需的恢复可靠性、存档稳定性、性能和交互完整度，为 v1.0 Personal 收口。
 
 阶段 A–E 的正式能力边界见 `docs/TEXT_GAME_SOCIAL_UI_SPEC.md`；当前哪个阶段已完成、正在做什么，只在 `CURRENT_STATUS.md` 和 `NEXT_DEVELOPMENT_PLAN.md` 维护。
 
 事务与崩溃恢复的正式语义见 `docs/TRANSACTION_AND_RECOVERY_SPEC.md`。宿主 HTTP 行为见 `docs/HOST_API.md`。
 
-### v1.0：公开稳定版
+### v1.0：Personal Stable
 
-v1.0 不只是功能完成，还意味着 V1 公共契约被冻结并有明确兼容承诺。至少包括：
+v1.0 的目标是形成项目所有者本人可以长期游玩的完整个人版，而不是首次公开商业/大众发行。它仍然需要工程上的稳定性，但不冻结面向第三方用户的完整公共产品契约。
 
-- `pack.json`、剧本/UI Schema 和存档迁移边界。
-- 公开 `story_*` tool contract 与 Host API contract。
-- 支持的 DSH / Client plugin 兼容范围。
-- 安全与隐私审计。
-- 第三方许可证和可再发布示例检查。
-- 安装、升级、卸载、故障排查和内容包作者文档。
-- Release Candidate、干净安装、旧存档升级、完整原创示例回归和最终发布包审计。
+v1.0 至少包括：
 
-正式 RC/Stable 路线以 `NEXT_DEVELOPMENT_PLAN.md` 为准；在 Stage E 文档工作中建立 `COMPATIBILITY.md` 和 `RELEASE_CHECKLIST.md`，并在进入 1.0 RC 前完成评审。
+- 完整连载玩法：season / episode / scene、工作内/外、自由输入、选择、越界修订、集末总结。
+- hidden DSH、core runtime、social projection 之间的 transaction/retry/recovery 在认证环境中可恢复，不重复 canonical effect。
+- 存档、检查点、played canon 与 UI projection 足以支持长期个人游玩和重启恢复。
+- 使用认证 DSH `0.1.1-rc.2` 作为明确运行基线，不自动追随 DSH master。
+- **Visual Asset Personal workflow**：允许本地导入头像、聊天背景、场景图等个人视觉素材；可以根据角色/场景 canonical state 导出结构化生图 Prompt，用户在外部图片模型中生成后再导入。
+- v1.0 不直接调用图片生成 API，不实现图片 Credits/付费重画，也不要求账号、云服务或 Marketplace。
+- 私人内容包可以作为本机长时游玩验收材料，但私人/商业内容、overlay、存档和报告仍不得进入公开仓库。
+
+v1.0 的存档和核心领域契约仍应尽量稳定，以便 1.x 解耦期间不破坏自己的长期存档；但“公开第三方兼容承诺”推迟到 2.0 产品发布准备。
 
 #### 1.0 的 DSH 认证与升级政策
 
@@ -182,18 +222,22 @@ Git commit: b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
 
 “固定”必须成为可验证的工程约束，而不只是开发者当前恰好没有执行 `git pull`：
 
-- Stage E 建立机器可读的 certified-runtime manifest，记录 runtime 名称、version、tag、commit 和 compatibility profile。
-- 构建、测试和发布检查验证实际 DSH commit、package version、必需包和能力；不匹配时 fail-closed，并给出清晰诊断。
-- 公开构建流程不得把 `D:\DeepSeek-Harness` 这类单机绝对路径当作产品契约；本地开发可以使用该目录，但公开配置必须通过受控依赖解析或显式的 DSH root 配置进入。
+- v1.0 收口前建立机器可读的 certified-runtime manifest，记录 runtime 名称、version、tag、commit 和 compatibility profile。
+- 构建、测试和个人版验收验证实际 DSH commit、package version、必需包和能力；不匹配时 fail-closed，并给出清晰诊断。
+- 本机开发/个人版可以通过显式 DSH root 指向 `D:\DeepSeek-Harness`；这种单机路径不得泄漏进内容包、存档 Schema 或 Story Engine 领域契约。2.0 对外分发必须移除安装流程对该绝对路径的依赖。
 - DSH 发布新版时，不直接更新主开发线。升级在独立 compatibility branch 中完成，并重新运行 typecheck、自动测试、Client build、Host/Runtime 集成测试和适用的真实浏览器故障矩阵。
 - 只有兼容性证据完整、迁移影响已记录时，才更新 certified baseline；Story Engine 可以长期停留在已认证版本。
 - 严重安全漏洞、数据损坏或运行阻塞可以触发紧急兼容分支，但仍不得跳过验证后直接追随上游最新版。
 
 当前 `D:\DeepSeek-Harness` 是官方仓库的本地 clone，只作为依赖与运行环境；Story Engine 代码、补丁和发布物不得写入或提交到该仓库。
 
-#### Runtime Ports and Adapters 战略
+### v1.x：Architecture Transition
 
-DSH 在 1.0 中仍是认证运行后端，但它不应定义 Story Engine 的核心产品契约。长期架构采用 Ports and Adapters / anti-corruption layer：
+v1.x 的核心目标不是堆叠大量玩家功能，而是在不破坏 v1.0 个人存档/玩法的前提下，把 2.0 独立产品需要的可替换边界做出来。
+
+#### Runtime Ports and Adapters
+
+DSH 在 v1.x 仍是认证运行后端，但它不再定义 Story Engine 的核心产品契约。采用 Ports and Adapters / anti-corruption layer：
 
 ```text
 Story Engine
@@ -201,11 +245,12 @@ Story Engine
 ├── Transaction Engine
 ├── Save / Projection
 ├── Content Pack
-├── Social UI
-├── Authoring
+├── Player / Creator Surfaces
+├── Model Router
+├── Visual Asset System
 └── Host / AI Runtime Ports
     ├── DSH Adapter
-    └── Standalone Adapter（未来）
+    └── Standalone / Native Runtime
 ```
 
 `played_canon`、episode/scene、operation receipt、transaction journal、`StorySaveProjection`、内容包和三层真相继续由 Story Engine 定义。以下 DSH-specific 能力逐步收缩到 adapter 边界：
@@ -217,37 +262,50 @@ Story Engine
 - Host WebServer 路由和持久化桥接；
 - Client plugin 注入、模块加载和界面挂载。
 
-迁移采用渐进方式，不在 1.0 前进行大爆炸式重写：
+迁移采用渐进方式：
 
-1. Stage E 先盘点全部 DSH-specific imports、RPC、Host 和 Client 挂载点，并定义最小稳定 ports。
-2. 1.x 每次迁移一个边界到 `adapters/dsh`，保持 V1 内容包、存档、Host API、剧情和事务契约不变。
+1. v1.0 收口阶段先盘点全部 DSH-specific imports、RPC、Host 和 Client 挂载点，并定义最小稳定 ports。
+2. 1.x 每次迁移一个边界到 `adapters/dsh`，保持内容包、存档、剧情和事务语义不变。
 3. Port 使用 Story Engine 自己的类型；DSH 类型不得泄漏进 gameplay、canon、transaction、content-pack 等领域层。
 4. 抽象必须保留真实语义，不能把 streaming、`AbortSignal`、waiting-choice、late result、uncertain dispatch、correlation、idempotency 和 recovery 压缩成简单字符串调用。
 5. 不为尚未出现的后端提前制造宽泛接口；优先围住已经确认会受 DSH 变化影响的危险边界。
-6. DSH Adapter 与未来 Standalone Adapter 必须共享同一套 runtime conformance tests，覆盖正常回合、取消、选择等待、断连、retry、跨存档隔离、crash/restart、tool idempotency 和 canonical result 唯一性。
+6. DSH Adapter 与 Native Runtime 必须共享同一套 runtime conformance tests，覆盖正常回合、取消、选择等待、断连、retry、跨存档隔离、crash/restart、tool idempotency 和 canonical result 唯一性。
 
-在 adapter 收缩完成前，Story Engine 仍应明确描述为使用认证 DSH Runtime 的产品；目录重命名或把 import 移动到 `adapters/` 本身不等于已经脱离 DSH。
+#### Model / Visual / Product abstraction
 
-### Post-1.0 方向（非承诺路线）
+1.x 同时建立：
 
-以下内容是方向性 backlog，不属于 V1 compatibility promise，也不构成已排期功能。具体是否进入 1.x、后续 major version 或被放弃，应在 v1.0 发布后的真实使用、维护成本和兼容性约束下重新评估。
+- `ModelRouter`：上层按 `simulation`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等任务 profile 请求能力，而不是在 gameplay code 中写死厂商/模型名。
+- `VisualAsset` / `VisualAssetManager`：把人物、背景、CG 的逻辑引用与具体本地文件、内容包素材或模型生成结果分离。
+- `VisualPromptBuilder`：从允许公开给图像模型的 canonical visual state 生成稳定 Prompt，不把 authored secret、未发现分支或角色未知信息泄漏进玩家可见图像。
+- Player / Creator 内部模块边界，为 2.0 公开产品的 Player 与 Creator/Studio 表面做准备。
+- Image Provider interface 可以在 1.x 建立并测试；真正默认在线生图属于 2.0 产品能力，不是 v1.0 阻塞项。
 
-- **Gameplay / UX**：频道与消息搜索、收藏、引用回复、更丰富的消息/媒体表现、内容包主题和 UI 扩展。
-- **Authoring ecosystem**：更强的内容包制作工具、剧本可视化编辑与校验、lint、测试工具和作者 SDK。
-- **Runtime capabilities**：后台异步剧情事件、更复杂的 simulation module、更强的长期历史管理、checkpoint/receipt compaction 和诊断工具。
-- **Portability / Sync**：更完善的导入导出、可选云同步与多设备连续性。
-- **Runtime portability**：1.x 逐步把 DSH-specific code 收缩到 `adapters/dsh`，并在 conformance suite 保护下探索最小 Standalone Runtime。
-- **Possible 2.0 territory**：Standalone Runtime 成熟后成为默认、DSH 降为可选兼容后端；需要 breaking change 的 Runtime/API/Schema 重构、多人联机、移动端原生运行，以及任何无法在 V1 兼容承诺内安全演进的架构变化。
+### v2.0：Public Product
 
-2.0 不由“功能看起来很大”自动触发；只有当 V1 公共契约无法保持向后兼容时，才进入新的 major-version 设计与迁移评审。
+v2.0 是本项目第一个正式面向外部用户并在 GitHub 发布的产品级大版本。它不是“因为版本号够大”自动发生，而是明确的产品化目标；只有当 Native Runtime、安装体验和公开安全/兼容门槛达到验收要求时才发布 2.0 Stable。
 
-Standalone Runtime 不因为“减少依赖”本身启动。投入实现前至少需要同时观察到：DSH API 变化持续消耗维护时间；DSH 约束妨碍 Story Engine 产品设计；项目需要上游不适合承载的 runtime 能力；已有真实用户足以承担长期运行时维护成本；Story Engine 自己的 transaction/session/tool contracts 已稳定。未满足这些条件时，继续使用认证 DSH 比重写 agent loop、tool execution、streaming、provider routing 和 context management 更可靠。
+目标边界：
+
+- **Native Runtime 成为默认运行时**，普通用户安装 Story Engine 不需要另外 clone / 安装 DSH；DSH Adapter 可以作为可选兼容后端保留。
+- Player 与 Creator/Studio 共用同一核心和数据契约；可以仍由同一应用提供两个模式，也允许在不分叉 Core 的前提下拆成不同前端入口。
+- 普通 Player 默认“安装后直接可玩”，不要求理解 API、DSH、内容目录或手工准备视觉素材。
+- Visual Asset System 接入 Image Provider：内容包已有 canonical/pre-authored 资产时直接复用；没有时可以为角色/场景自动生成并缓存默认视觉。
+- **普通 Player UI 不再提供 v1.0 的个人本地图片导入作为常规功能**。这是产品表面移除，不是删除底层 imported-asset 能力。
+- Creator/Studio 必须保留导入原创或具备授权素材的能力，并可使用模型生成/编辑资产；内容来源与再发布权继续受内容包许可证规则约束。
+- 图片重画/变体、额度或 Credits 可以成为后续商业能力，但具体计费规则不在核心引擎规范中提前写死。
+- 对外发布需要正式安装/升级/卸载、兼容性、迁移、安全、隐私、Provider key 管理、许可证、原创示例、故障排查和 release checklist。
+- v2.0 发布前重新评审开源/商业边界；本文件不改变当前 MIT 许可，也不尝试追回已经按 MIT 发布版本的既有授权。
+
+2.0 的独立运行不是复制或 fork 整个 DSH。Native Runtime 只实现 Story Engine 实际需要的最小能力，并用同一 conformance suite 证明 session、turn、tool、streaming、choice、cancel、retry 和 crash recovery 语义满足 Story Engine 契约。
 
 ## 7. 开源策略
 
-引擎采用 MIT。示例包必须是原创、CC0 或具备明确再发布授权。每个内容包必须声明 `license`；`packs/private`、运行存档、索引缓存和导入源文件默认不进入 Git。
+当前引擎采用 MIT。示例包必须是原创、CC0 或具备明确再发布授权。每个内容包必须声明 `license`；`packs/private`、运行存档、索引缓存和导入源文件默认不进入 Git。
 
-私人 Dispatch 等商业作品相关验证线不属于公开 1.0 的阻塞依赖，也不得把其资料、文本、提取资源或私人存档放入公开发布物。
+私人 Dispatch 等商业作品相关验证线可以服务于 v1.0 Personal 的本机长时验收，但不属于 v2.0 Public Product 的发布内容或依赖，也不得把其资料、文本、提取资源或私人存档放入公开发布物。
+
+2.0 上线前应单独进行 License / Commercial Strategy Review。除非通过明确的许可证变更 PR 决定，否则当前 MIT 状态保持不变。
 
 ## 8. Git 工作规范
 
