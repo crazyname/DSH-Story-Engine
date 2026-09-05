@@ -48,6 +48,16 @@ describe('terminal local turn reconciliation',()=>{
   await expect(reconcileSettledLocalTurn(journal as never,ai as never,record.saveId)).rejects.toThrow('identity 冲突')
  })
 
+ it('fails closed when known DSH request or native-turn correlation disagrees',async()=>{
+  const record=await terminalRecord({status:'committed',turnState:'completed'})
+  const durable={...record,hiddenTurns:[{...record.hiddenTurns[0]!,dshRequestId:'rpc-durable',dshTurn:7}]}
+  const journal={list:vi.fn(async()=>[durable])}
+  const requestMismatch={...local('completed'),dshRequestId:'rpc-local',dshTurn:7}
+  await expect(reconcileSettledLocalTurn(journal as never,{turn:vi.fn(()=>requestMismatch),acknowledge:vi.fn()} as never,record.saveId)).rejects.toThrow('identity 冲突')
+  const turnMismatch={...local('completed'),dshRequestId:'rpc-durable',dshTurn:8}
+  await expect(reconcileSettledLocalTurn(journal as never,{turn:vi.fn(()=>turnMismatch),acknowledge:vi.fn()} as never,record.saveId)).rejects.toThrow('identity 冲突')
+ })
+
  it('leaves an unjournaled legacy terminal turn untouched',async()=>{
   const acknowledge=vi.fn()
   const journal={list:vi.fn(async()=>[])}
