@@ -24,7 +24,9 @@ export async function reconcileSettledLocalTurn(journal:JournalPort,ai:AiPort,sa
  const owner=owners[0]
  if(owner===undefined)return false
  const durable=owner.hiddenTurns.find(turn=>turn.turnId===local.id)!
- if(durable.sessionId!==local.sessionId||durable.state!==local.state)throw new Error(`terminal hidden turn identity 冲突：${local.id}`)
+ const requestConflict=durable.dshRequestId!==undefined&&local.dshRequestId!==undefined&&durable.dshRequestId!==local.dshRequestId
+ const nativeTurnConflict=durable.dshTurn!==undefined&&local.dshTurn!==undefined&&durable.dshTurn!==local.dshTurn
+ if(durable.sessionId!==local.sessionId||durable.state!==local.state||requestConflict||nativeTurnConflict)throw new Error(`terminal hidden turn identity 冲突：${local.id}`)
  ai.acknowledge(saveId,local.id)
  return true
 }
