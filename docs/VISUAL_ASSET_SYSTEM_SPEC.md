@@ -4,7 +4,7 @@
 
 本文定义 Story Engine 视觉资产的长期产品边界与版本演进方向，覆盖人物头像、立绘、聊天背景、场景图和剧情 CG。
 
-本文只定义产品/架构契约，不表示相关代码已经实现。实时开发状态仍以 `CURRENT_STATUS.md` 为准，实施顺序以 `NEXT_DEVELOPMENT_PLAN.md` 为准。
+本文只定义产品/架构契约，不表示相关代码已经实现。实时开发状态仍以 `CURRENT_STATUS.md` 为准，v1.0 Personal 的具体实施顺序和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`，跨版本路线见 `NEXT_DEVELOPMENT_PLAN.md`。
 
 核心原则：
 
@@ -25,6 +25,8 @@
 后续可以增加物品、地图、Logo、UI theme 等类型，但不得为了未来功能提前扩大 v1.0 实现范围。
 
 ## 3. 统一资产模型
+
+统一资产模型从 v1.0 Personal 就开始建立，不能先把人物头像写成本机路径再等 1.x 重构。
 
 长期数据模型至少需要表达：
 
@@ -50,6 +52,8 @@ interface VisualAsset {
 3. 生成资产可以追溯 Prompt 和必要的 reference asset，但不得把 API key 等凭据写入资产元数据。
 4. Player/Creator 共享同一资产模型，不为两个表面复制数据格式。
 
+v1.0 只要求实现该模型的最小子集：稳定 ID、`avatar/portrait/background/scene-cg`、`pack/imported`、`pack/save` scope、受控 `contentRef` 和必要时间/绑定元数据。`generated`、provider/model、reference identity 等在线生成字段可以到 1.x 再启用，但 v1.0 数据格式必须允许无破坏扩展。
+
 人物、频道或场景只保存逻辑引用，例如：
 
 ```text
@@ -61,9 +65,25 @@ scene.backgroundAssetId   -> VisualAsset
 
 ## 4. v1.0 Personal 工作流
 
-v1.0 不直接调用任何在线图片生成 API。
+v1.0 完成最小 Visual Asset System，但不直接调用任何在线图片生成 API。
 
-### 4.1 本地图片导入
+### 4.1 Minimal VisualAssetManager
+
+v1.0 必须具备：
+
+- 通过稳定 `visualAssetId` 解析资产。
+- 从内容包读取 pack asset。
+- 把个人导入图片复制/保存到 Story Engine 受控资产存储，而不是长期引用任意本机源路径。
+- avatar 与 participant 绑定。
+- background 与 channel/scene 绑定。
+- portrait / scene-cg 可作为对应视觉卡或媒体资产引用。
+- replace/delete/missing fallback。
+- 删除或缺失视觉资产只影响视觉展示，不修改 gameplay canon。
+- Save As / fork 不得因共享可写资产文件导致两个存档互相污染。
+
+v1.0 不要求 generated asset cache、reference identity、批量变体或 Provider 生命周期管理；这些属于 1.x。
+
+### 4.2 本地图片导入
 
 个人版允许用户为自己的存档/内容包导入本地视觉素材，包括头像、背景、立绘和场景图。
 
@@ -75,7 +95,7 @@ v1.0 不直接调用任何在线图片生成 API。
 - 私人/不可再发布图片不得进入公开 Git、示例包或测试 fixture。
 - v1.0 本地导入是 Personal convenience，不代表 2.0 普通 Player 必须暴露同一入口。
 
-### 4.2 Visual Prompt Builder
+### 4.3 Visual Prompt Builder
 
 v1.0 提供“导出生图 Prompt”的能力，而不是直接生图。
 
@@ -93,6 +113,30 @@ Prompt Builder 必须经过可见性过滤：
 - 不把 NPC 内心事实、隐藏身份等内容仅因为模型“知道”就写进玩家可见 Prompt。
 - `(系统)` 指令或调试信息不能自动变成世界内视觉事实。
 
+### 4.4 Prompt Queue
+
+v1.0 不只提供一次性的“导出 Prompt”按钮，而要有临时 Prompt Queue。
+
+每条 Prompt 至少保存：
+
+```text
+promptId
+kind: avatar / portrait / background / scene-cg
+用途标签
+目标：participant / channel / scene
+Prompt 正文
+创建时间
+状态
+```
+
+Player Personal UI 至少提供：
+
+- 一键复制 Prompt。
+- 清楚显示“用于谁 / 哪个频道 / 哪个场景”。
+- 删除 Prompt。
+- “导入生成结果”并自动绑定回原目标。
+- 删除 Prompt 不删除已经导入的 VisualAsset，也不改变 canon。
+
 典型 v1.0 流程：
 
 ```text
@@ -100,36 +144,43 @@ Story canonical / visual state
         ↓
 Visual Prompt Builder
         ↓
-导出 Prompt
+Prompt Queue（用途已绑定）
+        ↓
+一键复制
         ↓
 用户在外部生图产品中生成
         ↓
-导入 Story Engine
+“导入生成结果”
         ↓
 VisualAsset(imported)
+        ↓
+自动绑定 participant / channel / scene
 ```
 
-### 4.3 v1.0 明确不做
+### 4.5 v1.0 明确不做
 
 - 不接 Gemini / OpenAI / 其他图片 API。
 - 不保存线上 Provider API key。
 - 不做自动扣费、Credits、重画付费。
+- 不做在线模型选择器。
+- 不做高级角色 reference identity、批量表情/服装变体或 Provider cache lifecycle。
 - 不要求内容作者准备完整商业美术资产流水线。
 - 不因为没有图片阻止纯文字游戏正常运行。
 
-## 5. v1.x 架构过渡
+## 5. v1.x 高级视觉与 Provider 过渡
 
-v1.x 建立 2.0 需要的抽象，但不要求立刻把在线生图作为默认玩家功能。
+v1.x 在 v1.0 已存在的 `VisualAsset + VisualAssetManager + VisualPromptBuilder` 基础上增加 2.0 所需的在线生成能力，不重写上层人物/scene 绑定。
 
-### 5.1 Visual Asset Manager
+### 5.1 Advanced VisualAssetManager
 
-职责：
+在 v1.0 最小能力上增加：
 
-- 通过稳定 ID 解析资产。
-- 管理内容包资产、存档生成资产和 Creator 导入资产。
-- 缓存已生成/已导入结果，避免每次渲染都重新生产图片。
-- 管理变体与 reference asset 关系。
-- 对缺失、损坏和不兼容资产 fail-safe，不影响 canonical gameplay state。
+- 管理 generated assets 和生成缓存。
+- 资产版本/变体关系。
+- reference identity / reference asset 关系。
+- Provider/model/prompt provenance。
+- 缓存已生成结果，避免每次渲染都重新生产图片。
+- 对 Provider 缺失、生成失败和不兼容资产 fail-safe，不影响 canonical gameplay state。
 
 建议解析优先级由具体产品模式决定，但不能依赖本机路径作为身份。一个合理方向是：
 
@@ -231,11 +282,11 @@ Creator 导入不意味着 Story Engine 获得素材传播权。公开内容包�
 
 ## 8. 缓存与连续性
 
-- 生成成功的视觉资产视为持久素材，不是一次性 UI response。
-- 资产重新生成必须产生新资产/版本，不应静默覆盖旧文件导致存档不可审计。
-- 角色 identity reference 应能跨服装、场景和表情变体复用。
+- 导入/生成成功的视觉资产视为持久素材，不是一次性 UI response。
+- 资产重新生成/替换应产生明确的新资产或版本，不应静默覆盖导致存档不可审计。
+- 角色 identity reference 在 1.x 后应能跨服装、场景和表情变体复用。
 - 图片本身不反向修改 canonical gameplay state。若图片与文字状态冲突，以 Story Runtime / played canon 为准。
-- Save As / fork 对视觉资产的复制或共享策略需要与未来资产存储设计一起确定；不能让 fork 修改另一存档的独立生成资产。
+- Save As / fork 的视觉资产策略必须保证一个存档的可写资产修改不会污染另一个存档。
 
 ## 9. Provider、隐私与成本边界
 
@@ -249,10 +300,13 @@ Creator 导入不意味着 Story Engine 获得素材传播权。公开内容包�
 
 ```text
 v1.0 Personal
-Local Import + Prompt Export
+Minimal VisualAsset + VisualAssetManager
+Avatar / Background / Scene CG
+Local Import + VisualPromptBuilder + Prompt Queue
         ↓
 v1.x
-VisualAsset + PromptBuilder + ModelRouter + ImageProvider Port
+Advanced VisualAsset + ModelRouter + ImageProvider Port
+Generated Cache + Reference Identity + Variants
         ↓
 v2.0 Public
 Default Model Generation + Cache
@@ -260,4 +314,4 @@ Player no local-import surface
 Creator retains authorized import
 ```
 
-该路线的目标是让 v1.0 的手工“生成 → 导入”与 v2.0 的自动 `ImageProvider.generate()` 共用同一资产/Prompt 基础，而不是在 2.0 重写人物、场景和 UI 数据模型。
+该路线的目标是让 v1.0 的手工“生成 → 导入”与 v2.0 的自动 `ImageProvider.generate()` 共用同一资产/Prompt/绑定基础，而不是在 2.0 重写人物、场景和 UI 数据模型。
