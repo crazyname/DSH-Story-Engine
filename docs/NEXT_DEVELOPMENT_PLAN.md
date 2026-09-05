@@ -7,7 +7,7 @@
 ```text
 Stage D / M3：连载玩法与事务完整性
         ↓
-Stage E / M4：个人版质量与长期游玩收口
+Stage E / M4：个人版世界、交互、视觉与长期游玩能力
         ↓
 M5：v1.0 Personal RC / Stable
         ↓
@@ -19,10 +19,12 @@ M7：v2.0 Public Product RC / Stable
 版本语义：
 
 - **v1.0 Personal**：项目所有者本人长期游玩的完整个人版，继续基于认证 DSH Runtime；不作为首次对外产品发布。
-- **v1.x**：在保持 v1.0 存档/玩法可用的前提下完成 DSH adapter 化、Model Router、Visual Asset abstraction、Player/Creator 边界和 Native Runtime 准备。
+- **v1.x**：在保持 v1.0 存档/玩法可用的前提下完成 DSH adapter 化、Model Router、高级 Visual/Image Provider、Player/Creator 边界和 Native Runtime 准备。
 - **v2.0 Public Product**：第一个正式面向外部用户并在 GitHub 发布的产品级版本；Native Runtime 默认运行，DSH 为可选兼容后端。
 
-Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/视觉路线，不改变 D2c 事务契约。
+v1.0 Personal 的精确实施顺序、依赖、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。本文保留跨版本 roadmap 和阶段摘要；如果两者在 v1.0 实施顺序上发生冲突，以该实施计划为准并同步修订本文。
+
+Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/Personal 路线，不改变 D2c 事务契约。
 
 ## M3：Stage D
 
@@ -141,43 +143,157 @@ PR #13 合并前仍必须完成其自身声明的 certified Windows typecheck/te
 - 越界输入：产生后果前暂停 → 保存输入 → 修订 authored script → 校验 → 恢复。
 - 集末总结只基于真实 played canon，不泄露隐藏 authored branch。
 
-### D5：整集端到端验收
+### D5：Stage D 整集端到端基线
 
 至少使用一个可重复构建的内容包完成：开场 → scene → 工作事件 → 详细剧情 → 选择/自由输入 → 越界修订 → 集末总结 → 刷新恢复 → fork 独立连续性，并验证 retry/recovery 不重复 core effect 或 social canonical messages。
 
-公开仓库继续使用原创/可再发布示例包做回归。v1.0 Personal 可以额外使用本机私人内容包做长时间真实游玩验收，但私人内容、overlay、存档和验收报告不进入 Git。
+D5 只证明 Stage D canonical/recovery/gameplay 链条稳定，不等于 v1.0 Personal 完成。公开仓库继续使用原创/可再发布示例包做该基线回归。
 
-## M4：Stage E — Personal Release Quality
+## M4：Stage E — v1.0 Personal 实施阶段
 
-Stage E 的目标从“首次公开发布质量”调整为“v1.0 Personal 的长期个人游玩质量”，同时提前建立 1.x 解耦所需的最小边界。
+Stage E 不再是一个笼统的“发布质量”大阶段，而按依赖顺序拆成 E1–E10。详细字段、测试和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。
 
-必须完成：
+### E1：World Capability + Story Time + Location / Presence
 
-- 无障碍、键盘/焦点、窄屏和高缩放达到个人日常使用可接受水平。
-- 长历史分页/增量加载、大存档性能基线。
-- save/projection/runtime/journal migration matrix 与未知版本 fail-closed。
-- 游戏库封面、主题、重命名、导入/导出边界。
-- 路径、Host API、同源写、输入校验、安全/隐私基础审计。
-- 建立机器可读的 certified DSH runtime manifest，并在构建/验收检查中验证 version、tag、commit、必需包和能力；v1.0 认证候选固定为 DSH `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
-- 本机个人版可以通过显式 DSH root 指向 `D:\DeepSeek-Harness`，但路径不得泄漏进内容包/存档/领域契约；真正免 DSH 的安装体验属于 v2.0。
-- 完成 DSH-specific import、Cordis、session/turn、RPC、Host WebServer 和 Client mount inventory；定义最小 Host / AI Runtime ports 与 adapter conformance test 基础，不在 v1.0 前进行大规模运行时重写。
-- 完成 `docs/VISUAL_ASSET_SYSTEM_SPEC.md` 的 Personal 能力：本地视觉素材导入、资产引用/缓存边界、结构化生图 Prompt 导出；不接图片生成 API。
-- v1.0 不要求账号、支付、Credits、云同步、Marketplace、公共 Creator 平台或正式商业发布材料。
+先建立权威世界基础：
 
-`COMPATIBILITY.md` / `RELEASE_CHECKLIST.md` 可以在 v1.0 建立个人版所需的最小版本；面向第三方用户的完整兼容/安装/许可证发布矩阵在 v2.0 前重新评审并扩展。
+- 内容包声明可用 communication/information/world capabilities 和 optional modules。
+- StoryTime 持久化与推进。
+- Location / character location / scene presence。
+- 后续 provenance 所需基础引用。
+
+E1 完成前不开发邮件、NPC 作息、任务过期等上层功能。
+
+### E2：Scheduler + NPC Agenda / Availability
+
+在 E1 上建立：
+
+- durable story-time event scheduler。
+- NPC goals / commitments / availability。
+- medium-specific availability。
+- NPC 离屏行动与延迟事件。
+- 可重放的非 LLM 随机 evidence/seed 基础。
+
+### E3：NPC Knowledge + Provenance + Canon Consistency
+
+建立：
+
+- confirmed / believed / suspected / false-belief knowledge model。
+- knowledge acquisition/source。
+- relationship/knowledge/objective/status 等重要状态 provenance。
+- canonical candidate deterministic conflict guard；高影响歧义可进入 consistency audit，但 audit 不自行改 canon。
+
+### E4：Communication + Information Sources
+
+在 E1–E3 基础上实现：
+
+- `channel.kind` 与 communication medium 分离。
+- `in_person / phone / sms / email / radio / letter / terminal / custom` 等通用 medium。
+- Runtime send guard：capability、location/presence、contact/access、availability、scene restrictions。
+- Email Inbox 作为 v1.0 首个正式 information source。
+- Notification Center。
+- 没有手机/email capability 的包在 UI 和 Runtime 都不能使用这些能力。
+
+### E5：Objectives / Leads + Choice Suggestions + System Meta
+
+实现：
+
+- 可忽略 Objectives/Leads；`ignored` 只停止提醒，世界继续运行。
+- deadline/expired/resolved/failed 等状态与 provenance。
+- 参考选择默认 3 项，支持 2–4 项；固定在输入框上方。
+- 点击选择、自由输入、关闭当前建议、全局关闭建议。
+- 关闭建议不改变 authored/planning 能力。
+- 独立 System Meta 对话/面板；不属于世界 channel，不进入 NPC knowledge 或 played_canon。
+
+### E6：Minimal Visual Asset + Prompt Queue
+
+v1.0 就完成：
+
+- minimal `VisualAsset` / `VisualAssetManager`。
+- avatar / portrait / background / scene-cg 稳定 ID 和绑定。
+- pack asset + personal imported asset。
+- 本地导入到受控资产存储，不保存任意源绝对路径。
+- VisualPromptBuilder。
+- Prompt Queue：用途标签、目标、Prompt、一键复制、删除、导入生成结果并自动绑定。
+- 缺失资产 fallback。
+
+v1.0 不接在线图片生成 API、Credits 或高级 reference identity。
+
+### E7：Long-term Memory + Search + Timeline + Script Buffer
+
+实现：
+
+- scene/episode/season/长期 canonical 分层 memory compaction。
+- retrieval，避免把全部历史聊天塞入 context。
+- 人物/频道/消息/已玩 scene 搜索。
+- 玩家剧情 Timeline，与 transaction journal 分离。
+- recent recap。
+- Player Notes。
+- validated authored Script Buffer / lookahead；进入下一 scene 前必须已有可用、校验通过的剧情缓冲。
+
+### E8：Personal Inspector + Controlled Repair
+
+System Meta 增加：
+
+- story time/location/scene。
+- character state/availability。
+- relationship provenance。
+- NPC knowledge/source。
+- objectives。
+- Scheduler pending events。
+- timeline/played canon。
+- checkpoint。
+- Visual Assets/Prompt Queue。
+- transaction/operation 诊断。
+
+修复必须通过正式 runtime/tool mutation，保留 repair reason/audit evidence；禁止直接编辑底层 JSON 绕过 canonical/transaction 规则。
+
+### E9：Personal Reliability / Autosave / Model Failure / Compatibility
+
+最后统一收口：
+
+- autosave/checkpoint policy。
+- partial stream 永不进入 canon。
+- model timeout/structured-output/tool failure 策略。
+- 高影响 narrative/planning/audit 不静默降级成弱模型继续写正史。
+- certified DSH manifest / compatibility guard。
+- save/projection/runtime/journal/visual/memory migration matrix。
+- long-history performance。
+- restart/disconnect/asset-missing/scheduler/knowledge-conflict failure matrix。
+
+### E10：Personal RC 长时游玩验收
+
+原创包自动/端到端回归 + 私人包本机长时真实游玩，至少覆盖：
+
+- 跨多个 scene 和 story day。
+- 不在场 NPC 通信限制。
+- 现代通信 capability 与无手机剧本对照。
+- email + notification。
+- NPC 忙碌/睡觉/失联与延迟回复。
+- ignored objective 后世界继续。
+- NPC 离屏行动。
+- knowledge secrecy。
+- avatar/background + Prompt → 外部生图 → 导回。
+- search/timeline/recap。
+- System Meta/Inspector 受控修复。
+- 模型/DSH失败后的安全恢复。
+
+私人内容、overlay、存档、图片和验收报告不进入 Git。
 
 ## M5：v1.0 Personal RC / Stable
 
 Personal RC 前冻结并评审：
 
-- 当前个人存档需要依赖的 `pack.json` / episode-script / `ui/story-ui.json` 语义；
-- save/projection/runtime/journal migration policy；
-- `story_*` tool contract 与 Host API 在认证 DSH 环境中的可恢复行为；
-- certified DSH runtime baseline；
-- v1.0 Visual Asset Personal workflow：本地导入 + Prompt 导出；
+- `PERSONAL_V1_IMPLEMENTATION_PLAN.md` 的 D2c-2 → D2d → D3 → D4 → D5 → E1–E10 是否全部达到退出条件。
+- 当前个人存档需要依赖的 `pack.json` / episode-script / `ui/story-ui.json` 语义。
+- save/projection/runtime/journal/visual/memory migration policy。
+- `story_*` tool contract 与 Host API 在认证 DSH 环境中的可恢复行为。
+- certified DSH runtime baseline。
+- WorldCapabilities / StoryTime / Location / Presence / Scheduler / Knowledge / Objectives 的长期存档边界。
+- v1.0 Visual Asset Personal workflow：Minimal VisualAsset + 本地导入 + Prompt Queue。
 - 1.x 解耦时不得破坏的长期个人存档/played canon/transaction evidence 边界。
 
-Personal RC 至少经过：认证 DSH 环境干净启动、旧存档升级、完整一集/长时游玩、插件故障隔离、restart/retry/recovery、Visual Asset 导入/Prompt 导出，以及私人测试资料不进入 Git 的审计。Stable 只在这些个人使用阻塞问题清零后发布。
+Personal Stable 的核心标准：除“把 Prompt 复制到外部图片模型生成图片”是刻意保留的人工步骤外，正常长篇游玩不需要退出 Story Engine 手工修改 JSON、管理 DSH Session、修存档、判断人物是否在场或手工追踪剧情状态。
 
 v1.0 Stable **不宣称是面向第三方用户的首次公开产品**，也不因版本号 1.0 自动承诺云服务、商业 SLA、Marketplace 或跨平台安装器。
 
@@ -194,15 +310,19 @@ v1.0 Stable **不宣称是面向第三方用户的首次公开产品**，也不�
 ### Model Router
 
 - gameplay code 只选择任务 profile，不写死厂商/模型名。
-- 至少定义 `simulation`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等能力档位。
+- 至少定义 `simulation`、`state`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等能力档位。
 - Provider 配置、超时、取消、structured output、tool capability 和成本策略由 router/adapter 处理。
 
-### Visual Asset System
+### Advanced Visual / Image Provider
 
-- 建立 `VisualAsset` / `VisualAssetManager`，把逻辑资产引用与本地文件、内容包素材、模型生成结果分离。
-- 建立 `VisualPromptBuilder`，从允许用于视觉表达的 canonical state 生成 Prompt，避免泄漏 authored secret / 未发现分支。
-- 保留 v1.0 Local Import Provider；新增 Image Provider interface，但默认在线生成可在 2.0 才启用。
-- Player 与 Creator/Studio 使用同一资产模型，权限和入口不同。
+v1.0 已经具有 Minimal VisualAsset/Manager/PromptBuilder；1.x 不重写这些基础，而增加：
+
+- generated asset lifecycle/cache。
+- reference identity / variants / edit。
+- provider/model provenance。
+- Image Provider interface。
+- 与 Model Router 的 `image-*` profile 对接。
+- 默认在线生成可以保持关闭，直到 2.0 Product 验收。
 
 ### Product Surfaces
 
