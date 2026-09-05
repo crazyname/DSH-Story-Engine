@@ -24,6 +24,14 @@ export interface CoreTransactionReconciliation{
 type ReceiptPort=Pick<HostCoreReceiptReader,'load'>
 type ToolPort=Pick<DshToolEvidenceReader,'load'>
 
+function crossOperationSemanticIdentity(evidence:DurableStoryToolCallEvidence):string{
+ const parsed=JSON.parse(evidence.argumentsCanonical)as unknown
+ if(parsed===null||typeof parsed!=='object'||Array.isArray(parsed))return`${evidence.toolName}\u0000${evidence.argumentsCanonical}`
+ const semantic={...(parsed as Record<string,unknown>)}
+ delete semantic.operation_id
+ return`${evidence.toolName}\u0000${JSON.stringify(semantic)}`
+}
+
 export class CoreTransactionReconciler{
  constructor(private readonly receipts:ReceiptPort,private readonly tools:ToolPort){}
  async reconcile(record:StoryTransactionRecord):Promise<CoreTransactionReconciliation>{
@@ -36,7 +44,13 @@ export class CoreTransactionReconciler{
   const operationIds=record.operationRefs.map(ref=>ref.operationId)
   const toolEvidence=await this.tools.load(sessionIds,record.transactionId,operationIds)
   const byOperation=new Map<string,DurableStoryToolCallEvidence[]>()
-  for(const evidence of toolEvidence){const list=byOperation.get(evidence.operationId)??[];list.push(evidence);byOperation.set(evidence.operationId,list)}
+  const semanticOwners=new Map<string,Set<string>>()
+  for(const evidence of toolEvidence){
+   const list=byOperation.get(evidence.operationId)??[];list.push(evidence);byOperation.set(evidence.operationId,list)
+   const semanticKey=crossOperationSemanticIdentity(evidence);const owners=semanticOwners.get(semanticKey)??new Set<string>();owners.add(evidence.operationId);semanticOwners.set(semanticKey,owners)
+  }
+  const crossOperationConflicts=new Set<string>()
+  for(const owners of semanticOwners.values())if(owners.size>1)for(const operationId of owners)crossOperationConflicts.add(operationId)
 
   const operations:CoreOperationResolution[]=receiptEntries.map(({ref,evidence:receiptEvidence})=>{
    const evidence=byOperation.get(ref.operationId)??[]
@@ -47,6 +61,7 @@ export class CoreTransactionReconciler{
    if(evidenceSessions.size>1)return{ref,state:'inconsistent',...withReceipt,evidence,detail:'同一 operationId 在多个 hidden session 出现 receipt/tool evidence'}
    const callIdentities=new Set(evidence.map(item=>`${item.toolName}\u0000${item.argumentsCanonical}`))
    if(callIdentities.size>1)return{ref,state:'inconsistent',...withReceipt,evidence,detail:'同一 operationId 被不同 tool 或 arguments 复用'}
+   if(crossOperationConflicts.has(ref.operationId))return{ref,state:'inconsistent',...withReceipt,evidence,detail:'同一语义 mutation 被不同 operationId 复用'}
 
    const pending=evidence.filter(item=>item.resultSeq===undefined)
    if(receiptEvidence!==undefined){
