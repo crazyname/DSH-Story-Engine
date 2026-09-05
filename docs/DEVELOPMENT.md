@@ -1,6 +1,6 @@
 # DSH Story Engine 开发文档
 
-> 本文件描述长期架构、版本路线和仓库工作规范，不记录逐轮实时进度。当前事实以 `CURRENT_STATUS.md` 为准，下一步任务以 `NEXT_DEVELOPMENT_PLAN.md` 为准。
+> 本文件描述长期架构、版本路线和仓库工作规范，不记录逐轮实时进度。当前事实以 `CURRENT_STATUS.md` 为准，下一步任务以 `NEXT_DEVELOPMENT_PLAN.md` 为准。v1.0 Personal 的精确开发顺序和退出条件见 `PERSONAL_V1_IMPLEMENTATION_PLAN.md`。
 
 ## 1. 目标
 
@@ -9,7 +9,7 @@
 版本定位明确区分：
 
 - **v1.0 Personal**：面向项目所有者本人长期游玩的完整个人版，继续使用认证 DSH Runtime，不承担首次公开产品发布义务。
-- **v1.x Architecture Transition**：保持 1.0 存档和核心玩法可用，逐步完成 DSH adapter 化、Model Router、Visual Asset abstraction 和 Player / Creator 产品表面分离。
+- **v1.x Architecture Transition**：保持 1.0 存档和核心玩法可用，逐步完成 DSH adapter 化、Model Router、高级 Visual/Image Provider 和 Player / Creator 产品表面分离。
 - **v2.0 Public Product**：第一个正式面向外部用户并在 GitHub 发布的产品级大版本；默认使用 Story Engine Native Runtime，DSH 降为可选兼容后端。
 
 ## 2. 不做什么
@@ -198,15 +198,27 @@ v0.8 产品线目标：
 
 v1.0 的目标是形成项目所有者本人可以长期游玩的完整个人版，而不是首次公开商业/大众发行。它仍然需要工程上的稳定性，但不冻结面向第三方用户的完整公共产品契约。
 
+v1.0 的开发顺序不是任意排列。必须按 `PERSONAL_V1_IMPLEMENTATION_PLAN.md` 的 D2c-2 → D2d → D3 → D4 → D5 → E1–E10 执行；后续阶段依赖前一阶段的权威状态和退出条件。
+
 v1.0 至少包括：
 
 - 完整连载玩法：season / episode / scene、工作内/外、自由输入、选择、越界修订、集末总结。
 - hidden DSH、core runtime、social projection 之间的 transaction/retry/recovery 在认证环境中可恢复，不重复 canonical effect。
+- **World foundation**：内容包 capability/module 声明、StoryTime、Location/Presence；不同剧本可以拥有或禁止手机、email、工作、任务等能力。
+- **World simulation**：durable story-time Scheduler、NPC Agenda、Availability、离屏行动与延迟回复。
+- **Knowledge/canon integrity**：NPC confirmed/believed/suspected/false-belief knowledge、状态 provenance、重大 canonical candidate 一致性检查。
+- **Communication / Information Sources**：现场通信受 presence 限制；phone/sms/email/letter/radio 等由内容包 capability 决定；v1.0 至少实现 email inbox 与 Notification Center。
+- **Objectives / Leads**：目标可以 ignored/expired/resolved/failed；忽略只停止提醒，不能让世界暂停。
+- **Player control UX**：重大选择继续允许自由输入；默认显示 3 个参考选项、支持 2–4 项、可临时/长期关闭；关闭只影响 UI，不影响剧情 planning。
+- **System Meta**：独立非世界内对话/面板，承载 `(系统)`、修订、诊断和后续 Inspector，不进入 NPC knowledge 或 played_canon。
+- **Visual Asset Personal**：v1.0 就建立 Minimal VisualAsset/Manager，支持头像、立绘、背景、scene CG、受控本地导入、VisualPromptBuilder 和带用途标签/一键复制/删除/导入结果的 Prompt Queue。
+- **Long-term continuity**：memory compaction + retrieval、人物/频道/消息搜索、玩家 Timeline、recent recap、Player Notes、validated Script Buffer。
+- **Personal maintenance**：Canon/Character/Knowledge/Objectives/Scheduler/Visual Inspector 与受控 Repair，不通过手工编辑 JSON 修正长期存档。
+- **Reliability**：autosave/checkpoint、模型失败策略、长历史迁移/性能、certified DSH compatibility guard。
 - 存档、检查点、played canon 与 UI projection 足以支持长期个人游玩和重启恢复。
 - 使用认证 DSH `0.1.1-rc.2` 作为明确运行基线，不自动追随 DSH master。
-- **Visual Asset Personal workflow**：允许本地导入头像、聊天背景、场景图等个人视觉素材；可以根据角色/场景 canonical state 导出结构化生图 Prompt，用户在外部图片模型中生成后再导入。
 - v1.0 不直接调用图片生成 API，不实现图片 Credits/付费重画，也不要求账号、云服务或 Marketplace。
-- 私人内容包可以作为本机长时游玩验收材料，但私人/商业内容、overlay、存档和报告仍不得进入公开仓库。
+- 私人内容包可以作为本机长时游玩验收材料，但私人/商业内容、overlay、存档、图片和报告仍不得进入公开仓库。
 
 v1.0 的存档和核心领域契约仍应尽量稳定，以便 1.x 解耦期间不破坏自己的长期存档；但“公开第三方兼容承诺”推迟到 2.0 产品发布准备。
 
@@ -233,7 +245,7 @@ Git commit: b150a551b8d465e31e418e1b2eaf5e79bbb7d28e
 
 ### v1.x：Architecture Transition
 
-v1.x 的核心目标不是堆叠大量玩家功能，而是在不破坏 v1.0 个人存档/玩法的前提下，把 2.0 独立产品需要的可替换边界做出来。
+v1.x 的核心目标不是再补 v1.0 本该具备的长期游玩功能，而是在不破坏 v1.0 个人存档/玩法的前提下，把 2.0 独立产品需要的可替换边界做出来。
 
 #### Runtime Ports and Adapters
 
@@ -271,15 +283,14 @@ Story Engine
 5. 不为尚未出现的后端提前制造宽泛接口；优先围住已经确认会受 DSH 变化影响的危险边界。
 6. DSH Adapter 与 Native Runtime 必须共享同一套 runtime conformance tests，覆盖正常回合、取消、选择等待、断连、retry、跨存档隔离、crash/restart、tool idempotency 和 canonical result 唯一性。
 
-#### Model / Visual / Product abstraction
+#### Model / Advanced Visual / Product abstraction
 
-1.x 同时建立：
+1.x 建立/扩展：
 
-- `ModelRouter`：上层按 `simulation`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等任务 profile 请求能力，而不是在 gameplay code 中写死厂商/模型名。
-- `VisualAsset` / `VisualAssetManager`：把人物、背景、CG 的逻辑引用与具体本地文件、内容包素材或模型生成结果分离。
-- `VisualPromptBuilder`：从允许公开给图像模型的 canonical visual state 生成稳定 Prompt，不把 authored secret、未发现分支或角色未知信息泄漏进玩家可见图像。
+- `ModelRouter`：上层按 `simulation`、`state`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等任务 profile 请求能力，而不是在 gameplay code 中写死厂商/模型名。
+- v1.0 已有的 `VisualAsset` / `VisualAssetManager` / `VisualPromptBuilder` 保持兼容；1.x 增加 generated asset lifecycle/cache、reference identity、variants/edit 和 provider/model provenance。
+- Image Provider interface 接入 ModelRouter，但真正默认在线生图属于 2.0 产品能力，不是 v1.0 阻塞项。
 - Player / Creator 内部模块边界，为 2.0 公开产品的 Player 与 Creator/Studio 表面做准备。
-- Image Provider interface 可以在 1.x 建立并测试；真正默认在线生图属于 2.0 产品能力，不是 v1.0 阻塞项。
 
 ### v2.0：Public Product
 
@@ -356,7 +367,7 @@ git -C D:\DeepSeek-Harness status --short
 ### 8.5 状态与版本更新
 
 - `CURRENT_STATUS.md` 是实时事实的唯一入口；每次已验证里程碑或重要切片合并后更新。
-- `NEXT_DEVELOPMENT_PLAN.md` 只维护当前和未来任务、依赖及验收条件；已完成的大段实施细节不长期占据 roadmap。
+- `NEXT_DEVELOPMENT_PLAN.md` 维护跨版本 roadmap 和当前/未来阶段；v1.0 Personal 的细粒度实施顺序由 `PERSONAL_V1_IMPLEMENTATION_PLAN.md` 维护，两者必须同步。
 - 长期 Spec 只定义 normative behavior，不写“部分完成”“待验证”等短期状态；需要引用进度时链接 `CURRENT_STATUS.md`。
 - 历史报告只保留审计与纠偏价值，统一放在 `docs/archive/`；归档文件不要求随着当前实现持续更新。
 - 发布或预发布时同步两个 `package.json` 的版本，完成全套验证后再创建同名 Git 标签。
