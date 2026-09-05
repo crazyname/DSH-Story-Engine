@@ -7,14 +7,22 @@
 ```text
 Stage D / M3：连载玩法与事务完整性
         ↓
-Stage E / M4：公开发布质量
+Stage E / M4：个人版质量与长期游玩收口
         ↓
-M5：1.0 Release Candidate
+M5：v1.0 Personal RC / Stable
         ↓
-v1.0.0 Stable
+M6：v1.x Architecture Transition
+        ↓
+M7：v2.0 Public Product RC / Stable
 ```
 
-Stage A、B、C 已完成。Stage D 第一事务切片（AI canonical social commit 幂等 + Host identical replay）已合并并完成真实 crash-window 验收。D1 / PR #5、D2a / PR #6、D2b / PR #9 及其 pre-dispatch recovery hotfix / PR #11 已合并；当前开发进入 D2c，并按 D2c-1 / D2c-2 两个小切片收口。
+版本语义：
+
+- **v1.0 Personal**：项目所有者本人长期游玩的完整个人版，继续基于认证 DSH Runtime；不作为首次对外产品发布。
+- **v1.x**：在保持 v1.0 存档/玩法可用的前提下完成 DSH adapter 化、Model Router、Visual Asset abstraction、Player/Creator 边界和 Native Runtime 准备。
+- **v2.0 Public Product**：第一个正式面向外部用户并在 GitHub 发布的产品级版本；Native Runtime 默认运行，DSH 为可选兼容后端。
+
+Stage A、B、C 已完成。D1 / PR #5、D2a / PR #6、D2b / PR #9、pre-dispatch recovery hotfix / PR #11 和 D2c-1 / PR #12 已合并。当前功能开发为 D2c-2 / PR #13（Draft），目标是 receipt/result reconciliation；PR #14 只调整长期产品/版本/视觉路线，不改变 D2c 事务契约。
 
 ## M3：Stage D
 
@@ -81,22 +89,22 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 
 目标：把 D1 core receipts 接到 transaction coordinator。为了不把“计划了 operation”与“operation 已经产生 canonical effect”混成一个状态，D2c 分成两个顺序切片。
 
-##### D2c-1：Core preflight operation linking — 已实现并验证，待合并
+##### D2c-1：Core preflight operation linking — 已完成并合并
 
-目标：先建立不可绕过的 durable-before-body 边界。
+PR #12 已合并到 `main`。该切片建立不可绕过的 durable-before-body 边界：
 
 - 利用认证 DSH rc.2 的 `tools/execute` around-dispatch：九个 mutating `story_*` 在真正 tool body 执行前，必须先通过 Story Host transaction preflight。
 - 由 journal hidden-turn `sessionId` 反查唯一 open transaction；多个 open transaction 争用同一 DSH session 时 fail-closed。
 - 第一次 core mutation body 前持久化稳定 `stepKey + operationId`；同一 identity 的 preflight replay 不产生新 revision。
 - 同一个 `operationId` 被不同 tool/step 复用显式冲突；同一 save 的 journal 写使用短临界区串行并在最终写入前重查 operation ownership，并发不同 transaction 争用同一 `operationId` 只允许一个 owner；同 transaction 并发不同 operationRef 通过 optimistic reread/retry 追加。
 - active player transaction 下每个 mutating `story_*` 必须携带与 session 所属 journal 完全一致的 `transaction_id`；缺失或错配在 body 前拒绝，使 D1 receipt fingerprint transaction-bound。没有 open player transaction 且未声明 transaction identity 的 standalone Story mutation 仍可运行。
-- `PlayerTransactionCoordinator` 必须把 durable journal `transactionId` 作为 hidden control context 传给 initial/retry AI prompt，使模型在第一次 mutating `story_*` 调用前就能提供正确 `transaction_id`；不能把故意触发一次缺失-ID错误再从错误文本学习 identity 当成正常流程，retry 也必须继续使用同一 transaction identity。
-- preflight 持久化失败必须阻止 tool body 执行。
-- `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作（例如高影响 `story_record_work_event` 被升级为工作外场景）允许存在 operationRef 而没有 Core Runtime receipt。
+- `PlayerTransactionCoordinator` 把 durable journal `transactionId` 作为 hidden control context 传给 initial/retry AI prompt；retry 继续使用同一 transaction identity，同一 atomic mutation retry 复用原 `operation_id`。
+- preflight 持久化失败阻止 tool body 执行。
+- `operationRef` 是 planned/preflight evidence，不是 effect receipt；条件性不落盘操作允许存在 operationRef 而没有 Core Runtime receipt。
 
-该切片已完成两端 typecheck/test/build、tracked Client artifacts 同步、重复构建一致性和 diff 自审；认证 DSH rc.2 的真实 ToolRuntime smoke 已证明本分支 Host bundle 在实际 mutating tool body 前持久化 preflight、产生 transaction-bound D1 receipt，并在 transaction identity 错配时阻止 body。完整 `dsh web` 浏览器回合与 crash-window 矩阵尚未执行，留在后续适用验收范围。该切片只交付 operation linking，不宣称 core→social recovery、partial commit 或 late-cancel reconciliation 已完成。
+PR #12 已完成两端 typecheck/test/build、tracked Client artifacts 重复构建一致性、`git diff --check` 和认证 DSH rc.2 ToolRuntime smoke。完整真实浏览器 crash-window 矩阵仍在 D2d 范围。
 
-##### D2c-2：Receipt/result reconciliation — D2c-1 后
+##### D2c-2：Receipt/result reconciliation — 当前 Draft PR #13
 
 目标：用 Core Runtime receipt 判断事实，并把已发生的 canonical effect 安全收敛到 social projection / transaction state。
 
@@ -106,6 +114,8 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 - 支持多个 core mutations 部分提交后的恢复；恢复时逐 operationId 对账，不依赖“最后一个网络请求是否成功”。
 - canonical effect 已存在后收到 cancel 不倒改历史，而是进入/继续 reconciliation，完成必要 projection 后收敛。
 - transaction 的最终 `committed/failed` 判断同时读取 journal、DSH durable history、core receipts/runtime 与 Host projection。
+
+PR #13 合并前仍必须完成其自身声明的 certified Windows typecheck/test/build、真实 bundler artifact 同步、适用 DSH smoke 和文档事实收口。PR #14 不替代或预先声称这些验证结果。
 
 #### D2d：Fork / restart / failure matrix
 
@@ -133,39 +143,86 @@ D2b 已实现 submit 前 durable prepare、accepted rpcId 一次性绑定、按�
 
 ### D5：整集端到端验收
 
-至少用一个可公开分发的原创示例包完成：开场 → scene → 工作事件 → 详细剧情 → 选择/自由输入 → 越界修订 → 集末总结 → 刷新恢复 → fork 独立连续性，并验证 retry/recovery 不重复 core effect 或 social canonical messages。
+至少使用一个可重复构建的内容包完成：开场 → scene → 工作事件 → 详细剧情 → 选择/自由输入 → 越界修订 → 集末总结 → 刷新恢复 → fork 独立连续性，并验证 retry/recovery 不重复 core effect 或 social canonical messages。
 
-## M4：Stage E
+公开仓库继续使用原创/可再发布示例包做回归。v1.0 Personal 可以额外使用本机私人内容包做长时间真实游玩验收，但私人内容、overlay、存档和验收报告不进入 Git。
 
-完成公开发布质量：
+## M4：Stage E — Personal Release Quality
 
-- 无障碍、键盘/焦点、窄屏和高缩放。
+Stage E 的目标从“首次公开发布质量”调整为“v1.0 Personal 的长期个人游玩质量”，同时提前建立 1.x 解耦所需的最小边界。
+
+必须完成：
+
+- 无障碍、键盘/焦点、窄屏和高缩放达到个人日常使用可接受水平。
 - 长历史分页/增量加载、大存档性能基线。
 - save/projection/runtime/journal migration matrix 与未知版本 fail-closed。
 - 游戏库封面、主题、重命名、导入/导出边界。
-- 路径、Host API、同源写、输入校验、安全/隐私/许可证审计。
-- 正式安装、升级、卸载、故障排查和内容作者文档。
-- 建立 `COMPATIBILITY.md` 与 `RELEASE_CHECKLIST.md`。
-- 建立机器可读的 certified DSH runtime manifest，并在构建/发布检查中验证 version、tag、commit、必需包和能力；1.0 认证候选固定为 DSH `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
-- 清除公开构建流程对 `D:\DeepSeek-Harness` 单机绝对路径的产品级假设，改为受控依赖解析或显式 DSH root 配置。
-- 完成 DSH-specific import、Cordis、session/turn、RPC、Host WebServer 和 Client mount inventory；定义最小 Host / AI Runtime ports 与 adapter conformance test 基础，不在 1.0 前进行大规模运行时重写。
+- 路径、Host API、同源写、输入校验、安全/隐私基础审计。
+- 建立机器可读的 certified DSH runtime manifest，并在构建/验收检查中验证 version、tag、commit、必需包和能力；v1.0 认证候选固定为 DSH `0.1.1-rc.2` / `dsh-v0.1.1-rc.2` / `b150a551b8d465e31e418e1b2eaf5e79bbb7d28e`。
+- 本机个人版可以通过显式 DSH root 指向 `D:\DeepSeek-Harness`，但路径不得泄漏进内容包/存档/领域契约；真正免 DSH 的安装体验属于 v2.0。
+- 完成 DSH-specific import、Cordis、session/turn、RPC、Host WebServer 和 Client mount inventory；定义最小 Host / AI Runtime ports 与 adapter conformance test 基础，不在 v1.0 前进行大规模运行时重写。
+- 完成 `docs/VISUAL_ASSET_SYSTEM_SPEC.md` 的 Personal 能力：本地视觉素材导入、资产引用/缓存边界、结构化生图 Prompt 导出；不接图片生成 API。
+- v1.0 不要求账号、支付、Credits、云同步、Marketplace、公共 Creator 平台或正式商业发布材料。
 
-## M5：1.0 RC / Stable
+`COMPATIBILITY.md` / `RELEASE_CHECKLIST.md` 可以在 v1.0 建立个人版所需的最小版本；面向第三方用户的完整兼容/安装/许可证发布矩阵在 v2.0 前重新评审并扩展。
 
-RC 前冻结并评审：
+## M5：v1.0 Personal RC / Stable
 
-- `pack.json` / episode-script / `ui/story-ui.json` V1 compatibility；
+Personal RC 前冻结并评审：
+
+- 当前个人存档需要依赖的 `pack.json` / episode-script / `ui/story-ui.json` 语义；
 - save/projection/runtime/journal migration policy；
-- 公开 `story_*` tool contract；
-- Host API contract；
-- DSH compatibility 范围；
-- 1.x 向后兼容边界与需要 major version 的变更。
+- `story_*` tool contract 与 Host API 在认证 DSH 环境中的可恢复行为；
+- certified DSH runtime baseline；
+- v1.0 Visual Asset Personal workflow：本地导入 + Prompt 导出；
+- 1.x 解耦时不得破坏的长期个人存档/played canon/transaction evidence 边界。
 
-RC 必须至少经过一次干净安装、旧存档升级、原创示例整集、插件故障隔离和发布包审计。Stable 只在 RC 阻塞问题清零后发布。
+Personal RC 至少经过：认证 DSH 环境干净启动、旧存档升级、完整一集/长时游玩、插件故障隔离、restart/retry/recovery、Visual Asset 导入/Prompt 导出，以及私人测试资料不进入 Git 的审计。Stable 只在这些个人使用阻塞问题清零后发布。
 
-## 1.x / 2.0 Runtime 方向
+v1.0 Stable **不宣称是面向第三方用户的首次公开产品**，也不因版本号 1.0 自动承诺云服务、商业 SLA、Marketplace 或跨平台安装器。
 
-- 1.x 在不破坏 V1 contracts 的前提下，逐步把 DSH-specific code 收缩到 `adapters/dsh`；每次只迁移一个已验证边界。
+## M6：v1.x Architecture Transition
+
+目标：把 2.0 独立产品需要的可替换边界做出来，同时保持 v1.0 个人存档和玩法持续可用。
+
+### Runtime
+
+- 逐步把 DSH-specific code 收缩到 `adapters/dsh`；每次只迁移一个已验证边界。
 - DSH 新版本只在独立 compatibility branch 验证，通过完整自动与适用真实环境矩阵后才更新 certified baseline；主开发线不自动追随上游。
-- 1.x 后期可以实现默认关闭的 experimental Standalone Runtime，并与 DSH Adapter 共用正常回合、取消、waiting-choice、断连、retry、recovery、tool idempotency 和 canonical result conformance tests。
-- 只有 Standalone Runtime 的功能、恢复、安全和维护能力成熟，而且需要的变化无法继续维持 V1 兼容时，才在 2.0 评审中考虑让它成为默认、DSH 成为可选 backend。
+- 实现最小 Native / Standalone Runtime，并与 DSH Adapter 共用正常回合、取消、waiting-choice、断连、retry、recovery、tool idempotency 和 canonical result conformance tests。
+
+### Model Router
+
+- gameplay code 只选择任务 profile，不写死厂商/模型名。
+- 至少定义 `simulation`、`dialogue`、`narrative`、`planning`、`audit`、`image` 等能力档位。
+- Provider 配置、超时、取消、structured output、tool capability 和成本策略由 router/adapter 处理。
+
+### Visual Asset System
+
+- 建立 `VisualAsset` / `VisualAssetManager`，把逻辑资产引用与本地文件、内容包素材、模型生成结果分离。
+- 建立 `VisualPromptBuilder`，从允许用于视觉表达的 canonical state 生成 Prompt，避免泄漏 authored secret / 未发现分支。
+- 保留 v1.0 Local Import Provider；新增 Image Provider interface，但默认在线生成可在 2.0 才启用。
+- Player 与 Creator/Studio 使用同一资产模型，权限和入口不同。
+
+### Product Surfaces
+
+- Player / Creator 共用 Runtime、Content Pack、Save/Canon、Model Router 和 Visual Asset System。
+- 可以继续同一应用双模式，但代码结构允许未来拆成不同前端入口。
+- Creator 必须可以从编辑上下文直接进入 Player 测试视图。
+
+## M7：v2.0 Public Product RC / Stable
+
+v2.0 是第一个正式面向外部用户并在 GitHub 发布的产品级大版本。
+
+发布门槛：
+
+- Native Runtime 成为默认，普通用户无需安装/clone DSH；DSH Adapter 作为可选兼容 backend。
+- Player 默认安装后直接可玩，不要求理解 DSH、tool/session、源码目录或手动准备视觉素材。
+- 正式 Player + Creator/Studio 产品表面，共享一个 Core；是否物理拆成两个应用由 2.0 UI/分发评审决定，不允许复制 Runtime。
+- Image Provider 接入：内容包已有授权/原创 canonical 视觉资产时直接复用；没有时可自动生成并缓存默认头像、背景或剧情图。
+- 普通 Player UI 移除 v1.0 的“个人本地图片导入”常规入口；Creator/Studio 继续允许导入原创或具备授权的素材。
+- 图片重画/变体、额度/Credits 属于可选商业产品层；核心规范只定义能力和资产来源，不固定价格或支付策略。
+- 完成对外安装、升级、卸载、兼容/迁移、安全、隐私、Provider key 管理、第三方许可证、原创示例、故障排查与完整 `RELEASE_CHECKLIST.md`。
+- v2.0 RC 前重新评审开源/闭源/服务边界；除非另有明确许可证 PR，仓库现有 MIT 许可不因本路线自动改变。
+
+2.0 Stable 必须通过 Native Runtime 与 DSH Adapter 的 conformance matrix、全套 Story transaction/canon recovery、长时存档、Player 首次启动、Creator 内容制作/测试、Visual Asset 自动生成/缓存和无私人资料泄漏的发布审计。
